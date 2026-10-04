@@ -41,8 +41,8 @@ const migrations: Migration[] = [
         t.text('id').primary();
         t.text('name').notNullable();
         t.text('slug').notNullable().unique();
-        t.text('dh_email').notNullable();
-        t.text('dh_name').notNullable().defaultTo('Dubai Holding Community Support');
+        t.text('mgmt_email').notNullable();
+        t.text('mgmt_name').notNullable().defaultTo('Management company');
         t.text('towers').notNullable().defaultTo('[]');
         t.text('settings').notNullable().defaultTo('{}');
         t.text('created_at').notNullable();
@@ -103,13 +103,13 @@ const migrations: Migration[] = [
         t.text('device_reported_at');
         t.text('reported_at').notNullable();
         t.text('cluster_id'); // points at the primary incident when linked
-        t.text('dh_case_number');
+        t.text('mgmt_case_number');
         t.text('reply_token').notNullable().unique();
         t.text('emailed_at');
         t.text('case_number_at');
-        t.text('dh_first_reply_at');
-        t.text('dh_closed_at');
-        t.integer('dh_closed_count').notNullable().defaultTo(0);
+        t.text('mgmt_first_reply_at');
+        t.text('mgmt_closed_at');
+        t.integer('mgmt_closed_count').notNullable().defaultTo(0);
         t.text('resolved_at');
         t.text('resolution'); // ok | poor
         t.integer('reopen_count').notNullable().defaultTo(0);

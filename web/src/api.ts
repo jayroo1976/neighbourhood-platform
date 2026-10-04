@@ -42,7 +42,7 @@ export const qs = (o: Record<string, string | number | boolean | undefined | nul
 };
 
 // ---------- shared types ----------
-export type Status = 'reported' | 'case_number_received' | 'in_progress' | 'dh_closed' | 'resolved_ok' | 'resolved_poor' | 'reopened' | 'withdrawn';
+export type Status = 'reported' | 'case_number_received' | 'in_progress' | 'mgmt_closed' | 'resolved_ok' | 'resolved_poor' | 'reopened' | 'withdrawn';
 export type Role = 'resident' | 'committee' | 'admin' | 'super_admin';
 
 export interface Me {
@@ -72,7 +72,7 @@ export interface ListItem {
   tower: string | null;
   reported_at: string;
   last_activity_at: string;
-  dh_case_number: string | null;
+  mgmt_case_number: string | null;
   affects_count: number;
   linked_reports: number;
   is_linked_child: boolean;
@@ -121,9 +121,9 @@ export interface IncidentDetail {
   gps_blurred: boolean;
   reported_at: string;
   emailed_at: string | null;
-  dh_case_number: string | null;
+  mgmt_case_number: string | null;
   case_number_at: string | null;
-  dh_closed_at: string | null;
+  mgmt_closed_at: string | null;
   resolved_at: string | null;
   resolution: 'ok' | 'poor' | null;
   reopen_count: number;
@@ -137,7 +137,7 @@ export interface IncidentDetail {
   permissions: { is_mine: boolean; i_affect: boolean; can_act: boolean; can_affect: boolean; affect_needs_photo: boolean };
   reporter?: { name: string; email: string; phone: string | null } | null;
   affects?: { tower: string; unit: string; at: string }[];
-  dh_first_reply_at?: string | null;
+  mgmt_first_reply_at?: string | null;
 }
 
 // ---------- display helpers ----------
@@ -164,7 +164,7 @@ export const STATUS_LABELS: Record<Status, string> = {
   reported: 'Reported',
   case_number_received: 'Case no. received',
   in_progress: 'In progress',
-  dh_closed: 'Closed by mgmt - unverified',
+  mgmt_closed: 'Closed by mgmt - unverified',
   resolved_ok: 'Fixed',
   resolved_poor: 'Closed - poorly fixed',
   reopened: 'Reopened',

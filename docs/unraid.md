@@ -17,7 +17,7 @@ FILE_SIGNING_SECRET=<openssl rand -base64 48>
 MFA_ENCRYPTION_KEY=<openssl rand -base64 48>
 NP_IMAGE=ghcr.io/<your-github-user>/neighbourhood-platform:latest
 APP_BASE_URL=https://np.yourdomain.com
-DH_EMAIL=your-own-address@...      # NOT Dubai Holding while testing
+MGMT_EMAIL=your-own-address@...      # NOT the management company while testing
 REGISTRATION_CODE=choose-an-invite-code
 ```
 ## 2. Start it

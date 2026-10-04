@@ -35,7 +35,7 @@ services:
       FILE_SIGNING_SECRET: ${FILE_SIGNING_SECRET:?}
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?}
       DEFAULT_COMMUNITY_NAME: ${COMMUNITY_NAME:-Pilot Community}
-      DH_EMAIL: ${DH_EMAIL:-test-inbox@example.com}   # use YOUR OWN address while testing, never DH's
+      MGMT_EMAIL: ${MGMT_EMAIL:-test-inbox@example.com}   # use YOUR OWN address while testing, never the management company's
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}      # console = print emails in the log; smtp to really send
       SMTP_URL: ${SMTP_URL:-}
       EMAIL_FROM: ${EMAIL_FROM:-}

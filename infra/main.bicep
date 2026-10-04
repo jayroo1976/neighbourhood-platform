@@ -4,7 +4,7 @@ targetScope = 'resourceGroup'
 
 param location string = 'uaenorth'
 param prefix string = 'np'
-param dhEmail string
+param mgmtEmail string
 @secure()
 param pgAdminPassword string
 param pgAdminUser string = 'npadmin'
@@ -139,7 +139,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'APP_BASE_URL', value: appBaseUrl }
           { name: 'DATABASE_URL', secretRef: 'database-url' }
           { name: 'DATABASE_SSL', value: 'true' }
-          { name: 'DH_EMAIL', value: dhEmail }
+          { name: 'MGMT_EMAIL', value: mgmtEmail }
           { name: 'AZURE_SUBSCRIPTION_ID', value: subscription().subscriptionId }
           { name: 'AZURE_RESOURCE_GROUP', value: resourceGroup().name }
           { name: 'PG_SERVER_NAME', value: pg.name }

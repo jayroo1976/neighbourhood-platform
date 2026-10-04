@@ -11,7 +11,7 @@ export default defineConfig({
       INBOUND_EMAIL_SECRET: 'test-inbound-secret',
       REPLY_DOMAIN: 'reply.test',
       REQUIRE_ADMIN_MFA: 'false',
-      DH_EMAIL: 'community-support@dh.test',
+      MGMT_EMAIL: 'community-support@mgmt.test',
       APP_BASE_URL: 'https://app.test',
     },
     testTimeout: 30_000,

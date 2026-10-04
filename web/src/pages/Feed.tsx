@@ -20,7 +20,7 @@ export function IncidentCard({ i }: { i: ListItem }) {
           <span>{ago(i.reported_at)}</span>
         </div>
         <div className="meta strong">
-          {i.dh_case_number && <span>Case {i.dh_case_number}</span>}
+          {i.mgmt_case_number && <span>Case {i.mgmt_case_number}</span>}
           {i.affects_count > 0 && <span>{i.affects_count + 1} residents affected</span>}
           {i.linked_reports > 0 && <span>{i.linked_reports} linked</span>}
           {i.is_mine && <span className="pill">Yours</span>}
@@ -52,7 +52,7 @@ export function Feed() {
     <div className="page">
       <header className="page-head">
         <h1>{me?.community?.name ?? 'Community'}</h1>
-        <p className="muted">Everything reported here is also emailed to Dubai Holding.</p>
+        <p className="muted">Everything reported here is also emailed to the management company.</p>
       </header>
 
       {attention.data?.items.length ? (
@@ -61,7 +61,7 @@ export function Feed() {
             {attention.data.items.map((a) => (
               <li key={a.id}>
                 <Link to={`/incident/${a.id}`}>
-                  {a.ref}: {a.action === 'verify' ? 'Management says closed - is it really fixed?' : 'Did Dubai Holding reply with a case number?'}
+                  {a.ref}: {a.action === 'verify' ? 'Management says closed - is it really fixed?' : 'Did the management company reply with a case number?'}
                 </Link>
               </li>
             ))}

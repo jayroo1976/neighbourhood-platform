@@ -6,7 +6,7 @@
 - **Admin:** everything below. **Super admin:** also removes demo data.
 
 ## Everyday tasks (Admin menu)
-- **Reports:** filter by flags (no case number, overdue, disputed closure, awaiting verification, unlinked duplicates). Open a report to add the DH case number, move status, add internal or public notes, edit title/category, resend the DH email, **Verify history** (checks the tamper-evident chain).
+- **Reports:** filter by flags (no case number, overdue, disputed closure, awaiting verification, unlinked duplicates). Open a report to add the management case number, move status, add internal or public notes, edit title/category, resend the management email, **Verify history** (checks the tamper-evident chain).
 - **Link duplicates:** tick several reports and Link. They stay separate but are shown as one cluster in KPIs.
 - **Users:** change role (only a super admin can grant admin), deactivate, reset password, reset MFA.
 - **Settings:** the affects-me photo toggle, daily caps, reminder timing, SLA targets, registration.
@@ -14,7 +14,7 @@
 
 ## First-time setup
 1. Create the admin (see docs/unraid.md), sign in, enrol MFA.
-2. Admin > Settings: set the real tower names (default Tower A-C), the DH email, SLAs and toggles. 3. Remove demo data if you seeded.
+2. Admin > Settings: set the real tower names (default Tower A-C), the management email, SLAs and toggles. 3. Remove demo data if you seeded.
 4. Invite testers with the invite code.
 
 ## CSV import of existing issues

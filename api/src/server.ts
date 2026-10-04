@@ -60,9 +60,9 @@ async function main() {
     while (!(await dbReachable())) await new Promise((r) => setTimeout(r, sleepManaged ? 5000 : 3000));
     await migrate(db);
     await ensureCommunity(db);
-    const c = await db('communities').where({ slug: config.defaults.communitySlug }).first('dh_email');
-    if (config.isProd && /example\.(com|invalid)/.test(c?.dh_email ?? '')) {
-      console.warn('[warn] The management (Dubai Holding) email address is still a placeholder. Set it in Admin > Settings before real use.');
+    const c = await db('communities').where({ slug: config.defaults.communitySlug }).first('mgmt_email');
+    if (config.isProd && /example\.(com|invalid)/.test(c?.mgmt_email ?? '')) {
+      console.warn('[warn] The management company email address is still a placeholder. Set it in Admin > Settings before real use.');
     }
     if (config.isProd && config.email.provider === 'console') console.warn('[warn] EMAIL_PROVIDER=console: no real emails will be sent.');
     real = createApp(db);

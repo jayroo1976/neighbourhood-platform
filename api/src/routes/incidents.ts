@@ -125,7 +125,7 @@ export function incidentsRouter(): Router {
       } else {
         qb.where((b) => b.where({ visibility: 'community' }).orWhere({ reporter_id: me.id }));
       }
-      if (q.state === 'open') qb.whereIn('status', ['reported', 'case_number_received', 'in_progress', 'reopened', 'dh_closed']);
+      if (q.state === 'open') qb.whereIn('status', ['reported', 'case_number_received', 'in_progress', 'reopened', 'mgmt_closed']);
       if (q.state === 'closed') qb.whereIn('status', ['resolved_ok', 'resolved_poor']);
       if (q.tower) qb.where({ tower: q.tower });
       if (q.category) qb.where({ category: q.category });
@@ -150,7 +150,7 @@ export function incidentsRouter(): Router {
         .db('incidents')
         .where({ community_id: me.community_id })
         .where((b) => b.where({ reporter_id: me.id }).orWhereIn('id', req.db('affects').select('incident_id').where({ user_id: me.id })))
-        .whereIn('status', ['reported', 'dh_closed'])
+        .whereIn('status', ['reported', 'mgmt_closed'])
         .orderBy('reported_at', 'asc')
         .limit(10);
       const community = await req.db('communities').where({ id: me.community_id }).first();
@@ -158,8 +158,8 @@ export function incidentsRouter(): Router {
       const now = Date.now();
       res.json({
         items: rows
-          .filter((r) => (r.status === 'dh_closed' ? true : r.emailed_at && now - Date.parse(r.emailed_at) > s.case_reminder_hours * 3_600_000))
-          .map((r) => ({ id: r.id, ref: r.ref, title: r.title, action: r.status === 'dh_closed' ? 'verify' : 'case_number' })),
+          .filter((r) => (r.status === 'mgmt_closed' ? true : r.emailed_at && now - Date.parse(r.emailed_at) > s.case_reminder_hours * 3_600_000))
+          .map((r) => ({ id: r.id, ref: r.ref, title: r.title, action: r.status === 'mgmt_closed' ? 'verify' : 'case_number' })),
       });
     }),
   );
@@ -227,7 +227,7 @@ export function incidentsRouter(): Router {
     wrap(async (req, res) => {
       const body = parse(
         z.object({
-          to: z.enum(['dh_closed', 'resolved_ok', 'resolved_poor', 'reopened', 'withdrawn']),
+          to: z.enum(['mgmt_closed', 'resolved_ok', 'resolved_poor', 'reopened', 'withdrawn']),
           note: z.string().max(1000).optional(),
           upload_id: z.string().uuid().nullish(),
         }),

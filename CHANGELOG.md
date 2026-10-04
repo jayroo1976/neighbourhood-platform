@@ -1,5 +1,10 @@
 # Changelog (newest first)
 
+## 2026-10-04 - Generalised "Dubai Holding" to "management company"
+- All user-facing text, emails, privacy notice and docs now say "the management company". No brand name remains in the code or docs.
+- Internal renames (nothing deployed yet, so no data migration): `dh_*` columns/fields/event types -> `mgmt_*` (e.g. `mgmt_email`, `mgmt_case_number`, `mgmt_closed_at`, `mgmt_closed_count`, status `mgmt_closed`, event `mgmt_reply_received`), env var `DH_EMAIL` -> `MGMT_EMAIL` (also in Bicep param `mgmtEmail`, compose, workflows), function names `queueMgmtEmail`/`recordMgmtReply`. CSV export header `dh_case_number` -> `mgmt_case_number`.
+- **Breaking for any existing database or `.env`**: re-seed local demo DBs; rename `DH_EMAIL` to `MGMT_EMAIL` in your Unraid `.env` and the GitHub variable `DH_EMAIL` to `MGMT_EMAIL`.
+
 ## 2026-10-04 - Documentation and repo handover
 - README rewritten: current target is the owner's own Unraid server; Azure marked as future/untested.
 - Added CLAUDE.md (working agreement + "update all docs every build" rule), docs/status.md, architecture.md, decisions.md, configuration.md, admin-guide.md.

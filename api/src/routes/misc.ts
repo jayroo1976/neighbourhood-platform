@@ -5,7 +5,7 @@ import { config } from '../config';
 import { mergeSettings } from '../domain';
 import { parse, requireAuth, wrap } from '../http';
 import { verifyFileLink } from '../security/crypto';
-import { HttpError, recordDhReply } from '../services/incidents';
+import { HttpError, recordMgmtReply } from '../services/incidents';
 import { KPI_DEFINITIONS, communityKpis } from '../services/kpi';
 import { getStorage } from '../services/storage';
 
@@ -66,7 +66,7 @@ export function inboundRouter(): Router {
       );
       const m = /inc\+([a-f0-9]{16})@/i.exec(body.to);
       if (!m) throw new HttpError(400, 'No incident token in recipient address');
-      const result = await recordDhReply(req.db, m[1], { from: body.from, subject: body.subject, text: body.text });
+      const result = await recordMgmtReply(req.db, m[1], { from: body.from, subject: body.subject, text: body.text });
       res.json({ ok: true, ...result });
     }),
   );

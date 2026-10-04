@@ -15,7 +15,7 @@ Set in `.env` (Unraid) or the host's settings. Production (`NODE_ENV=production`
 | `REQUIRE_ADMIN_MFA` | true in prod | Admins must enrol TOTP |
 | `REGISTRATION_CODE` | blank | Invite code for sign-up (blank = open) |
 | `DEFAULT_COMMUNITY_NAME` / `DEFAULT_COMMUNITY_SLUG` | Pilot Community / pilot | Created on first start |
-| `DH_EMAIL` | placeholder | Management company inbox. **Use your own address while testing** |
+| `MGMT_EMAIL` | placeholder `management@example.com` | Management company inbox. **Use your own address while testing** |
 | `EMAIL_PROVIDER` | console | `console` (log only), `smtp`, `acs` |
 | `SMTP_URL`, `EMAIL_FROM`, `EMAIL_FROM_NAME` | - | SMTP sending |
 | `ACS_ENDPOINT`, `ACS_CONNECTION_STRING` | - | Azure Communication Services email |

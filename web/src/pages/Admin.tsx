@@ -16,7 +16,7 @@ interface Row {
   unit: string | null;
   visibility: string;
   reported_at: string;
-  dh_case_number: string | null;
+  mgmt_case_number: string | null;
   affects_count: number;
   cluster_id: string | null;
   linked_reports: number;
@@ -138,13 +138,13 @@ export function AdminIncidents() {
                     <Stamp status={r.status} />
                   </td>
                   <td>{Math.round(r.kpis.age_days)}d</td>
-                  <td>{r.dh_case_number ?? '-'}</td>
+                  <td>{r.mgmt_case_number ?? '-'}</td>
                   <td>{r.affects_count + 1}</td>
                   <td className="flags">
-                    {r.kpis.acknowledgement_sla === 'breached' && !r.dh_case_number && <span className="flag bad">No case no.</span>}
+                    {r.kpis.acknowledgement_sla === 'breached' && !r.mgmt_case_number && <span className="flag bad">No case no.</span>}
                     {r.kpis.resolution_sla === 'breached' && OPEN_STATUSES.includes(r.status) && <span className="flag bad">Overdue</span>}
                     {r.kpis.disputed_closure && <span className="flag bad">Disputed close</span>}
-                    {r.status === 'dh_closed' && <span className="flag mid">Verify</span>}
+                    {r.status === 'mgmt_closed' && <span className="flag mid">Verify</span>}
                     {r.cluster_id ? <span className="flag">Linked</span> : r.linked_reports > 0 ? <span className="flag">Group of {r.linked_reports + 1}</span> : null}
                   </td>
                 </tr>
@@ -246,8 +246,8 @@ export function AdminIncident() {
         <section className="panel stack">
           <h2>Progress</h2>
           <p>
-            Case number: <b>{d.dh_case_number ?? 'none yet'}</b>
-            {d.dh_first_reply_at && <span className="muted small"> · first management reply {dateTime(d.dh_first_reply_at)}</span>}
+            Case number: <b>{d.mgmt_case_number ?? 'none yet'}</b>
+            {d.mgmt_first_reply_at && <span className="muted small"> · first management reply {dateTime(d.mgmt_first_reply_at)}</span>}
           </p>
           {writer && (
             <>
@@ -267,7 +267,7 @@ export function AdminIncident() {
                 </button>
               </form>
               <div className="chips wrap">
-                {(['in_progress', 'dh_closed', 'resolved_ok', 'resolved_poor', 'reopened', 'withdrawn'] as Status[]).map((s) => (
+                {(['in_progress', 'mgmt_closed', 'resolved_ok', 'resolved_poor', 'reopened', 'withdrawn'] as Status[]).map((s) => (
                   <button key={s} className="chip" disabled={busy || d.status === s} onClick={() => (setStatusNote(''), setStatusSheet(s))}>
                     Mark: {STATUS_LABELS[s]}
                   </button>
@@ -520,7 +520,7 @@ export function AdminUsers() {
 }
 
 interface SettingsResp {
-  community: { name: string; dh_email: string; towers: string[] };
+  community: { name: string; mgmt_email: string; towers: string[] };
   settings: {
     require_photo_for_affects: boolean;
     affects_max_per_day: number;
@@ -559,7 +559,7 @@ export function AdminSettings() {
     setError(null);
     setMsg(null);
     try {
-      await api.patch('/admin/settings', { dh_email: s!.community.dh_email, towers: towers.split('\n').map((t) => t.trim()).filter(Boolean), settings: s!.settings });
+      await api.patch('/admin/settings', { mgmt_email: s!.community.mgmt_email, towers: towers.split('\n').map((t) => t.trim()).filter(Boolean), settings: s!.settings });
       setMsg('Settings saved.');
     } catch (err) {
       setError(err);
@@ -575,7 +575,7 @@ export function AdminSettings() {
         <fieldset disabled={!writer} className="panel stack">
           <h2>Where reports go</h2>
           <Field label="Management email address" hint="Every report and 'affects me' is emailed here. Check this before real use.">
-            <input type="email" value={s.community.dh_email} onChange={(e) => setS({ ...s, community: { ...s.community, dh_email: e.target.value } })} required />
+            <input type="email" value={s.community.mgmt_email} onChange={(e) => setS({ ...s, community: { ...s.community, mgmt_email: e.target.value } })} required />
           </Field>
           <Toggle checked={s.settings.cc_reporter} onChange={(v) => set('cc_reporter', v)} label="Copy the reporter on the email" hint="Shares the resident's email address with management." />
           <Field label="Towers (one per line)">

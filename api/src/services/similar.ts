@@ -46,7 +46,7 @@ export async function findSimilar(db: Db, q: SimilarQuery) {
   const since = new Date(Date.now() - 60 * 86_400_000).toISOString();
   const rows = await db('incidents')
     .where({ community_id: q.communityId, visibility: 'community' })
-    .whereIn('status', [...OPEN_STATUSES, 'dh_closed'])
+    .whereIn('status', [...OPEN_STATUSES, 'mgmt_closed'])
     .andWhere('reported_at', '>', since)
     .whereNull('cluster_id')
     .limit(400);

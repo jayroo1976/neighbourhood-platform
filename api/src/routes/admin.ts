@@ -15,7 +15,7 @@ import {
   createIncident,
   getIncidentRow,
   linkIncidents,
-  queueDhEmail,
+  queueMgmtEmail,
   setCaseNumber,
   unlinkIncident,
 } from '../services/incidents';
@@ -55,7 +55,7 @@ export function adminRouter(): Router {
       if (q.category) qb.where({ category: q.category });
       if (q.tower) qb.where({ tower: q.tower });
       if (q.source) qb.where({ source: q.source });
-      if (q.q) qb.where((b) => b.whereILike('title', `%${q.q}%`).orWhereILike('description', `%${q.q}%`).orWhereILike('ref', `%${q.q}%`).orWhereILike('dh_case_number', `%${q.q}%`));
+      if (q.q) qb.where((b) => b.whereILike('title', `%${q.q}%`).orWhereILike('description', `%${q.q}%`).orWhereILike('ref', `%${q.q}%`).orWhereILike('mgmt_case_number', `%${q.q}%`));
       qb.orderBy('reported_at', 'desc');
       // Flags are computed from KPI rules, so filter after load (pilot-scale data).
       let rows = await qb.limit(2000);
@@ -66,7 +66,7 @@ export function adminRouter(): Router {
       if (q.flag === 'ack_breached') items = items.filter((i) => i.kpis.acknowledgement_sla === 'breached');
       if (q.flag === 'overdue') items = items.filter((i) => i.kpis.resolution_sla === 'breached' && !['resolved_ok', 'resolved_poor', 'withdrawn'].includes(i.status));
       if (q.flag === 'disputed') items = items.filter((i) => i.kpis.disputed_closure);
-      if (q.flag === 'awaiting_verification') items = items.filter((i) => i.status === 'dh_closed');
+      if (q.flag === 'awaiting_verification') items = items.filter((i) => i.status === 'mgmt_closed');
       if (q.flag === 'unlinked_dupes') items = items.filter((i) => !i.cluster_id && i.linked_reports === 0 && ['reported', 'case_number_received', 'in_progress', 'reopened'].includes(i.status));
       const total = items.length;
       items = items.slice(q.page * 100, q.page * 100 + 100);
@@ -136,7 +136,7 @@ export function adminRouter(): Router {
     wrap(async (req, res) => {
       const body = parse(
         z.object({
-          to: z.enum(['in_progress', 'dh_closed', 'resolved_ok', 'resolved_poor', 'reopened', 'withdrawn']),
+          to: z.enum(['in_progress', 'mgmt_closed', 'resolved_ok', 'resolved_poor', 'reopened', 'withdrawn']),
           note: z.string().max(1000).optional(),
           upload_id: z.string().uuid().nullish(),
         }),
@@ -164,7 +164,7 @@ export function adminRouter(): Router {
     wrap(async (req, res) => {
       const row = await getIncidentRow(req.db, req.params.id);
       if (row.community_id !== req.user!.community_id) throw new HttpError(404, 'Not found');
-      await queueDhEmail(req.db, row.id, 'resend', req.user!);
+      await queueMgmtEmail(req.db, row.id, 'resend', req.user!);
       await audit(req.db, { actorId: req.user!.id, actorRole: req.user!.role, action: 'email_resend', targetType: 'incident', targetId: row.id, ip: clientIp(req) });
       res.json({ ok: true });
     }),
@@ -204,7 +204,7 @@ export function adminRouter(): Router {
     requireStaff,
     wrap(async (req, res) => {
       const c = await req.db('communities').where({ id: req.user!.community_id }).first();
-      res.json({ community: { name: c.name, dh_email: c.dh_email, towers: JSON.parse(c.towers) }, settings: mergeSettings(c.settings), ai_available: config.ai.enabled });
+      res.json({ community: { name: c.name, mgmt_email: c.mgmt_email, towers: JSON.parse(c.towers) }, settings: mergeSettings(c.settings), ai_available: config.ai.enabled });
     }),
   );
 
@@ -214,7 +214,7 @@ export function adminRouter(): Router {
     wrap(async (req, res) => {
       const body = parse(
         z.object({
-          dh_email: z.string().email().max(200).optional(),
+          mgmt_email: z.string().email().max(200).optional(),
           towers: z.array(z.string().trim().min(1).max(40)).max(100).optional(),
           settings: z
             .object({
@@ -238,10 +238,10 @@ export function adminRouter(): Router {
       const merged = mergeSettings({ ...JSON.parse(c.settings), ...body.settings, sla_resolve_days: { ...mergeSettings(c.settings).sla_resolve_days, ...(body.settings?.sla_resolve_days ?? {}) } });
       await req.db('communities').where({ id: c.id }).update({
         settings: JSON.stringify(merged),
-        ...(body.dh_email ? { dh_email: body.dh_email } : {}),
+        ...(body.mgmt_email ? { mgmt_email: body.mgmt_email } : {}),
         ...(body.towers ? { towers: JSON.stringify(body.towers) } : {}),
       });
-      await audit(req.db, { actorId: req.user!.id, actorRole: req.user!.role, action: 'settings_update', ip: clientIp(req), detail: { keys: Object.keys(body.settings ?? {}), dh_email_changed: !!body.dh_email } });
+      await audit(req.db, { actorId: req.user!.id, actorRole: req.user!.role, action: 'settings_update', ip: clientIp(req), detail: { keys: Object.keys(body.settings ?? {}), mgmt_email_changed: !!body.mgmt_email } });
       res.json({ ok: true, settings: merged });
     }),
   );
@@ -359,12 +359,12 @@ export function adminRouter(): Router {
           const patch: Record<string, unknown> = { status: row.status, last_activity_at: row.last_activity_at };
           if (row.emailed_at) patch.emailed_at = row.emailed_at;
           if (row.case_number) {
-            patch.dh_case_number = row.case_number;
+            patch.mgmt_case_number = row.case_number;
             patch.case_number_at = row.case_number_at;
           }
-          if (row.status === 'dh_closed') {
-            patch.dh_closed_at = row.last_activity_at;
-            patch.dh_closed_count = 1;
+          if (row.status === 'mgmt_closed') {
+            patch.mgmt_closed_at = row.last_activity_at;
+            patch.mgmt_closed_count = 1;
           }
           if (row.status === 'resolved_ok' || row.status === 'resolved_poor') {
             patch.resolved_at = row.resolved_at;
@@ -388,7 +388,7 @@ export function adminRouter(): Router {
     wrap(async (req, res) => {
       const rows = await req.db('incidents').where({ community_id: req.user!.community_id }).orderBy('seq');
       const counts = await affectsCounts(req.db, rows.map((x) => x.id));
-      const head = ['ref', 'reported_at', 'category', 'severity', 'status', 'tower', 'unit', 'title', 'dh_case_number', 'emailed_at', 'case_number_at', 'dh_closed_at', 'resolved_at', 'resolution', 'reopen_count', 'management_closures', 'affects', 'linked_to', 'source'];
+      const head = ['ref', 'reported_at', 'category', 'severity', 'status', 'tower', 'unit', 'title', 'mgmt_case_number', 'emailed_at', 'case_number_at', 'mgmt_closed_at', 'resolved_at', 'resolution', 'reopen_count', 'management_closures', 'affects', 'linked_to', 'source'];
       const cell = (v: unknown) => {
         let s = v == null ? '' : String(v);
         if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`; // neutralise spreadsheet formula injection
@@ -397,7 +397,7 @@ export function adminRouter(): Router {
       const byId = new Map(rows.map((x) => [x.id, x.ref]));
       const lines = [head.join(',')];
       for (const x of rows) {
-        lines.push([x.ref, x.reported_at, x.category, x.severity, x.status, x.tower, x.unit, x.title, x.dh_case_number, x.emailed_at, x.case_number_at, x.dh_closed_at, x.resolved_at, x.resolution, x.reopen_count, x.dh_closed_count, counts.get(x.id) ?? 0, x.cluster_id ? byId.get(x.cluster_id) : '', x.source].map(cell).join(','));
+        lines.push([x.ref, x.reported_at, x.category, x.severity, x.status, x.tower, x.unit, x.title, x.mgmt_case_number, x.emailed_at, x.case_number_at, x.mgmt_closed_at, x.resolved_at, x.resolution, x.reopen_count, x.mgmt_closed_count, counts.get(x.id) ?? 0, x.cluster_id ? byId.get(x.cluster_id) : '', x.source].map(cell).join(','));
       }
       await audit(req.db, { actorId: req.user!.id, actorRole: req.user!.role, action: 'export_csv', ip: clientIp(req) });
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -478,9 +478,9 @@ const STATUS_ALIASES: Record<string, Status> = {
   in_progress: 'in_progress',
   'case number received': 'case_number_received',
   case_number_received: 'case_number_received',
-  closed: 'dh_closed',
-  'closed by management': 'dh_closed',
-  dh_closed: 'dh_closed',
+  closed: 'mgmt_closed',
+  'closed by management': 'mgmt_closed',
+  mgmt_closed: 'mgmt_closed',
   resolved: 'resolved_ok',
   fixed: 'resolved_ok',
   resolved_ok: 'resolved_ok',

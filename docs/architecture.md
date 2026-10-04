@@ -26,10 +26,10 @@ Monorepo (npm workspaces): `api/`, `web/`. `Dockerfile` builds web then api, run
 resident (own reports + community), committee (read-only, blurred GPS, no internal events), admin, super_admin (also demo wipe). Admins must enrol TOTP MFA when `REQUIRE_ADMIN_MFA` (default on in production).
 
 ## Data model (tables)
-`communities` (settings JSON, towers, DH email) · `users` · `password_resets` · `incidents` (status, case number, dh_closed_count, reopen_count, linked_to, visibility, timestamps, source) · `incident_events` (hash-chained: prev_hash + canonical JSON) · `uploads` (photos, kinds) · `affects` · `email_outbox` · `notifications` · `audit_log` · `_migrations`. Timestamps are ISO strings, JSON as text (SQLite/Postgres portable). Migration `001_initial` in `db.ts`.
+`communities` (settings JSON, towers, management email) · `users` · `password_resets` · `incidents` (status, case number, mgmt_closed_count, reopen_count, linked_to, visibility, timestamps, source) · `incident_events` (hash-chained: prev_hash + canonical JSON) · `uploads` (photos, kinds) · `affects` · `email_outbox` · `notifications` · `audit_log` · `_migrations`. Timestamps are ISO strings, JSON as text (SQLite/Postgres portable). Migration `001_initial` in `db.ts`.
 
 ## Workflow (statuses)
-`reported` -> `case_number_received` -> `in_progress` -> `dh_closed` (management says closed, **unverified**) -> `resolved_ok` (resident photo) | `resolved_poor` (photo) -> `reopened` -> ...; `withdrawn`. Resolutions need a photo unless an admin overrides with a note. Every transition writes a timestamped event.
+`reported` -> `case_number_received` -> `in_progress` -> `mgmt_closed` (management says closed, **unverified**) -> `resolved_ok` (resident photo) | `resolved_poor` (photo) -> `reopened` -> ...; `withdrawn`. Resolutions need a photo unless an admin overrides with a note. Every transition writes a timestamped event.
 
 ## API (all under `/api`; JSON; cookie session `np_session`; header `X-Requested-With: neighbourhood` required)
 - **auth:** POST register, login, logout, forgot, reset, mfa/setup, mfa/enable, consent; GET me.
@@ -46,4 +46,4 @@ Case-number reminder ladder (after N hours, 3N hours, 7 days), verify-closed nud
 Defined in `services/kpi.ts` (`KPI_DEFINITIONS`, served at `/api/kpi/summary`): acknowledgement SLA, resolution SLA by severity, disputed closure rate, verified fix rate, backlog ageing, repeat/affects, by category and tower, 12-week trend, score 0-100 (weights 25/25/30/20) with low-sample confidence flag.
 
 ## Email design
-New report and each "affects me" produce an independent email to DH with expiring signed photo links (never attachments) and a per-incident reply-to `inc+<id>@REPLY_DOMAIN`. Replies can be fed back to the inbound webhook, which extracts case numbers by regex and records a `dh_reply_received` event.
+New report and each "affects me" produce an independent email to the management company with expiring signed photo links (never attachments) and a per-incident reply-to `inc+<id>@REPLY_DOMAIN`. Replies can be fed back to the inbound webhook, which extracts case numbers by regex and records a `mgmt_reply_received` event.

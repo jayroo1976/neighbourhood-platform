@@ -1,6 +1,6 @@
 # v1 pilot suggestions and next steps
 
-**Do before the pilot:** set the real Dubai Holding email; lawyer review of privacy notice and scorecard; wipe demo data; enable admin MFA; set an invite code.
+**Do before the pilot:** set the real management company email; lawyer review of privacy notice and scorecard; wipe demo data; enable admin MFA; set an invite code.
 
 **Quick wins during the pilot**
 1. Web push notifications for case-number reminders and management replies.

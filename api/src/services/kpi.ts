@@ -27,9 +27,9 @@ interface Row {
   reported_at: string;
   emailed_at: string | null;
   case_number_at: string | null;
-  dh_first_reply_at: string | null;
-  dh_closed_at: string | null;
-  dh_closed_count: number;
+  mgmt_first_reply_at: string | null;
+  mgmt_closed_at: string | null;
+  mgmt_closed_count: number;
   resolved_at: string | null;
   resolution: string | null;
   reopen_count: number;
@@ -38,11 +38,11 @@ interface Row {
 
 const baseTime = (r: Row) => ms(r.emailed_at ?? r.reported_at);
 const ackTime = (r: Row) => {
-  const t = [ms(r.case_number_at), ms(r.dh_first_reply_at)].filter((x) => !Number.isNaN(x));
+  const t = [ms(r.case_number_at), ms(r.mgmt_first_reply_at)].filter((x) => !Number.isNaN(x));
   return t.length ? Math.min(...t) : NaN;
 };
-const isOpenish = (r: Row) => (OPEN_STATUSES as string[]).includes(r.status) || r.status === 'dh_closed';
-const isDisputed = (r: Row) => r.dh_closed_count > 0 && (r.resolution === 'poor' || r.reopen_count > 0);
+const isOpenish = (r: Row) => (OPEN_STATUSES as string[]).includes(r.status) || r.status === 'mgmt_closed';
+const isDisputed = (r: Row) => r.mgmt_closed_count > 0 && (r.resolution === 'poor' || r.reopen_count > 0);
 
 /** Monday (Dubai time) of the week containing the timestamp, as YYYY-MM-DD. */
 export function weekKey(iso: string): string {
@@ -75,7 +75,7 @@ export function incidentKpis(r: Row, s: CommunitySettings, now = Date.now()): In
   if (r.resolution === 'poor') resolution_sla = 'poor_fix';
   else if (r.resolution === 'ok') resolution_sla = endMs <= dueMs ? 'met' : 'breached';
   else resolution_sla = now > dueMs ? 'breached' : 'pending';
-  const verified = r.resolved_at && r.dh_closed_at ? (ms(r.resolved_at) - ms(r.dh_closed_at)) / HOUR : null;
+  const verified = r.resolved_at && r.mgmt_closed_at ? (ms(r.resolved_at) - ms(r.mgmt_closed_at)) / HOUR : null;
   return {
     age_days: round((now - reported) / DAY) ?? 0,
     hours_to_acknowledgement: round(ackHours),
@@ -85,7 +85,7 @@ export function incidentKpis(r: Row, s: CommunitySettings, now = Date.now()): In
     days_since_update: round((now - ms(r.last_activity_at)) / DAY) ?? 0,
     closure_to_verification_hours: verified != null && verified >= 0 ? round(verified) : null,
     reopen_count: r.reopen_count,
-    management_closures: r.dh_closed_count,
+    management_closures: r.mgmt_closed_count,
     disputed_closure: isDisputed(r),
   };
 }
@@ -148,12 +148,12 @@ export async function communityKpis(
   }
 
   // --- closure quality: what management calls "closed" vs what residents confirm ---
-  const closed = rows.filter((r) => r.dh_closed_count > 0);
+  const closed = rows.filter((r) => r.mgmt_closed_count > 0);
   const disputed = closed.filter(isDisputed);
   const verifiedGood = closed.filter((r) => r.resolution === 'ok' && r.reopen_count === 0);
-  const unverified = closed.filter((r) => r.status === 'dh_closed');
-  const unverifiedOld = unverified.filter((r) => now - ms(r.dh_closed_at) > 7 * DAY);
-  const stillBroken = rows.filter((r) => r.status === 'reopened' && r.dh_closed_count > 0);
+  const unverified = closed.filter((r) => r.status === 'mgmt_closed');
+  const unverifiedOld = unverified.filter((r) => now - ms(r.mgmt_closed_at) > 7 * DAY);
+  const stillBroken = rows.filter((r) => r.status === 'reopened' && r.mgmt_closed_count > 0);
   const fixDen = resolvedOk.length + resolvedPoor.length + stillBroken.length;
 
   // --- backlog ageing ---
@@ -218,7 +218,7 @@ export async function communityKpis(
   const disputedList = disputed
     .sort((a, b) => ms(b.last_activity_at) - ms(a.last_activity_at))
     .slice(0, 10)
-    .map((r) => ({ id: r.id, ref: r.ref, title: r.title, tower: r.tower, status: r.status, management_closures: r.dh_closed_count, reopen_count: r.reopen_count }));
+    .map((r) => ({ id: r.id, ref: r.ref, title: r.title, tower: r.tower, status: r.status, management_closures: r.mgmt_closed_count, reopen_count: r.reopen_count }));
 
   return {
     generated_at: new Date(now).toISOString(),

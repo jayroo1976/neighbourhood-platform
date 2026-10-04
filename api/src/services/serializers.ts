@@ -45,7 +45,7 @@ export async function listItems(db: Db, rows: any[], viewer: Viewer) {
     tower: r.tower,
     reported_at: r.reported_at,
     last_activity_at: r.last_activity_at,
-    dh_case_number: r.dh_case_number,
+    mgmt_case_number: r.mgmt_case_number,
     affects_count: counts.get(r.id) ?? 0,
     linked_reports: clusterSize.get(r.id) ?? 0,
     is_linked_child: !!r.cluster_id,
@@ -70,7 +70,7 @@ const PUBLIC_PAYLOAD_KEYS: Record<string, string[]> = {
   email_sent: ['kind'],
   case_number_added: ['case_number', 'previous', 'source'],
   status_changed: ['from', 'to', 'note'],
-  dh_closed: ['from', 'to', 'note'],
+  mgmt_closed: ['from', 'to', 'note'],
   resolved_ok: ['from', 'to', 'note', 'upload_id', 'admin_override'],
   resolved_poor: ['from', 'to', 'note', 'upload_id', 'admin_override'],
   reopened: ['from', 'to', 'note', 'upload_id'],
@@ -80,7 +80,7 @@ const PUBLIC_PAYLOAD_KEYS: Record<string, string[]> = {
   linked: ['primary', 'linked'],
   unlinked: [],
   edited: ['fields'],
-  dh_reply_received: ['snippet', 'case_number_found', 'suggests_closed'],
+  mgmt_reply_received: ['snippet', 'case_number_found', 'suggests_closed'],
 };
 
 export async function incidentDetail(db: Db, row: any, viewer: Viewer, opts: { forAdmin?: boolean } = {}) {
@@ -137,9 +137,9 @@ export async function incidentDetail(db: Db, row: any, viewer: Viewer, opts: { f
     gps_blurred: !(mine || admin),
     reported_at: row.reported_at,
     emailed_at: row.emailed_at,
-    dh_case_number: row.dh_case_number,
+    mgmt_case_number: row.mgmt_case_number,
     case_number_at: row.case_number_at,
-    dh_closed_at: row.dh_closed_at,
+    mgmt_closed_at: row.mgmt_closed_at,
     resolved_at: row.resolved_at,
     resolution: row.resolution,
     reopen_count: row.reopen_count,
@@ -154,7 +154,7 @@ export async function incidentDetail(db: Db, row: any, viewer: Viewer, opts: { f
       is_mine: mine,
       i_affect: !!affectRow,
       can_act: isAdmin(viewer) || mine || !!affectRow,
-      can_affect: !mine && !affectRow && row.visibility === 'community' && ['reported', 'case_number_received', 'in_progress', 'reopened', 'dh_closed'].includes(row.status),
+      can_affect: !mine && !affectRow && row.visibility === 'community' && ['reported', 'case_number_received', 'in_progress', 'reopened', 'mgmt_closed'].includes(row.status),
       affect_needs_photo: settings.require_photo_for_affects,
     },
   };
@@ -162,7 +162,7 @@ export async function incidentDetail(db: Db, row: any, viewer: Viewer, opts: { f
     detail.reporter = reporter;
     detail.affects = affectsRows.map((a) => ({ tower: a.tower, unit: a.unit, at: a.created_at }));
     detail.reply_address_token = row.reply_token;
-    detail.dh_first_reply_at = row.dh_first_reply_at;
+    detail.mgmt_first_reply_at = row.mgmt_first_reply_at;
     detail.reminders_sent = row.reminders_sent;
   }
   return detail;
@@ -182,7 +182,7 @@ export function adminListItem(r: any, counts: Map<string, number>, clusterSizes:
     visibility: r.visibility,
     reported_at: r.reported_at,
     emailed_at: r.emailed_at,
-    dh_case_number: r.dh_case_number,
+    mgmt_case_number: r.mgmt_case_number,
     affects_count: counts.get(r.id) ?? 0,
     cluster_id: r.cluster_id,
     linked_reports: clusterSizes.get(r.id) ?? 0,

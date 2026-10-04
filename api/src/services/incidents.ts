@@ -134,7 +134,7 @@ export async function createIncident(
           at: now,
           payload: { title: input.title.trim(), category: input.category, severity: input.severity, photos: input.upload_ids.length, gps: input.lat != null },
         });
-        if (!opts.skipEmail) await queueDhEmail(trx, id, 'new', actor);
+        if (!opts.skipEmail) await queueMgmtEmail(trx, id, 'new', actor);
       });
       break;
     } catch (e) {
@@ -154,7 +154,7 @@ export async function getIncidentRow(db: Db, id: string) {
 
 // ---------------- emails to management ----------------
 
-export async function queueDhEmail(
+export async function queueMgmtEmail(
   db: Db,
   incidentId: string,
   kind: 'new' | 'affects' | 'resend',
@@ -184,7 +184,7 @@ export async function queueDhEmail(
   const replyTo = config.email.replyDomain ? `inc+${inc.reply_token}@${config.email.replyDomain}` : null;
 
   const lines: string[] = [
-    'Dear Dubai Holding Community Support,',
+    'Dear Management Team,',
     '',
     kind === 'affects'
       ? `Another resident has confirmed they are ALSO affected by the issue below (${affectsCount} additional resident${affectsCount === 1 ? '' : 's'} so far). Please link this to the existing case.`
@@ -193,7 +193,7 @@ export async function queueDhEmail(
         : 'A resident has reported the following issue.',
     '',
     `Reference:     ${inc.ref}`,
-    inc.dh_case_number ? `Your case no.:  ${inc.dh_case_number}` : null,
+    inc.mgmt_case_number ? `Your case no.:  ${inc.mgmt_case_number}` : null,
     `First reported: ${dubaiTime(inc.reported_at)}`,
     `Category:      ${catLabel}`,
     `Priority:      ${inc.severity}`,
@@ -209,7 +209,7 @@ export async function queueDhEmail(
     'Please reply to this email with your case / ticket number and the expected resolution date.',
     replyTo ? 'Your reply is recorded automatically against this report.' : null,
     '',
-    'Sent by Neighbourhood Reports, an independent resident-run platform (not operated by Dubai Holding).',
+    'Sent by Neighbourhood Reports, an independent resident-run platform (not operated by your management company).',
   ].filter((l): l is string => l !== null);
 
   const text = lines.join('\n');
@@ -218,14 +218,14 @@ export async function queueDhEmail(
     .join('')}</div>`;
 
   const subjectPrefix = kind === 'affects' ? 'Additional resident affected' : kind === 'resend' ? 'Reminder' : 'New report';
-  const subject = `[${inc.ref}${inc.dh_case_number ? ` / ${inc.dh_case_number}` : ''}] ${subjectPrefix}: ${catLabel} - ${inc.title} - ${inc.tower ?? ''}`.slice(0, 200);
+  const subject = `[${inc.ref}${inc.mgmt_case_number ? ` / ${inc.mgmt_case_number}` : ''}] ${subjectPrefix}: ${catLabel} - ${inc.title} - ${inc.tower ?? ''}`.slice(0, 200);
 
   const cc = community.settings.cc_reporter && reporter?.email && kind === 'new' ? reporter.email : null;
   const outboxId = await queueEmail(db, {
-    kind: `dh_${kind}`,
+    kind: `mgmt_${kind}`,
     communityId: community.id,
     incidentId,
-    to: community.dh_email,
+    to: community.mgmt_email,
     cc,
     replyTo,
     subject,
@@ -251,7 +251,7 @@ export async function addAffect(db: Db, actor: Actor, incidentId: string, upload
   const community = await getCommunity(db, inc.community_id);
   if (inc.reporter_id === actor.id) throw new HttpError(400, 'You reported this one, so it already counts.');
   if (inc.visibility === 'private') throw new HttpError(404, 'Incident not found');
-  if (!OPEN_STATUSES.includes(inc.status) && inc.status !== 'dh_closed') {
+  if (!OPEN_STATUSES.includes(inc.status) && inc.status !== 'mgmt_closed') {
     throw new HttpError(400, 'This report is already closed. Please log a new report if the problem is back.');
   }
   if (!actor.tower || !actor.unit) throw new HttpError(400, 'Please set your tower and apartment number first.', 'profile_incomplete');
@@ -281,7 +281,7 @@ export async function addAffect(db: Db, actor: Actor, incidentId: string, upload
     const count = Number((await trx('affects').where({ incident_id: incidentId }).count({ c: '*' }).first())?.c ?? 0);
     await addEvent(trx, { incidentId, type: 'affects_added', actorId: actor.id, actorRole: actor.role, at: now, payload: { affects_count: count, upload_id: uploadId ?? null } });
     await trx('incidents').where({ id: incidentId }).update({ last_activity_at: now, updated_at: now });
-    if (!opts.skipEmail) await queueDhEmail(trx, incidentId, 'affects', actor, { uploadId });
+    if (!opts.skipEmail) await queueMgmtEmail(trx, incidentId, 'affects', actor, { uploadId });
     if (inc.reporter_id) {
       await notify(trx, { userId: inc.reporter_id, incidentId, type: 'affects', at: now, message: `${count} neighbour${count === 1 ? '' : 's'} confirmed they're also affected by ${inc.ref}.` });
     }
@@ -312,10 +312,10 @@ export async function setCaseNumber(db: Db, actor: Actor | null, incidentId: str
   if (!CASE_RE.test(value)) throw new HttpError(400, 'Case number looks invalid. Use letters, numbers and dashes (3-40 characters).');
   const inc = await getIncidentRow(db, incidentId);
   if (actor && !(await canActOn(db, actor, inc))) throw new HttpError(403, 'Only the reporter or an affected resident can add a case number.');
-  if (inc.dh_case_number === value) return inc;
+  if (inc.mgmt_case_number === value) return inc;
   const now = at ?? new Date().toISOString();
   await db.transaction(async (trx) => {
-    const patch: Record<string, unknown> = { dh_case_number: value, last_activity_at: now, updated_at: now };
+    const patch: Record<string, unknown> = { mgmt_case_number: value, last_activity_at: now, updated_at: now };
     if (!inc.case_number_at) patch.case_number_at = now;
     if (inc.status === 'reported') patch.status = 'case_number_received';
     await trx('incidents').where({ id: incidentId }).update(patch);
@@ -325,7 +325,7 @@ export async function setCaseNumber(db: Db, actor: Actor | null, incidentId: str
       actorId: actor?.id ?? null,
       actorRole: actor?.role ?? 'system',
       at: now,
-      payload: { case_number: value, previous: inc.dh_case_number, source },
+      payload: { case_number: value, previous: inc.mgmt_case_number, source },
     });
     await notifyParticipants(trx, inc, actor?.id ?? null, 'case_number', `${inc.ref} now has management case number ${value}.`);
   });
@@ -334,7 +334,7 @@ export async function setCaseNumber(db: Db, actor: Actor | null, incidentId: str
 
 // ---------------- status transitions ----------------
 
-export type StatusAction = 'in_progress' | 'dh_closed' | 'resolved_ok' | 'resolved_poor' | 'reopened' | 'withdrawn';
+export type StatusAction = 'in_progress' | 'mgmt_closed' | 'resolved_ok' | 'resolved_poor' | 'reopened' | 'withdrawn';
 
 export async function changeStatus(
   db: Db,
@@ -356,7 +356,7 @@ export async function changeStatus(
   if (resolving && !opts.uploadId && !(admin && opts.note)) {
     throw new HttpError(400, 'Please add a photo of the current state as evidence.', 'photo_required');
   }
-  if (to === 'dh_closed' && !(OPEN_STATUSES as Status[]).includes(from)) throw new HttpError(400, 'Only an open report can be marked closed by management.');
+  if (to === 'mgmt_closed' && !(OPEN_STATUSES as Status[]).includes(from)) throw new HttpError(400, 'Only an open report can be marked closed by management.');
   if (to === 'reopened' && (OPEN_STATUSES as Status[]).includes(from)) throw new HttpError(400, 'This report is already open.');
   if (to === 'in_progress' && !(OPEN_STATUSES as Status[]).includes(from)) throw new HttpError(400, 'Re-open the report first.');
   if (to === 'withdrawn') {
@@ -366,9 +366,9 @@ export async function changeStatus(
 
   await db.transaction(async (trx) => {
     const patch: Record<string, unknown> = { status: to, last_activity_at: now, updated_at: now };
-    if (to === 'dh_closed') {
-      patch.dh_closed_at = now;
-      patch.dh_closed_count = Number(inc.dh_closed_count ?? 0) + 1;
+    if (to === 'mgmt_closed') {
+      patch.mgmt_closed_at = now;
+      patch.mgmt_closed_count = Number(inc.mgmt_closed_count ?? 0) + 1;
       patch.verify_reminders_sent = 0;
     }
     if (resolving) {
@@ -393,7 +393,7 @@ export async function changeStatus(
     });
     const msg: Record<StatusAction, string> = {
       in_progress: `${inc.ref} is now marked in progress.`,
-      dh_closed: `${inc.ref} was marked closed by management. Is it really fixed? Please verify with a photo.`,
+      mgmt_closed: `${inc.ref} was marked closed by management. Is it really fixed? Please verify with a photo.`,
       resolved_ok: `${inc.ref} was confirmed fixed.`,
       resolved_poor: `${inc.ref} was closed but reported as poorly fixed.`,
       reopened: `${inc.ref} was reopened - the problem is still there.`,
@@ -462,7 +462,7 @@ export function extractCaseNumber(text: string): string | null {
   return null;
 }
 
-export async function recordDhReply(db: Db, replyToken: string, args: { from?: string; subject?: string; text: string }) {
+export async function recordMgmtReply(db: Db, replyToken: string, args: { from?: string; subject?: string; text: string }) {
   const inc = await db('incidents').where({ reply_token: replyToken.toLowerCase() }).first();
   if (!inc) throw new HttpError(404, 'Unknown reply address');
   const now = new Date().toISOString();
@@ -471,18 +471,18 @@ export async function recordDhReply(db: Db, replyToken: string, args: { from?: s
   const found = extractCaseNumber(`${args.subject ?? ''}\n${body}`);
   await db.transaction(async (trx) => {
     const patch: Record<string, unknown> = { last_activity_at: now, updated_at: now };
-    if (!inc.dh_first_reply_at) patch.dh_first_reply_at = now;
+    if (!inc.mgmt_first_reply_at) patch.mgmt_first_reply_at = now;
     await trx('incidents').where({ id: inc.id }).update(patch);
     await addEvent(trx, {
       incidentId: inc.id,
-      type: 'dh_reply_received',
+      type: 'mgmt_reply_received',
       actorRole: 'system',
       payload: { from_domain: args.from?.split('@')[1]?.toLowerCase(), snippet: body.slice(0, 600), case_number_found: found ?? undefined, suggests_closed: suggestsClosed || undefined },
     });
     if (suggestsClosed) {
-      await notifyParticipants(trx, inc, null, 'dh_reply', `Management replied on ${inc.ref} and may have closed it. Please check and confirm if it is really fixed.`);
+      await notifyParticipants(trx, inc, null, 'mgmt_reply', `Management replied on ${inc.ref} and may have closed it. Please check and confirm if it is really fixed.`);
     } else {
-      await notifyParticipants(trx, inc, null, 'dh_reply', `Management replied on ${inc.ref}.`);
+      await notifyParticipants(trx, inc, null, 'mgmt_reply', `Management replied on ${inc.ref}.`);
     }
   });
   if (found) await setCaseNumber(db, null, inc.id, found, 'inbound_email');

@@ -11,7 +11,7 @@ export async function ensureCommunity(db: Db): Promise<string> {
     id,
     name: config.defaults.communityName,
     slug: config.defaults.communitySlug,
-    dh_email: config.defaults.dhEmail,
+    mgmt_email: config.defaults.mgmtEmail,
     towers: JSON.stringify(['Tower A', 'Tower B', 'Tower C']),
     settings: '{}',
     created_at: new Date().toISOString(),

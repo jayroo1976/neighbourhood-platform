@@ -85,7 +85,7 @@ describe('incident workflow', () => {
     const before = ctx.mail.sent.length;
     await deliverOutbox(ctx.db);
     const sent = ctx.mail.sent.slice(before).find((m) => m.subject.includes(created.ref))!;
-    expect(sent.to).toBe('community-support@dh.test');
+    expect(sent.to).toBe('community-support@mgmt.test');
     expect(sent.text).toContain('Tower B, Unit 903');
     expect(sent.text).toMatch(/https:\/\/app\.test\/api\/files\/.+sig=/);
     expect(sent.replyTo).toMatch(/^inc\+[a-f0-9]{16}@reply\.test$/);
@@ -103,7 +103,7 @@ describe('incident workflow', () => {
     expect(detail.kpis.acknowledgement_sla).toBe('met');
 
     // management says closed, resident disputes with evidence
-    expect((await agent.post(`/api/incidents/${created.id}/status`).set(H).send({ to: 'dh_closed' })).status).toBe(200);
+    expect((await agent.post(`/api/incidents/${created.id}/status`).set(H).send({ to: 'mgmt_closed' })).status).toBe(200);
     const noPhoto = await agent.post(`/api/incidents/${created.id}/status`).set(H).send({ to: 'resolved_poor' });
     expect(noPhoto.status).toBe(400);
     expect(noPhoto.body.code).toBe('photo_required');
@@ -142,12 +142,12 @@ describe('incident workflow', () => {
     const ok = await request(ctx.app)
       .post('/api/inbound/email')
       .set('x-inbound-secret', 'test-inbound-secret')
-      .send({ to: `inc+${token}@reply.test`, from: 'support@dh.test', subject: `Re: [${created.ref}]`, text: 'Thanks. Your case number: SR-555123.\n\nOn Mon wrote:\n> old text' });
+      .send({ to: `inc+${token}@reply.test`, from: 'support@mgmt.test', subject: `Re: [${created.ref}]`, text: 'Thanks. Your case number: SR-555123.\n\nOn Mon wrote:\n> old text' });
     expect(ok.status).toBe(200);
     expect(ok.body.caseNumber).toBe('SR-555123');
     const detail = (await agent.get(`/api/incidents/${created.id}`)).body;
-    expect(detail.dh_case_number).toBe('SR-555123');
-    expect(detail.events.some((e: { type: string }) => e.type === 'dh_reply_received')).toBe(true);
+    expect(detail.mgmt_case_number).toBe('SR-555123');
+    expect(detail.events.some((e: { type: string }) => e.type === 'mgmt_reply_received')).toBe(true);
   });
 });
 
@@ -164,12 +164,12 @@ describe('affects me', () => {
     expect(noPhoto.status).toBe(400);
     expect(noPhoto.body.code).toBe('photo_required');
 
-    const queuedBefore = (await ctx.db('email_outbox').where({ kind: 'dh_affects' }).count({ c: '*' }).first())!.c as number;
+    const queuedBefore = (await ctx.db('email_outbox').where({ kind: 'mgmt_affects' }).count({ c: '*' }).first())!.c as number;
     const up = await uploadPhoto(b.agent, 'affects');
     expect((await b.agent.post(`/api/incidents/${created.id}/affects`).set(H).send({ upload_id: up })).status).toBe(201);
     const second = await uploadPhoto(b.agent, 'affects');
     expect((await b.agent.post(`/api/incidents/${created.id}/affects`).set(H).send({ upload_id: second })).status).toBe(409);
-    const queuedAfter = (await ctx.db('email_outbox').where({ kind: 'dh_affects' }).count({ c: '*' }).first())!.c as number;
+    const queuedAfter = (await ctx.db('email_outbox').where({ kind: 'mgmt_affects' }).count({ c: '*' }).first())!.c as number;
     expect(Number(queuedAfter) - Number(queuedBefore)).toBe(1);
 
     const detail = (await a.agent.get(`/api/incidents/${created.id}`)).body;
@@ -294,13 +294,13 @@ describe('admin and KPIs', () => {
     // 1: case in 10h, closed, verified OK in 5 days
     const i1 = await mk(20);
     await setCaseNumber(db, user, i1.id, 'SR-0001', 'user', new Date(i1.t + 10 * HOUR).toISOString());
-    await changeStatus(db, user, i1.id, 'dh_closed', { at: new Date(i1.t + 4 * DAY).toISOString() });
+    await changeStatus(db, user, i1.id, 'mgmt_closed', { at: new Date(i1.t + 4 * DAY).toISOString() });
     await db('uploads').insert({ id: 'p1', user_id: 'u1', key: 'k', thumb_key: 't', mime: 'image/jpeg', bytes: 1, kind: 'resolution', created_at: new Date().toISOString() });
     await changeStatus(db, admin, i1.id, 'resolved_ok', { uploadId: 'p1', at: new Date(i1.t + 5 * DAY).toISOString() });
     // 2: case in 48h (late), closed, then resident says poor
     const i2 = await mk(20);
     await setCaseNumber(db, user, i2.id, 'SR-0002', 'user', new Date(i2.t + 48 * HOUR).toISOString());
-    await changeStatus(db, user, i2.id, 'dh_closed', { at: new Date(i2.t + 3 * DAY).toISOString() });
+    await changeStatus(db, user, i2.id, 'mgmt_closed', { at: new Date(i2.t + 3 * DAY).toISOString() });
     await db('uploads').insert({ id: 'p2', user_id: 'u1', key: 'k2', thumb_key: 't2', mime: 'image/jpeg', bytes: 1, kind: 'resolution', created_at: new Date().toISOString() });
     await changeStatus(db, user, i2.id, 'resolved_poor', { uploadId: 'p2', at: new Date(i2.t + 4 * DAY).toISOString() });
     // 3: no response for 3 days (SLA miss), still open

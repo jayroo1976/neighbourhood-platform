@@ -87,7 +87,7 @@ async function main() {
   }
   // Demo reports must never email the real management address.
   const community = await db('communities').where({ id: communityId }).first();
-  if (!/example\.(com|invalid)/.test(community.dh_email)) {
+  if (!/example\.(com|invalid)/.test(community.mgmt_email)) {
     console.warn('Note: demo reports are created without sending any email.');
   }
 
@@ -145,7 +145,7 @@ async function main() {
     }
     if (sc.closedAfterD != null && ['ok', 'poor', 'reopened', 'unverified'].includes(sc.outcome)) {
       const closedAt = reported + sc.closedAfterD * DAY;
-      await changeStatus(db, reporter, inc.id, 'dh_closed', { at: new Date(closedAt).toISOString() });
+      await changeStatus(db, reporter, inc.id, 'mgmt_closed', { at: new Date(closedAt).toISOString() });
       const verifyAt = new Date(closedAt + 2 * DAY).toISOString();
       if (sc.outcome === 'ok' || sc.outcome === 'poor') {
         const evidence = await placeholderPhoto(db, reporter.id, communityId, sc.outcome === 'ok' ? 'fixed' : 'not properly fixed', sc.outcome === 'ok' ? 140 : 8);

@@ -14,14 +14,14 @@ export function eventText(e: IncidentEvent): string {
     case 'email_queued':
       return 'Email to management queued.';
     case 'email_sent':
-      return p.kind === 'dh_affects' ? 'Additional resident report emailed to Dubai Holding.' : p.kind === 'dh_resend' ? 'Reminder emailed to Dubai Holding.' : 'Report emailed to Dubai Holding Community Support.';
+      return p.kind === 'mgmt_affects' ? 'Additional resident report emailed to the management company.' : p.kind === 'mgmt_resend' ? 'Reminder emailed to the management company.' : 'Report emailed to the management company.';
     case 'email_failed':
       return 'Email to management failed - will be retried.';
     case 'case_number_added':
       return `${e.actor === 'System' ? 'Management' : e.actor} recorded case number ${p.case_number}${p.source === 'inbound_email' ? ' (from their email reply)' : ''}.`;
     case 'status_changed':
       return `Marked ${STATUS_LABELS[p.to as Status]?.toLowerCase() ?? p.to} by ${e.actor}.${p.note ? ` "${p.note}"` : ''}`;
-    case 'dh_closed':
+    case 'mgmt_closed':
       return `Management marked this closed (recorded by ${e.actor}). Not yet verified by a resident.${p.note ? ` "${p.note}"` : ''}`;
     case 'resolved_ok':
       return `${e.actor} confirmed it is fixed${p.admin_override ? ' (moderator, no photo)' : ' with a photo'}.${p.note ? ` "${p.note}"` : ''}`;
@@ -41,7 +41,7 @@ export function eventText(e: IncidentEvent): string {
       return 'Unlinked from its group.';
     case 'edited':
       return `Details edited by ${e.actor}.`;
-    case 'dh_reply_received':
+    case 'mgmt_reply_received':
       return `Management replied${p.case_number_found ? ` (case ${p.case_number_found})` : ''}${p.snippet ? `: "${String(p.snippet).slice(0, 220)}"` : '.'}`;
     case 'reminder_sent':
       return 'Reminder sent.';
@@ -69,7 +69,7 @@ function slaTone(s: string) {
 
 export function KpiStrip({ d, slaHours }: { d: IncidentDetail; slaHours?: number }) {
   const k = d.kpis;
-  const open = OPEN_STATUSES.includes(d.status) || d.status === 'dh_closed';
+  const open = OPEN_STATUSES.includes(d.status) || d.status === 'mgmt_closed';
   return (
     <div className="kpi-strip">
       <div className="kpi">
@@ -219,7 +219,7 @@ export function IncidentPage() {
 
   const p = d.permissions;
   const open = OPEN_STATUSES.includes(d.status);
-  const awaiting = d.status === 'dh_closed';
+  const awaiting = d.status === 'mgmt_closed';
   const setStatus = (to: string, uploadId?: string | null, note?: string) => api.post(`/incidents/${d.id}/status`, { to, upload_id: uploadId ?? undefined, note: note || undefined });
 
   return (
@@ -257,12 +257,12 @@ export function IncidentPage() {
 
       <section className="panel">
         <h2>Management case number</h2>
-        {d.dh_case_number ? (
+        {d.mgmt_case_number ? (
           <p className="case-no">
-            {d.dh_case_number} <span className="muted small">received {dateTime(d.case_number_at)}</span>
+            {d.mgmt_case_number} <span className="muted small">received {dateTime(d.case_number_at)}</span>
           </p>
         ) : (
-          <p className="muted">Dubai Holding hasn't given a case number yet.</p>
+          <p className="muted">The management company hasn't given a case number yet.</p>
         )}
         {p.can_act && (
           <form
@@ -275,7 +275,7 @@ export function IncidentPage() {
               });
             }}
           >
-            <input value={caseNo} onChange={(e) => setCaseNo(e.target.value)} placeholder={d.dh_case_number ? 'Update case number' : 'Enter case number from their reply'} aria-label="Case number" />
+            <input value={caseNo} onChange={(e) => setCaseNo(e.target.value)} placeholder={d.mgmt_case_number ? 'Update case number' : 'Enter case number from their reply'} aria-label="Case number" />
             <button className="btn" disabled={busy || caseNo.trim().length < 3}>
               Save
             </button>
@@ -293,12 +293,12 @@ export function IncidentPage() {
               <button className="btn primary block" onClick={() => setSheet('affects')}>
                 This affects me too
               </button>
-              <p className="muted small">Counts you in and emails Dubai Holding under your apartment. Only use it if you're really affected.</p>
+              <p className="muted small">Counts you in and emails the management company under your apartment. Only use it if you're really affected.</p>
             </div>
           )}
           {p.can_act && open && (
             <div className="stack">
-              <button className="btn block" disabled={busy} onClick={() => run(() => setStatus('dh_closed'))}>
+              <button className="btn block" disabled={busy} onClick={() => run(() => setStatus('mgmt_closed'))}>
                 Management says it's closed
               </button>
               <div className="row">
@@ -382,11 +382,11 @@ export function IncidentPage() {
           title="This affects me too"
           kind="affects"
           required={p.affect_needs_photo}
-          confirmLabel="Add me and email Dubai Holding"
+          confirmLabel="Add me and email the management company"
           intro={
             <>
               <p>
-                Your tower and apartment ({me?.user?.tower}, {me?.user?.unit}) will be emailed to Dubai Holding as an additional resident affected.
+                Your tower and apartment ({me?.user?.tower}, {me?.user?.unit}) will be emailed to the management company as an additional resident affected.
               </p>
               {p.affect_needs_photo && <p>Please take a new photo showing how it affects you, so each addition is real evidence.</p>}
               <p className="muted small">Not the same problem, or you don't want neighbours to see it? Log a separate report instead.</p>

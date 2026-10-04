@@ -2,7 +2,7 @@
 
 > **Current target: a test server on the owner's own hardware (Unraid, local drive), not Azure.** Azure files exist (`infra/`, `docs/sleep-mode.md`, `docs/backup-restore.md`) but are **untested and not in use yet**. Everything here is in a *test/pilot* state. See [docs/status.md](docs/status.md).
 
-Resident-run incident reporting and accountability for Dubai Holding (DH) residential communities. Residents photograph an issue, the app emails DH community support and records every step with a timestamp. Neighbours tick "affects me". A transparent scorecard shows how well the management company is performing, especially cases it marks **closed that are not actually fixed**.
+Resident-run incident reporting and accountability for residential communities. Residents photograph an issue, the app emails the management company and records every step with a timestamp. Neighbours tick "affects me". A transparent scorecard shows how well the management company is performing, especially cases it marks **closed that are not actually fixed**.
 
 **Owner:** James (Venture Foundry). **Repo is private**, on his personal GitHub. Unraid pulls the image automatically (see below).
 
@@ -11,8 +11,8 @@ Read [CLAUDE.md](CLAUDE.md) first (working agreement, how to run/test, and the r
 
 ## What it does
 - **Report:** photo + a few words; date/time and GPS captured automatically; title/category/urgency drafted from the note (keyword rules, no AI by default); tower and apartment entered once and reused; similar-issue nudge before submitting; privacy warnings; "keep private" option.
-- **Workflow:** reported -> case number received -> in progress -> DH closed (unverified) -> resolved OK (photo) / resolved poor (photo) -> reopened / withdrawn. Every event is timestamped in a tamper-evident hash chain. Reminders prompt the reporter to add the case number.
-- **Community:** everyone sees all (non-private) issues, never names or apartment numbers; "affects me" (photo required, admin toggle) emails DH separately each time, with daily caps.
+- **Workflow:** reported -> case number received -> in progress -> Management closed (unverified) -> resolved OK (photo) / resolved poor (photo) -> reopened / withdrawn. Every event is timestamped in a tamper-evident hash chain. Reminders prompt the reporter to add the case number.
+- **Community:** everyone sees all (non-private) issues, never names or apartment numbers; "affects me" (photo required, admin toggle) emails the management company separately each time, with daily caps.
 - **Scorecard / KPIs:** acknowledgement SLA, resolution SLA, disputed ("closed but not fixed") rate, verified-fix rate, backlog ageing, repeat reports, by type and tower, 12-week trend, transparent 0-100 score. Per-issue KPIs too.
 - **Admin:** update progress, add case numbers, link duplicates, edit, verify history integrity, settings, users, CSV import/export, audit log, demo-data wipe.
 - **Privacy/security (UAE PDPL-minded):** see [docs/privacy-pdpl.md](docs/privacy-pdpl.md) and [docs/security.md](docs/security.md).
@@ -24,7 +24,7 @@ Full steps: **[docs/unraid.md](docs/unraid.md)**. In short:
 3. Put HTTPS in front (Cloudflare Tunnel or Tailscale). GPS and secure cookies need HTTPS.
 4. Create the admin: `docker compose -f docker-compose.unraid.yml exec app node api/dist/scripts/create-admin.js`.
 5. Updates: push to `main` -> new image -> Watchtower restarts the app within ~5 minutes.
-Keep `EMAIL_PROVIDER=console` and `DH_EMAIL` set to your own address while testing so nothing reaches DH by accident.
+Keep `EMAIL_PROVIDER=console` and `MGMT_EMAIL` set to your own address while testing so nothing reaches the management company by accident.
 
 ## Develop locally
 ```bash

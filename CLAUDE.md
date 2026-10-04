@@ -4,7 +4,7 @@ You are helping **James** (UAE-based consultant, Venture Foundry) build this pla
 
 ## Orientation (do this first in a new session)
 1. Read `README.md`, `docs/status.md`, `docs/architecture.md`, `docs/decisions.md`.
-2. Current deployment target is **James's Unraid test server** pulling a GitHub image. Azure is future and untested. Do not deploy anything to Azure or email Dubai Holding.
+2. Current deployment target is **James's Unraid test server** pulling a GitHub image. Azure is future and untested. Do not deploy anything to Azure or email the management company.
 3. Never put real resident data, secrets or `.env` files in the repo.
 
 ## Run and verify
@@ -25,7 +25,7 @@ Every time you change code, config, infra or behaviour, in the same delivery:
 
 ## Guardrails (from the owner's brief and decisions)
 - Data stays in the UAE for any real pilot (PDPL). AI is **off**; optional bring-your-own-key AI runs in the resident's browser only.
-- Neighbours never see names or apartment numbers; admins/DH do. Photos go to DH as expiring links, not attachments.
+- Neighbours never see names or apartment numbers; admins and the management company do. Photos go to the management company as expiring links, not attachments.
 - Management closing a case is **not** the same as fixed: only resident photo evidence (or an admin override with a note) marks it fixed.
 - Scorecard wording must stay factual and show its definitions; legal review is pending.
 - Keep the stack simple: Express + TypeScript API, React/Vite PWA, knex (SQLite dev, PostgreSQL deploy).

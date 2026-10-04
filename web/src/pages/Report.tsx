@@ -154,7 +154,7 @@ export function Report() {
           <div className="stamp-big">Sent</div>
           <h1>{done.ref} reported</h1>
           <p>
-            We're emailing Dubai Holding Community Support now, with your photo, location and apartment number. The time and date are recorded: <strong>{dateTime(new Date().toISOString())}</strong>.
+            We're emailing the management company now, with your photo, location and apartment number. The time and date are recorded: <strong>{dateTime(new Date().toISOString())}</strong>.
           </p>
           <Banner tone="info" title="Next step">
             When they reply with a case number, add it on the report. We'll remind you if nothing arrives within {me?.config.sla_case_hours ?? 24} hours.
@@ -274,7 +274,7 @@ export function Report() {
           )}
         </div>
 
-        <Toggle checked={priv} onChange={setPriv} label="Keep private" hint="Sent to Dubai Holding and counted in the scorecard, but not shown to neighbours. Use for issues inside your own apartment." />
+        <Toggle checked={priv} onChange={setPriv} label="Keep private" hint="Sent to the management company and counted in the scorecard, but not shown to neighbours. Use for issues inside your own apartment." />
 
         {similar.length > 0 && (
           <Banner tone="info" title="Already reported?">

@@ -1,6 +1,6 @@
 # Privacy and UAE PDPL notes (working document, not legal advice)
 
-Have a UAE data-protection lawyer review before launch. Federal Decree-Law No. 45 of 2021 (PDPL) applies; check whether Dubai Holding's own policies add obligations if they become a joint controller.
+Have a UAE data-protection lawyer review before launch. Federal Decree-Law No. 45 of 2021 (PDPL) applies; check whether the management company's own policies add obligations if they become a joint controller.
 
 ## Data map
 | Data | Why | Where | Retention |
@@ -22,7 +22,7 @@ Have a UAE data-protection lawyer review before launch. Federal Decree-Law No. 4
 
 ## Open points to resolve
 1. **AI suggestions**: the server-side option is OFF and unused. Residents can optionally connect their OWN Anthropic/OpenAI key in Profile; the key stays in their browser and the photo goes from their device to that provider, never through our server. That is the resident's own choice and transfer, but the privacy notice should say so. Server-side AI should stay off unless counsel agrees (cross-border transfer).
-2. **Roles**: you are likely the controller; Dubai Holding receives data as a recipient. Document this and decide who answers data-subject requests.
+2. **Roles**: you are likely the controller; the management company receives data as a recipient. Document this and decide who answers data-subject requests.
 3. **Third parties in photos**: warn users (done) and consider automatic face/plate blurring.
 4. **Scorecard**: it publishes performance claims about a named company. Get legal review for defamation risk before sharing outside the pilot. Wording is evidence-based and definitions are shown.
 5. **Breach process**: define who notifies the UAE Data Office and residents, and how fast.

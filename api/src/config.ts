@@ -48,7 +48,7 @@ export const config = {
     smtpUrl: env.SMTP_URL ?? '',
     acsConnectionString: env.ACS_CONNECTION_STRING ?? '',
     acsEndpoint: env.ACS_ENDPOINT ?? '',
-    // inbound webhook (DH replies) – shared secret and the domain used for per-incident reply addresses
+    // inbound webhook (management replies) – shared secret and the domain used for per-incident reply addresses
     inboundSecret: env.INBOUND_EMAIL_SECRET ?? '',
     replyDomain: env.REPLY_DOMAIN ?? '',
     linkTtlDays: Number(env.EMAIL_LINK_TTL_DAYS ?? 30),
@@ -63,7 +63,7 @@ export const config = {
   defaults: {
     communityName: env.DEFAULT_COMMUNITY_NAME ?? 'Pilot Community',
     communitySlug: env.DEFAULT_COMMUNITY_SLUG ?? 'pilot',
-    dhEmail: env.DH_EMAIL ?? 'dh-community-support@example.com',
+    mgmtEmail: env.MGMT_EMAIL ?? 'management@example.com',
   },
 
   privacyNoticeVersion: '2026-10-v1',

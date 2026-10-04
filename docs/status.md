@@ -1,6 +1,6 @@
 # Status (update every build)
 
-**Last updated:** 2026-10-04 · **Version:** 0.1.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
+**Last updated:** 2026-10-04 (generalised to "management company"; tests re-run) · **Version:** 0.1.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
 
 ## Works and has been verified
 - API typechecks and builds; 17 automated tests pass (`npm test`): TOTP vector, signed links, tamper detection, auth/lockout/CSRF, full report lifecycle, inbound email webhook, affects-me rules and admin toggle, privacy/blurring/private reports, EXIF stripping, data export/erasure, admin link duplicates + roles, KPI maths.
@@ -15,10 +15,10 @@
 - Nothing has been reviewed by a lawyer.
 
 ## Open items before real residents use it
-1. Set the real DH community-support email (currently placeholder `dh-community-support@example.com`; use your own address while testing).
+1. Set the real management company email (currently placeholder `management@example.com`; use your own address while testing).
 2. Lawyer review: privacy notice text, scorecard wording (defamation risk), consent flow, cross-border points (see docs/privacy-pdpl.md).
 3. HTTPS in front of the app (needed for GPS and secure cookies).
-4. Wire inbound DH replies (shared mailbox rule / Power Automate posting to `/api/inbound/email` with `x-inbound-secret`).
+4. Wire inbound management replies (shared mailbox rule / Power Automate posting to `/api/inbound/email` with `x-inbound-secret`).
 5. Decide invite code, enable admin MFA, remove demo data.
 6. Import the owner's existing issues list (CSV; see docs/admin-guide.md) - **list not yet received**.
 7. Test a restore of the database and photos.

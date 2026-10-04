@@ -27,7 +27,7 @@ export const STATUSES = [
   'reported', // sent to management, nothing back yet
   'case_number_received', // management gave a case / ticket number
   'in_progress', // management acknowledged work is underway
-  'dh_closed', // management says closed – NOT yet verified by a resident
+  'mgmt_closed', // management says closed – NOT yet verified by a resident
   'resolved_ok', // resident verified fixed (with photo)
   'resolved_poor', // resident says closed but poorly fixed (with photo)
   'reopened', // resident says still not fixed
@@ -36,7 +36,7 @@ export const STATUSES = [
 export type Status = (typeof STATUSES)[number];
 
 export const OPEN_STATUSES: Status[] = ['reported', 'case_number_received', 'in_progress', 'reopened'];
-export const AWAITING_VERIFICATION: Status[] = ['dh_closed'];
+export const AWAITING_VERIFICATION: Status[] = ['mgmt_closed'];
 export const FINAL_STATUSES: Status[] = ['resolved_ok', 'resolved_poor', 'withdrawn'];
 
 export const ROLES = ['resident', 'committee', 'admin', 'super_admin'] as const;
@@ -119,7 +119,7 @@ export const EVENT_TYPES = [
   'email_failed',
   'case_number_added',
   'status_changed',
-  'dh_closed',
+  'mgmt_closed',
   'resolved_ok',
   'resolved_poor',
   'reopened',
@@ -131,6 +131,6 @@ export const EVENT_TYPES = [
   'unlinked',
   'edited',
   'reminder_sent',
-  'dh_reply_received',
+  'mgmt_reply_received',
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];

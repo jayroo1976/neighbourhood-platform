@@ -136,7 +136,7 @@ export function Register() {
         <label className="check">
           <input type="checkbox" checked={f.consent} onChange={(e) => setF({ ...f, consent: e.target.checked })} required />
           <span>
-            I have read the <Link to="/privacy">privacy notice</Link> and agree my reports, photos and apartment number are shared with Dubai Holding to get issues fixed.
+            I have read the <Link to="/privacy">privacy notice</Link> and agree my reports, photos and apartment number are shared with the management company to get issues fixed.
           </span>
         </label>
         <ErrorNote error={error} />
@@ -289,16 +289,16 @@ export function Privacy() {
     <Shell title="Privacy notice">
       <div className="prose">
         <p>
-          <strong>Who we are.</strong> Neighbourhood Reports is an independent, resident-run service. It is not operated by Dubai Holding. This is a pilot notice; the final text will be reviewed before wider launch.
+          <strong>Who we are.</strong> Neighbourhood Reports is an independent, resident-run service. It is not operated by your management company. This is a pilot notice; the final text will be reviewed before wider launch.
         </p>
         <p>
           <strong>What we collect.</strong> Your name, email, tower and apartment number, the photos and text you submit, the location you choose to share with a report, and the actions you take on reports.
         </p>
         <p>
-          <strong>Why.</strong> To send your report to Dubai Holding Community Support, show progress to you and your neighbours, and measure how quickly issues are acknowledged and fixed.
+          <strong>Why.</strong> To send your report to the management company, show progress to you and your neighbours, and measure how quickly issues are acknowledged and fixed.
         </p>
         <p>
-          <strong>Who sees it.</strong> Dubai Holding receives your report by email, including your tower, apartment number, first name, location and secure photo links. Neighbours see the report, tower and photos but never your name or apartment number, and location is shown only approximately. Moderators of this service can see everything on a report.
+          <strong>Who sees it.</strong> The management company receives your report by email, including your tower, apartment number, first name, location and secure photo links. Neighbours see the report, tower and photos but never your name or apartment number, and location is shown only approximately. Moderators of this service can see everything on a report.
         </p>
         <p>
           <strong>Photos.</strong> Please do not photograph people, faces or number plates. Photo metadata (including location) is removed on upload.
