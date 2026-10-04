@@ -1,0 +1,24 @@
+name: Infra
+on:
+  workflow_dispatch:
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - run: |
+          az group create -n ${{ vars.RESOURCE_GROUP }} -l uaenorth
+          az deployment group create -g ${{ vars.RESOURCE_GROUP }} -f infra/main.bicep \
+            -p pgAdminPassword='${{ secrets.PG_ADMIN_PASSWORD }}' dhEmail='${{ vars.DH_EMAIL }}' \
+            jwtSecret='${{ secrets.JWT_SECRET }}' fileSigningSecret='${{ secrets.FILE_SIGNING_SECRET }}' \
+            mfaEncryptionKey='${{ secrets.MFA_ENCRYPTION_KEY }}' inboundEmailSecret='${{ secrets.INBOUND_EMAIL_SECRET }}' \
+            appBaseUrl='${{ vars.APP_BASE_URL }}'

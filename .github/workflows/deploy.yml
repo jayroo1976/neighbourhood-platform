@@ -1,0 +1,29 @@
+name: Deploy
+on:
+  workflow_dispatch:   # manual for now; switch to push on main once Azure is live
+permissions:
+  id-token: write
+  contents: read
+concurrency: deploy
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Build image in ACR
+        run: az acr build -r ${{ vars.ACR_NAME }} -t np:${{ github.sha }} .
+      - name: Roll out
+        run: |
+          az containerapp update -n ${{ vars.CONTAINER_APP }} -g ${{ vars.RESOURCE_GROUP }} \
+            --image ${{ vars.ACR_NAME }}.azurecr.io/np:${{ github.sha }}
+      - name: Build and roll out backup job image
+        run: |
+          az acr build -r ${{ vars.ACR_NAME }} -t np-backup:${{ github.sha }} backup
+          az containerapp job update -n ${{ vars.BACKUP_JOB }} -g ${{ vars.RESOURCE_GROUP }} \
+            --image ${{ vars.ACR_NAME }}.azurecr.io/np-backup:${{ github.sha }}
