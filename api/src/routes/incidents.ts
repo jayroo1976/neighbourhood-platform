@@ -15,6 +15,7 @@ import {
   createIncident,
   getIncidentRow,
   setCaseNumber,
+  setMyCaseNumber,
 } from '../services/incidents';
 import { signedPath } from '../services/fileLinks';
 import { affectsCounts, incidentDetail, listItems } from '../services/serializers';
@@ -207,9 +208,18 @@ export function incidentsRouter(): Router {
   r.post(
     '/:id/affects',
     wrap(async (req, res) => {
-      const body = parse(z.object({ upload_id: z.string().uuid().nullish() }), req.body ?? {});
-      await addAffect(req.db, req.user!, req.params.id, body.upload_id);
+      const body = parse(z.object({ upload_id: z.string().uuid().nullish(), case_number: z.string().max(60).nullish() }), req.body ?? {});
+      await addAffect(req.db, req.user!, req.params.id, body.upload_id, { caseNumber: body.case_number });
       res.status(201).json({ ok: true });
+    }),
+  );
+
+  r.post(
+    '/:id/my-case-number',
+    wrap(async (req, res) => {
+      const body = parse(z.object({ case_number: z.string().max(60) }), req.body);
+      await setMyCaseNumber(req.db, req.user!, req.params.id, body.case_number);
+      res.json({ ok: true });
     }),
   );
 

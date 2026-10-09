@@ -86,6 +86,7 @@ export interface ListItem {
   thumb_url: string | null;
   is_mine: boolean;
   i_affect: boolean;
+  can_affect: boolean;
   private: boolean;
 }
 
@@ -141,9 +142,9 @@ export interface IncidentDetail {
   photos: { id: string; kind: string; url: string; thumb_url: string; created_at: string; mine: boolean }[];
   events: IncidentEvent[];
   kpis: Kpis;
-  permissions: { is_mine: boolean; i_affect: boolean; can_act: boolean; can_affect: boolean; affect_needs_photo: boolean };
+  permissions: { is_mine: boolean; i_affect: boolean; can_act: boolean; can_affect: boolean; affect_needs_photo: boolean; my_case_number?: string | null };
   reporter?: { name: string; email: string; phone: string | null } | null;
-  affects?: { tower: string; unit: string; at: string }[];
+  affects?: { tower: string; unit: string; at: string; mgmt_case_number?: string | null }[];
   mgmt_first_reply_at?: string | null;
 }
 

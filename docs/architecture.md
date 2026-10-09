@@ -26,7 +26,7 @@ Monorepo (npm workspaces): `api/`, `web/`. `Dockerfile` builds web then api, run
 resident (own reports + community), committee (read-only, blurred GPS, no internal events), admin, super_admin (also demo wipe). Admins must enrol TOTP MFA when `REQUIRE_ADMIN_MFA` (default on in production).
 
 ## Data model (tables)
-`communities` (settings JSON, towers, management email) · `users` · `password_resets` · `incidents` (status, case number, mgmt_closed_count, reopen_count, linked_to, visibility, timestamps, source) · `incident_events` (hash-chained: prev_hash + canonical JSON) · `uploads` (photos, kinds) · `affects` · `email_outbox` · `notifications` · `audit_log` · `_migrations`. Timestamps are ISO strings, JSON as text (SQLite/Postgres portable). Migration `001_initial` in `db.ts`.
+`communities` (settings JSON, towers, management email) · `users` · `password_resets` · `incidents` (status, case number, mgmt_closed_count, reopen_count, linked_to, visibility, timestamps, source) · `incident_events` (hash-chained: prev_hash + canonical JSON) · `uploads` (photos, kinds) · `affects` · `email_outbox` · `notifications` · `audit_log` · `_migrations`. Timestamps are ISO strings, JSON as text (SQLite/Postgres portable). Migrations in `db.ts`: `001_initial`; `002_affects_case_number_and_mr_towers` (adds `affects.mgmt_case_number`, renames Tower A/B/C to MR 1/MR 2/MR 3 in communities, users, incidents, affects).
 
 ## Workflow (statuses)
 `reported` -> `case_number_received` -> `in_progress` -> `mgmt_closed` (management says closed, **unverified**) -> `resolved_ok` (resident photo) | `resolved_poor` (photo) -> `reopened` -> ...; `withdrawn`. Resolutions need a photo unless an admin overrides with a note. Every transition writes a timestamped event.
@@ -34,7 +34,7 @@ resident (own reports + community), committee (read-only, blurred GPS, no intern
 ## API (all under `/api`; JSON; cookie session `np_session`; header `X-Requested-With: neighbourhood` required)
 - **auth:** POST register, login, logout, forgot, reset, mfa/setup, mfa/enable, consent; GET me.
 - **me:** PATCH profile, POST password, GET export, POST delete; **notifications** GET /, POST /read.
-- **incidents:** POST /uploads (photo; re-encoded, EXIF stripped); POST /ai/suggest; GET /incidents, /attention, /similar, /:id; POST /incidents, /:id/affects, /:id/case-number, /:id/status, /:id/note.
+- **incidents:** POST /uploads (photo; re-encoded, EXIF stripped); POST /ai/suggest; GET /incidents, /attention, /similar, /:id; POST /incidents, /:id/affects (optional `case_number`), /:id/my-case-number (affected resident's own management ID), /:id/case-number, /:id/status, /:id/note.
 - **misc:** GET /files/* (signed expiring links), GET /kpi/summary, POST /inbound/email (header `x-inbound-secret`).
 - **admin (admin+):** GET/PATCH incidents, POST case-number/status/note/resend-email/link/unlink/verify-chain, GET/PATCH settings, users (list/patch/reset-password/reset-mfa), POST import (dry_run), GET export.csv, GET audit, POST demo/wipe (super_admin).
 - **system (always up):** GET /healthz, GET /api/system/status, POST /api/system/wake.

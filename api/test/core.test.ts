@@ -53,9 +53,9 @@ describe('auth', () => {
   });
 
   it('registers, signs in, locks after repeated failures and keeps errors generic', async () => {
-    const weak = await request(ctx.app).post('/api/auth/register').set(H).send({ email: 'weak@example.test', password: 'password', name: 'Weak', tower: 'Tower A', unit: '1', consent: true });
+    const weak = await request(ctx.app).post('/api/auth/register').set(H).send({ email: 'weak@example.test', password: 'password', name: 'Weak', tower: 'MR 1', unit: '1', consent: true });
     expect(weak.status).toBe(400);
-    const noConsent = await request(ctx.app).post('/api/auth/register').set(H).send({ email: 'nc@example.test', password: PASSWORD, name: 'No Consent', tower: 'Tower A', unit: '1', consent: false });
+    const noConsent = await request(ctx.app).post('/api/auth/register').set(H).send({ email: 'nc@example.test', password: PASSWORD, name: 'No Consent', tower: 'MR 1', unit: '1', consent: false });
     expect(noConsent.status).toBe(400);
 
     const { agent, email } = await register(ctx.app, { email: 'lock@example.test' });
@@ -77,7 +77,7 @@ describe('auth', () => {
 
 describe('incident workflow', () => {
   it('captures a report, emails management, tracks case number and resolution with a verifiable history', async () => {
-    const { agent } = await register(ctx.app, { tower: 'Tower B', unit: '903' });
+    const { agent } = await register(ctx.app, { tower: 'MR 2', unit: '903' });
     const created = await createReport(agent);
     expect(created.ref).toMatch(/^INC-\d{4}$/);
 
@@ -86,7 +86,7 @@ describe('incident workflow', () => {
     await deliverOutbox(ctx.db);
     const sent = ctx.mail.sent.slice(before).find((m) => m.subject.includes(created.ref))!;
     expect(sent.to).toBe('community-support@mgmt.test');
-    expect(sent.text).toContain('Tower B, Unit 903');
+    expect(sent.text).toContain('MR 2, Unit 903');
     expect(sent.text).toMatch(/https:\/\/app\.test\/api\/files\/.+sig=/);
     expect(sent.replyTo).toMatch(/^inc\+[a-f0-9]{16}@reply\.test$/);
 
@@ -153,8 +153,8 @@ describe('incident workflow', () => {
 
 describe('affects me', () => {
   it('requires a fresh photo by default, blocks duplicates and own reports, and emails management each time', async () => {
-    const a = await register(ctx.app, { tower: 'Tower A', unit: '101' });
-    const b = await register(ctx.app, { tower: 'Tower A', unit: '202' });
+    const a = await register(ctx.app, { tower: 'MR 1', unit: '101' });
+    const b = await register(ctx.app, { tower: 'MR 1', unit: '202' });
     const created = await createReport(a.agent);
 
     const own = await a.agent.post(`/api/incidents/${created.id}/affects`).set(H).send({});
@@ -176,6 +176,27 @@ describe('affects me', () => {
     expect(detail.affects_count).toBe(1);
   });
 
+  it('records each resident own incident ID, shows it only to them, and flags can_affect in the feed', async () => {
+    const a = await register(ctx.app, { tower: 'MR 2', unit: '301' });
+    const b = await register(ctx.app, { tower: 'MR 2', unit: '302' });
+    const created = await createReport(a.agent);
+    const feedB = (await b.agent.get('/api/incidents?scope=community&state=open')).body.items.find((i: { id: string }) => i.id === created.id);
+    expect(feedB.can_affect).toBe(true);
+    const up1 = await uploadPhoto(b.agent, 'affects');
+    const bad = await b.agent.post(`/api/incidents/${created.id}/affects`).set(H).send({ upload_id: up1, case_number: '!!' });
+    expect(bad.status).toBe(400);
+    const up2 = await uploadPhoto(b.agent, 'affects');
+    const ok = await b.agent.post(`/api/incidents/${created.id}/affects`).set(H).send({ upload_id: up2, case_number: 'SR-555-B' });
+    expect(ok.status).toBe(201);
+    const mail = await ctx.db('email_outbox').where({ kind: 'mgmt_affects' }).orderBy('created_at', 'desc').first();
+    expect(JSON.stringify(mail)).toContain('SR-555-B');
+    expect((await b.agent.get(`/api/incidents/${created.id}`)).body.permissions.my_case_number).toBe('SR-555-B');
+    expect((await a.agent.get(`/api/incidents/${created.id}`)).body.permissions.my_case_number ?? null).toBeNull();
+    expect((await b.agent.post(`/api/incidents/${created.id}/my-case-number`).set(H).send({ case_number: 'SR-777-B' })).status).toBe(200);
+    expect((await b.agent.get(`/api/incidents/${created.id}`)).body.permissions.my_case_number).toBe('SR-777-B');
+    expect((await a.agent.post(`/api/incidents/${created.id}/my-case-number`).set(H).send({ case_number: 'SR-1-A' })).status).toBe(403);
+  });
+
   it('lets an admin turn the photo requirement off', async () => {
     const admin = await makeStaff(ctx.db, ctx.communityId, 'admin', ctx.app);
     const a = await register(ctx.app);
@@ -189,8 +210,8 @@ describe('affects me', () => {
 
 describe('privacy', () => {
   it('hides unit numbers, blurs GPS and keeps private reports out of the community feed', async () => {
-    const a = await register(ctx.app, { tower: 'Tower C', unit: '4501' });
-    const b = await register(ctx.app, { tower: 'Tower C', unit: '4502' });
+    const a = await register(ctx.app, { tower: 'MR 3', unit: '4501' });
+    const b = await register(ctx.app, { tower: 'MR 3', unit: '4502' });
     const open = await createReport(a.agent, { title: 'Shared corridor light out' });
     const priv = await createReport(a.agent, { title: 'Private matter inside my apartment', visibility: 'private' });
 
@@ -248,8 +269,8 @@ describe('privacy', () => {
 describe('admin and KPIs', () => {
   it('blocks residents from admin routes and lets admins consolidate duplicates', async () => {
     const admin = await makeStaff(ctx.db, ctx.communityId, 'admin', ctx.app);
-    const a = await register(ctx.app, { tower: 'Tower A' });
-    const b = await register(ctx.app, { tower: 'Tower A' });
+    const a = await register(ctx.app, { tower: 'MR 1' });
+    const b = await register(ctx.app, { tower: 'MR 1' });
     expect((await a.agent.get('/api/admin/incidents')).status).toBe(403);
     expect((await a.agent.patch('/api/admin/settings').set(H).send({ settings: { cc_reporter: true } })).status).toBe(403);
 
@@ -279,8 +300,8 @@ describe('admin and KPIs', () => {
     const db = (await import('../src/db')).createDb('sqlite::memory:');
     await (await import('../src/db')).migrate(db);
     const cid = await (await import('../src/bootstrap')).ensureCommunity(db);
-    const user = { id: 'u1', role: 'resident' as const, name: 'K', tower: 'Tower A', unit: '1', community_id: cid };
-    await db('users').insert({ id: 'u1', community_id: cid, email: 'k@x.test', password_hash: 'x', name: 'K', role: 'resident', tower: 'Tower A', unit: '1', created_at: new Date().toISOString() });
+    const user = { id: 'u1', role: 'resident' as const, name: 'K', tower: 'MR 1', unit: '1', community_id: cid };
+    await db('users').insert({ id: 'u1', community_id: cid, email: 'k@x.test', password_hash: 'x', name: 'K', role: 'resident', tower: 'MR 1', unit: '1', created_at: new Date().toISOString() });
     const now = Date.parse('2026-10-01T08:00:00Z');
     const DAY = 86_400_000;
     const HOUR = 3_600_000;

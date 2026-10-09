@@ -19,3 +19,7 @@
 | Reporting is cheap: no email verification in v1; invite code gate | Pilot with a few people |
 | English only for v1 | Scope |
 | Product is generic: "the management company", not a named company | Reusable for any community/management firm; DH-specific naming removed from code and docs |
+
+
+## 2026-10-09: Per-resident incident ID
+Each resident who taps "This affects me too" can record the management company's reference for their own report (`affects.mgmt_case_number`). It is private to that resident and the admins, and is included in the email to management. The shared incident-level case number is unchanged. Buildings are named MR 1, MR 2, MR 3.

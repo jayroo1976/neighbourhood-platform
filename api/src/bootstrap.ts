@@ -12,7 +12,7 @@ export async function ensureCommunity(db: Db): Promise<string> {
     name: config.defaults.communityName,
     slug: config.defaults.communitySlug,
     mgmt_email: config.defaults.mgmtEmail,
-    towers: JSON.stringify(['Tower A', 'Tower B', 'Tower C']),
+    towers: JSON.stringify(['MR 1', 'MR 2', 'MR 3']),
     settings: '{}',
     created_at: new Date().toISOString(),
   });

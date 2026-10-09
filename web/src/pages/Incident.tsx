@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CATEGORY_LABELS, OPEN_STATUSES, STATUS_LABELS, api, dateTime, duration, type IncidentDetail, type IncidentEvent, type Status } from '../api';
 import { useAuth } from '../auth';
 import { Banner, ErrorNote, Field, PhotoButton, Sheet, Spinner, Stamp, shrinkImage, useAsync } from '../ui';
@@ -117,6 +117,7 @@ export function EvidenceSheet({
   onClose,
   onSubmit,
   withNote,
+  withCase,
 }: {
   title: string;
   intro: React.ReactNode;
@@ -124,13 +125,15 @@ export function EvidenceSheet({
   required: boolean;
   confirmLabel: string;
   onClose: () => void;
-  onSubmit: (uploadId: string | null, note: string) => Promise<void>;
+  onSubmit: (uploadId: string | null, note: string, caseNo: string) => Promise<void>;
   withNote?: boolean;
+  withCase?: boolean;
 }) {
   const [photo, setPhoto] = useState<{ id: string; url: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [note, setNote] = useState('');
+  const [caseNo, setCaseNo] = useState('');
   const [error, setError] = useState<unknown>(null);
 
   async function pick(file: File) {
@@ -153,7 +156,7 @@ export function EvidenceSheet({
     setBusy(true);
     setError(null);
     try {
-      await onSubmit(photo?.id ?? null, note);
+      await onSubmit(photo?.id ?? null, note, caseNo);
     } catch (e) {
       setError(e);
       setBusy(false);
@@ -179,6 +182,11 @@ export function EvidenceSheet({
             <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
           </Field>
         )}
+        {withCase && (
+          <Field label="Your own incident ID from the management company (optional)" hint="Report it to them too and enter the reference you get back. You can add it later.">
+            <input value={caseNo} onChange={(e) => setCaseNo(e.target.value)} maxLength={40} placeholder="e.g. SR-10234" />
+          </Field>
+        )}
         <ErrorNote error={error} />
         <button className="btn primary block" disabled={busy || (required && !photo)} onClick={go}>
           {busy ? 'Saving...' : confirmLabel}
@@ -193,7 +201,9 @@ export function IncidentPage() {
   const { me, refreshUnread } = useAuth();
   const nav = useNavigate();
   const q = useAsync(() => api.get<IncidentDetail>(`/incidents/${id}`), [id]);
-  const [sheet, setSheet] = useState<null | 'ok' | 'poor' | 'affects'>(null);
+  const [search] = useSearchParams();
+  const [sheet, setSheet] = useState<null | 'ok' | 'poor' | 'affects'>(search.get('affects') === '1' ? 'affects' : null);
+  const [myCase, setMyCase] = useState('');
   const [caseNo, setCaseNo] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState<unknown>(null);
@@ -282,6 +292,29 @@ export function IncidentPage() {
           </form>
         )}
       </section>
+
+      {p.i_affect && (
+        <section className="panel">
+          <h2>Your own incident ID</h2>
+          <p className="muted small">Report this to the management company yourself too, then enter the reference they give you. It is recorded against your apartment.</p>
+          {p.my_case_number && <p className="case-no">{p.my_case_number}</p>}
+          <form
+            className="row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void run(async () => {
+                await api.post(`/incidents/${d.id}/my-case-number`, { case_number: myCase });
+                setMyCase('');
+              });
+            }}
+          >
+            <input value={myCase} onChange={(e) => setMyCase(e.target.value)} placeholder={p.my_case_number ? 'Update your incident ID' : 'Enter your incident ID'} aria-label="Your incident ID" maxLength={40} />
+            <button className="btn" disabled={busy || myCase.trim().length < 3}>
+              Save
+            </button>
+          </form>
+        </section>
+      )}
 
       <ErrorNote error={error} />
 
@@ -381,6 +414,7 @@ export function IncidentPage() {
         <EvidenceSheet
           title="This affects me too"
           kind="affects"
+          withCase
           required={p.affect_needs_photo}
           confirmLabel="Add me and email the management company"
           intro={
@@ -393,8 +427,8 @@ export function IncidentPage() {
             </>
           }
           onClose={() => setSheet(null)}
-          onSubmit={async (upload) => {
-            await api.post(`/incidents/${d.id}/affects`, { upload_id: upload });
+          onSubmit={async (upload, _note, caseNo) => {
+            await api.post(`/incidents/${d.id}/affects`, { upload_id: upload, case_number: caseNo.trim() || undefined });
             setSheet(null);
             q.reload();
           }}

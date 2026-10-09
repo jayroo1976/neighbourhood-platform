@@ -32,32 +32,32 @@ interface Scenario {
 }
 
 const SCENARIOS: Scenario[] = [
-  { title: 'Water leaking from ceiling in B2 car park', description: 'Steady drip near bay 214, puddle forming.', category: 'plumbing_leak', severity: 'high', tower: 'Tower A', daysAgo: 71, caseAfterH: 30, closedAfterD: 20, outcome: 'poor', affects: 4 },
-  { title: 'Lift 2 out of service', description: 'Sign on door, no estimated return.', category: 'lift', severity: 'high', tower: 'Tower B', daysAgo: 66, caseAfterH: 8, closedAfterD: 6, outcome: 'ok', affects: 6 },
-  { title: 'Pool filter noise and cloudy water', description: 'Pool water cloudy since the weekend.', category: 'pool_gym', severity: 'normal', tower: 'Tower A', daysAgo: 60, outcome: 'open', affects: 2 },
-  { title: 'Corridor lights out on level 14', description: 'Half the corridor is dark in the evenings.', category: 'electrical', severity: 'normal', tower: 'Tower C', daysAgo: 58, caseAfterH: 52, closedAfterD: 9, outcome: 'reopened', affects: 1 },
-  { title: 'Bin room smell on level 9', description: 'Bin chute room not cleaned for days.', category: 'waste', severity: 'normal', tower: 'Tower B', daysAgo: 54, caseAfterH: 20, closedAfterD: 4, outcome: 'ok' },
-  { title: 'Gym treadmill broken', description: 'Treadmill 3 belt slipping.', category: 'pool_gym', severity: 'low', tower: 'Tower A', daysAgo: 50, outcome: 'open' },
-  { title: 'Cockroaches near lobby', description: 'Seen several near the mailboxes.', category: 'pests', severity: 'normal', tower: 'Tower C', daysAgo: 47, caseAfterH: 60, closedAfterD: 12, outcome: 'poor', affects: 3 },
-  { title: 'Basement gate barrier stuck', description: 'Barrier arm stuck up, security issue.', category: 'security', severity: 'high', tower: 'Tower B', daysAgo: 44, caseAfterH: 5, outcome: 'progress', affects: 2 },
-  { title: 'Cracked tiles at entrance', description: 'Tile lifting, trip hazard.', category: 'structural', severity: 'normal', tower: 'Tower A', daysAgo: 41, outcome: 'open', affects: 1 },
-  { title: 'AC chiller noise at night', description: 'Loud humming from plant room above.', category: 'hvac_ac', severity: 'normal', tower: 'Tower C', daysAgo: 39, caseAfterH: 40, closedAfterD: 15, outcome: 'unverified' },
-  { title: 'Garden irrigation flooding path', description: 'Sprinklers running mid-day on the path.', category: 'landscaping', severity: 'low', tower: 'Tower A', daysAgo: 36, caseAfterH: 70, closedAfterD: 3, outcome: 'ok' },
-  { title: 'Fire exit door blocked by boxes', description: 'Level 6 stairwell exit blocked.', category: 'fire_safety', severity: 'urgent', tower: 'Tower B', daysAgo: 33, caseAfterH: 3, closedAfterD: 1, outcome: 'ok' },
-  { title: 'Water leak from level 22 balcony drain', description: 'Water runs down the facade onto balconies.', category: 'plumbing_leak', severity: 'normal', tower: 'Tower C', daysAgo: 30, outcome: 'open', affects: 5 },
-  { title: 'Visitor parking blocked by contractor van', description: 'Same van parked every day.', category: 'parking', severity: 'low', tower: 'Tower A', daysAgo: 28, outcome: 'open' },
-  { title: 'Lift 1 stops between floors', description: 'Jolts and stops randomly.', category: 'lift', severity: 'high', tower: 'Tower A', daysAgo: 26, caseAfterH: 15, closedAfterD: 8, outcome: 'poor', affects: 3 },
-  { title: 'Broken light in car park B1', description: 'Bay 120 area is very dark.', category: 'electrical', severity: 'normal', tower: 'Tower B', daysAgo: 24, caseAfterH: 28, outcome: 'progress' },
-  { title: 'Lobby floor dirty and sticky', description: 'Spill not cleaned for two days.', category: 'cleaning', severity: 'low', tower: 'Tower C', daysAgo: 22, caseAfterH: 6, closedAfterD: 1, outcome: 'ok' },
-  { title: 'Loud drilling before 8am', description: 'Fit-out works starting 7am.', category: 'noise', severity: 'low', tower: 'Tower A', daysAgo: 21, outcome: 'open' },
-  { title: 'Sewage smell in level 3 corridor', description: 'Strong smell near stairwell.', category: 'plumbing_leak', severity: 'high', tower: 'Tower B', daysAgo: 19, caseAfterH: 90, closedAfterD: 5, outcome: 'unverified' },
-  { title: 'Intercom panel not working', description: 'Visitors cannot call apartments.', category: 'security', severity: 'normal', tower: 'Tower C', daysAgo: 17, outcome: 'open' },
-  { title: 'Pool hoist and ladder loose', description: 'Handrail loose at deep end.', category: 'pool_gym', severity: 'high', tower: 'Tower A', daysAgo: 15, caseAfterH: 12, outcome: 'progress', affects: 1 },
-  { title: 'Rubbish left in stairwell', description: 'Bags on level 11 stairs.', category: 'waste', severity: 'low', tower: 'Tower B', daysAgo: 12, caseAfterH: 18, closedAfterD: 2, outcome: 'ok' },
-  { title: 'Ceiling paint peeling after leak', description: 'Level 5 corridor ceiling.', category: 'structural', severity: 'low', tower: 'Tower C', daysAgo: 10, outcome: 'open' },
-  { title: 'AC not cooling in gym', description: 'Gym very hot in the evenings.', category: 'hvac_ac', severity: 'normal', tower: 'Tower A', daysAgo: 8, outcome: 'open', affects: 2 },
-  { title: 'Gate access card reader fault', description: 'Pedestrian gate not reading cards.', category: 'security', severity: 'normal', tower: 'Tower B', daysAgo: 5, outcome: 'open' },
-  { title: 'Lift 3 doors do not close', description: 'Needs several attempts.', category: 'lift', severity: 'normal', tower: 'Tower C', daysAgo: 3, outcome: 'open', affects: 1 },
+  { title: 'Water leaking from ceiling in B2 car park', description: 'Steady drip near bay 214, puddle forming.', category: 'plumbing_leak', severity: 'high', tower: 'MR 1', daysAgo: 71, caseAfterH: 30, closedAfterD: 20, outcome: 'poor', affects: 4 },
+  { title: 'Lift 2 out of service', description: 'Sign on door, no estimated return.', category: 'lift', severity: 'high', tower: 'MR 2', daysAgo: 66, caseAfterH: 8, closedAfterD: 6, outcome: 'ok', affects: 6 },
+  { title: 'Pool filter noise and cloudy water', description: 'Pool water cloudy since the weekend.', category: 'pool_gym', severity: 'normal', tower: 'MR 1', daysAgo: 60, outcome: 'open', affects: 2 },
+  { title: 'Corridor lights out on level 14', description: 'Half the corridor is dark in the evenings.', category: 'electrical', severity: 'normal', tower: 'MR 3', daysAgo: 58, caseAfterH: 52, closedAfterD: 9, outcome: 'reopened', affects: 1 },
+  { title: 'Bin room smell on level 9', description: 'Bin chute room not cleaned for days.', category: 'waste', severity: 'normal', tower: 'MR 2', daysAgo: 54, caseAfterH: 20, closedAfterD: 4, outcome: 'ok' },
+  { title: 'Gym treadmill broken', description: 'Treadmill 3 belt slipping.', category: 'pool_gym', severity: 'low', tower: 'MR 1', daysAgo: 50, outcome: 'open' },
+  { title: 'Cockroaches near lobby', description: 'Seen several near the mailboxes.', category: 'pests', severity: 'normal', tower: 'MR 3', daysAgo: 47, caseAfterH: 60, closedAfterD: 12, outcome: 'poor', affects: 3 },
+  { title: 'Basement gate barrier stuck', description: 'Barrier arm stuck up, security issue.', category: 'security', severity: 'high', tower: 'MR 2', daysAgo: 44, caseAfterH: 5, outcome: 'progress', affects: 2 },
+  { title: 'Cracked tiles at entrance', description: 'Tile lifting, trip hazard.', category: 'structural', severity: 'normal', tower: 'MR 1', daysAgo: 41, outcome: 'open', affects: 1 },
+  { title: 'AC chiller noise at night', description: 'Loud humming from plant room above.', category: 'hvac_ac', severity: 'normal', tower: 'MR 3', daysAgo: 39, caseAfterH: 40, closedAfterD: 15, outcome: 'unverified' },
+  { title: 'Garden irrigation flooding path', description: 'Sprinklers running mid-day on the path.', category: 'landscaping', severity: 'low', tower: 'MR 1', daysAgo: 36, caseAfterH: 70, closedAfterD: 3, outcome: 'ok' },
+  { title: 'Fire exit door blocked by boxes', description: 'Level 6 stairwell exit blocked.', category: 'fire_safety', severity: 'urgent', tower: 'MR 2', daysAgo: 33, caseAfterH: 3, closedAfterD: 1, outcome: 'ok' },
+  { title: 'Water leak from level 22 balcony drain', description: 'Water runs down the facade onto balconies.', category: 'plumbing_leak', severity: 'normal', tower: 'MR 3', daysAgo: 30, outcome: 'open', affects: 5 },
+  { title: 'Visitor parking blocked by contractor van', description: 'Same van parked every day.', category: 'parking', severity: 'low', tower: 'MR 1', daysAgo: 28, outcome: 'open' },
+  { title: 'Lift 1 stops between floors', description: 'Jolts and stops randomly.', category: 'lift', severity: 'high', tower: 'MR 1', daysAgo: 26, caseAfterH: 15, closedAfterD: 8, outcome: 'poor', affects: 3 },
+  { title: 'Broken light in car park B1', description: 'Bay 120 area is very dark.', category: 'electrical', severity: 'normal', tower: 'MR 2', daysAgo: 24, caseAfterH: 28, outcome: 'progress' },
+  { title: 'Lobby floor dirty and sticky', description: 'Spill not cleaned for two days.', category: 'cleaning', severity: 'low', tower: 'MR 3', daysAgo: 22, caseAfterH: 6, closedAfterD: 1, outcome: 'ok' },
+  { title: 'Loud drilling before 8am', description: 'Fit-out works starting 7am.', category: 'noise', severity: 'low', tower: 'MR 1', daysAgo: 21, outcome: 'open' },
+  { title: 'Sewage smell in level 3 corridor', description: 'Strong smell near stairwell.', category: 'plumbing_leak', severity: 'high', tower: 'MR 2', daysAgo: 19, caseAfterH: 90, closedAfterD: 5, outcome: 'unverified' },
+  { title: 'Intercom panel not working', description: 'Visitors cannot call apartments.', category: 'security', severity: 'normal', tower: 'MR 3', daysAgo: 17, outcome: 'open' },
+  { title: 'Pool hoist and ladder loose', description: 'Handrail loose at deep end.', category: 'pool_gym', severity: 'high', tower: 'MR 1', daysAgo: 15, caseAfterH: 12, outcome: 'progress', affects: 1 },
+  { title: 'Rubbish left in stairwell', description: 'Bags on level 11 stairs.', category: 'waste', severity: 'low', tower: 'MR 2', daysAgo: 12, caseAfterH: 18, closedAfterD: 2, outcome: 'ok' },
+  { title: 'Ceiling paint peeling after leak', description: 'Level 5 corridor ceiling.', category: 'structural', severity: 'low', tower: 'MR 3', daysAgo: 10, outcome: 'open' },
+  { title: 'AC not cooling in gym', description: 'Gym very hot in the evenings.', category: 'hvac_ac', severity: 'normal', tower: 'MR 1', daysAgo: 8, outcome: 'open', affects: 2 },
+  { title: 'Gate access card reader fault', description: 'Pedestrian gate not reading cards.', category: 'security', severity: 'normal', tower: 'MR 2', daysAgo: 5, outcome: 'open' },
+  { title: 'Lift 3 doors do not close', description: 'Needs several attempts.', category: 'lift', severity: 'normal', tower: 'MR 3', daysAgo: 3, outcome: 'open', affects: 1 },
 ];
 
 async function placeholderPhoto(db: Db, userId: string, communityId: string, label: string, hue: number): Promise<string> {
@@ -104,7 +104,7 @@ async function main() {
   const admin = await mkUser('admin@pilot.test', 'Demo Admin', 'super_admin', null, null);
   await mkUser('committee@pilot.test', 'Demo Committee', 'committee', null, null);
   const residents: Actor[] = [];
-  const towers = ['Tower A', 'Tower B', 'Tower C'];
+  const towers = ['MR 1', 'MR 2', 'MR 3'];
   const names = ['Aisha', 'Ben', 'Carla', 'Dev', 'Elena', 'Faisal', 'Grace', 'Hamdan', 'Ines'];
   for (let i = 0; i < names.length; i++) {
     residents.push(await mkUser(`resident${i + 1}@pilot.test`, `${names[i]} Demo`, 'resident', towers[i % 3], String(300 + i * 111)));

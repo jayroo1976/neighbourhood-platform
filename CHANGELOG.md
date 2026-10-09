@@ -1,5 +1,11 @@
 # Changelog (newest first)
 
+## 2026-10-09 - MR towers, dashboard "affects me" button, per-resident incident ID
+- Towers renamed MR 1 / MR 2 / MR 3 (new default, seed, tests). Migration `002` renames existing Tower A/B/C in communities, users, incidents and affects, so your current data is converted on the next start. Admins can still edit the list in Settings.
+- Dashboard cards: "N reported" badge on the photo and a "This affects me too" button under it (shown only when you can still add yourself). It opens the report with the sheet ready.
+- The sheet has an optional "your own incident ID from the management company" field; it is stored per resident (`affects.mgmt_case_number`), added to the email to management, and editable later on the report page ("Your own incident ID"). New endpoint `POST /api/incidents/:id/my-case-number`.
+- List API items gain `can_affect`; admin affects list shows each resident's ID. 18 tests pass. Not checked on a real phone; layout of the card is untested visually.
+
 ## 2026-10-09 - Photo upload fix
 - Cause (most likely): Docker creates the bind-mounted `files` folder as root while the app runs as user `node`, so saving a photo failed with a permission error (HTTP 500) and the report form could not continue.
 - Fix: new `docker-entrypoint.sh` starts as root, `chown`s the photo folder, then drops to `node` (via `setpriv`). No manual `chown` needed any more.

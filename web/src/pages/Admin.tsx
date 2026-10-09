@@ -663,7 +663,7 @@ export function AdminData() {
         <p className="muted small">
           CSV columns: <code>title, description, category, severity, tower, unit, location, reported_at, status, case_number, emailed_at, resolved_at, reporter_email</code>. Dates are day-first (e.g. 21/09/2026 14:30) in Dubai time. Status can be open, in progress, closed, resolved, poorly resolved or reopened. Imported rows are not emailed to management.
         </p>
-        <a className="btn small" href={`data:text/csv;charset=utf-8,${encodeURIComponent('title,description,category,severity,tower,unit,location,reported_at,status,case_number,emailed_at,resolved_at,reporter_email\nWater leak in B2,Drip near bay 214,plumbing_leak,high,Tower A,1204,Car park B2,21/09/2026 14:30,open,SR-10234,21/09/2026 14:35,,\n')}`} download="import-template.csv">
+        <a className="btn small" href={`data:text/csv;charset=utf-8,${encodeURIComponent('title,description,category,severity,tower,unit,location,reported_at,status,case_number,emailed_at,resolved_at,reporter_email\nWater leak in B2,Drip near bay 214,plumbing_leak,high,MR 1,1204,Car park B2,21/09/2026 14:30,open,SR-10234,21/09/2026 14:35,,\n')}`} download="import-template.csv">
           Download template
         </a>
         <input type="file" accept=".csv,text/csv" onChange={(e) => (setFile(e.target.files?.[0] ?? null), setResult(null))} />

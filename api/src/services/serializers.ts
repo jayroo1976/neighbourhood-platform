@@ -52,6 +52,7 @@ export async function listItems(db: Db, rows: any[], viewer: Viewer) {
     thumb_url: thumbs.get(r.id) ?? null,
     is_mine: r.reporter_id === viewer.id,
     i_affect: iAffect.has(r.id),
+    can_affect: r.reporter_id !== viewer.id && !iAffect.has(r.id) && r.visibility === 'community' && ['reported', 'case_number_received', 'in_progress', 'reopened', 'mgmt_closed'].includes(r.status),
     private: r.visibility === 'private',
   }));
 }
@@ -153,6 +154,7 @@ export async function incidentDetail(db: Db, row: any, viewer: Viewer, opts: { f
     permissions: {
       is_mine: mine,
       i_affect: !!affectRow,
+      my_case_number: affectRow?.mgmt_case_number ?? null,
       can_act: isAdmin(viewer) || mine || !!affectRow,
       can_affect: !mine && !affectRow && row.visibility === 'community' && ['reported', 'case_number_received', 'in_progress', 'reopened', 'mgmt_closed'].includes(row.status),
       affect_needs_photo: settings.require_photo_for_affects,
@@ -160,7 +162,7 @@ export async function incidentDetail(db: Db, row: any, viewer: Viewer, opts: { f
   };
   if (admin) {
     detail.reporter = reporter;
-    detail.affects = affectsRows.map((a) => ({ tower: a.tower, unit: a.unit, at: a.created_at }));
+    detail.affects = affectsRows.map((a) => ({ tower: a.tower, unit: a.unit, at: a.created_at, mgmt_case_number: a.mgmt_case_number ?? null }));
     detail.reply_address_token = row.reply_token;
     detail.mgmt_first_reply_at = row.mgmt_first_reply_at;
     detail.reminders_sent = row.reminders_sent;

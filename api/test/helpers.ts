@@ -34,7 +34,7 @@ export async function register(app: Express.Application | any, over: Partial<{ e
     email: over.email ?? `user${crypto.randomBytes(3).toString('hex')}@example.test`,
     password: PASSWORD,
     name: over.name ?? 'Test Resident',
-    tower: over.tower ?? 'Tower A',
+    tower: over.tower ?? 'MR 1',
     unit: over.unit ?? '1204',
     consent: true,
   };

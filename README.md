@@ -12,7 +12,7 @@ Read [CLAUDE.md](CLAUDE.md) first (working agreement, how to run/test, and the r
 ## What it does
 - **Report:** photo + a few words; date/time and GPS captured automatically; title/category/urgency drafted from the note (keyword rules, no AI by default); tower and apartment entered once and reused; similar-issue nudge before submitting; privacy warnings; "keep private" option.
 - **Workflow:** reported -> case number received -> in progress -> Management closed (unverified) -> resolved OK (photo) / resolved poor (photo) -> reopened / withdrawn. Every event is timestamped in a tamper-evident hash chain. Reminders prompt the reporter to add the case number.
-- **Community:** everyone sees all (non-private) issues, never names or apartment numbers; "affects me" (photo required, admin toggle) emails the management company separately each time, with daily caps.
+- **Community:** everyone sees all (non-private) issues, never names or apartment numbers; "affects me" (button on each dashboard card, with a "N reported" badge on the photo; photo required by default, admin toggle; optional own management incident ID) emails the management company separately each time, with daily caps.
 - **Scorecard / KPIs:** acknowledgement SLA, resolution SLA, disputed ("closed but not fixed") rate, verified-fix rate, backlog ageing, repeat reports, by type and tower, 12-week trend, transparent 0-100 score. Per-issue KPIs too.
 - **Admin:** update progress, add case numbers, link duplicates, edit, verify history integrity, settings, users, CSV import/export, audit log, demo-data wipe.
 - **Privacy/security (UAE PDPL-minded):** see [docs/privacy-pdpl.md](docs/privacy-pdpl.md) and [docs/security.md](docs/security.md).

@@ -30,7 +30,12 @@ img{max-width:100%}
 .panel,.card,.auth-card,.sheet{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:1rem;margin:0 0 1rem}
 .card{padding:0;overflow:hidden}.card-body{padding:.75rem 1rem}
 .incident-card{display:flex;gap:.75rem;color:inherit;text-decoration:none;padding:.6rem}
-.incident-card .thumb{width:84px;height:84px;object-fit:cover;border-radius:8px;flex:none;background:#e8dfc9}
+.incident-card .card-body{flex:1;min-width:0;color:inherit;text-decoration:none}
+.card-media{display:flex;flex-direction:column;gap:.4rem;width:96px;flex:none}
+.media-link{position:relative;display:block}
+.count-badge{position:absolute;left:4px;bottom:4px;background:rgba(20,30,30,.85);color:#fff;font-size:.7rem;font-weight:600;padding:.1rem .45rem;border-radius:999px}
+.affects-btn{width:100%;font-size:.72rem;padding:.35rem .25rem;text-align:center;line-height:1.15}
+.incident-card .thumb{width:96px;height:96px;object-fit:cover;border-radius:8px;flex:none;background:#e8dfc9}
 .thumb.placeholder{display:grid;place-items:center;color:var(--muted)}
 .card-top{display:flex;justify-content:space-between;gap:.5rem;align-items:center}
 .ref{font:600 .8rem ui-monospace,monospace;color:var(--muted)}

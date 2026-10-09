@@ -159,7 +159,7 @@ export async function queueMgmtEmail(
   incidentId: string,
   kind: 'new' | 'affects' | 'resend',
   actor: Actor,
-  extra: { uploadId?: string | null } = {},
+  extra: { uploadId?: string | null; caseNumber?: string | null } = {},
 ): Promise<string> {
   const inc = await getIncidentRow(db, incidentId);
   const community = await getCommunity(db, inc.community_id);
@@ -199,6 +199,7 @@ export async function queueMgmtEmail(
     `Priority:      ${inc.severity}`,
     `Location:      ${loc || 'Not specified'}`,
     `Resident unit: ${unitLine} (${firstName})`,
+    kind === 'affects' && extra.caseNumber ? `Resident's own case no.: ${extra.caseNumber}` : null,
     '',
     `Title: ${inc.title}`,
     inc.description ? `Details: ${inc.description}` : null,
@@ -245,7 +246,9 @@ export async function queueMgmtEmail(
 
 // ---------------- "Affects me" ----------------
 
-export async function addAffect(db: Db, actor: Actor, incidentId: string, uploadId?: string | null, opts: { at?: string; skipEmail?: boolean } = {}) {
+export async function addAffect(db: Db, actor: Actor, incidentId: string, uploadId?: string | null, opts: { at?: string; skipEmail?: boolean; caseNumber?: string | null } = {}) {
+  const ownCase = opts.caseNumber?.trim() || null;
+  if (ownCase && !CASE_RE.test(ownCase)) throw new HttpError(400, 'That incident ID looks invalid. Use letters, numbers and dashes (3-40 characters).');
   const inc = await getIncidentRow(db, incidentId);
   if (inc.community_id !== actor.community_id) throw new HttpError(404, 'Incident not found');
   const community = await getCommunity(db, inc.community_id);
@@ -276,12 +279,13 @@ export async function addAffect(db: Db, actor: Actor, incidentId: string, upload
       tower: actor.tower,
       unit: actor.unit,
       upload_id: uploadId ?? null,
+      mgmt_case_number: ownCase,
       created_at: now,
     });
     const count = Number((await trx('affects').where({ incident_id: incidentId }).count({ c: '*' }).first())?.c ?? 0);
     await addEvent(trx, { incidentId, type: 'affects_added', actorId: actor.id, actorRole: actor.role, at: now, payload: { affects_count: count, upload_id: uploadId ?? null } });
     await trx('incidents').where({ id: incidentId }).update({ last_activity_at: now, updated_at: now });
-    if (!opts.skipEmail) await queueMgmtEmail(trx, incidentId, 'affects', actor, { uploadId });
+    if (!opts.skipEmail) await queueMgmtEmail(trx, incidentId, 'affects', actor, { uploadId, caseNumber: ownCase });
     if (inc.reporter_id) {
       await notify(trx, { userId: inc.reporter_id, incidentId, type: 'affects', at: now, message: `${count} neighbour${count === 1 ? '' : 's'} confirmed they're also affected by ${inc.ref}.` });
     }
@@ -330,6 +334,15 @@ export async function setCaseNumber(db: Db, actor: Actor | null, incidentId: str
     await notifyParticipants(trx, inc, actor?.id ?? null, 'case_number', `${inc.ref} now has management case number ${value}.`);
   });
   return getIncidentRow(db, incidentId);
+}
+
+/** An affected resident records the management company's reference for THEIR OWN report/ticket. */
+export async function setMyCaseNumber(db: Db, actor: Actor, incidentId: string, raw: string) {
+  const value = raw.trim();
+  if (!CASE_RE.test(value)) throw new HttpError(400, 'That incident ID looks invalid. Use letters, numbers and dashes (3-40 characters).');
+  const row = await db('affects').where({ incident_id: incidentId, user_id: actor.id }).first();
+  if (!row) throw new HttpError(403, 'Add yourself with "This affects me too" first.');
+  await db('affects').where({ id: row.id }).update({ mgmt_case_number: value });
 }
 
 // ---------------- status transitions ----------------

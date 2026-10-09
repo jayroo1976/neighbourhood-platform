@@ -213,6 +213,32 @@ const migrations: Migration[] = [
       });
     },
   },
+  {
+    name: '002_affects_case_number_and_mr_towers',
+    up: async (db) => {
+      await db.schema.alterTable('affects', (t) => {
+        t.text('mgmt_case_number');
+      });
+      // Rename the original demo towers to the real building names (existing data included).
+      const map: Record<string, string> = { 'Tower A': 'MR 1', 'Tower B': 'MR 2', 'Tower C': 'MR 3' };
+      for (const [from, to] of Object.entries(map)) {
+        await db('users').where({ tower: from }).update({ tower: to });
+        await db('incidents').where({ tower: from }).update({ tower: to });
+        await db('affects').where({ tower: from }).update({ tower: to });
+      }
+      const rows = (await db('communities').select('id', 'towers')) as { id: string; towers: string }[];
+      for (const c of rows) {
+        let list: string[] = [];
+        try {
+          list = JSON.parse(c.towers);
+        } catch {
+          continue;
+        }
+        const next = list.map((t) => map[t] ?? t);
+        if (JSON.stringify(next) !== JSON.stringify(list)) await db('communities').where({ id: c.id }).update({ towers: JSON.stringify(next) });
+      }
+    },
+  },
 ];
 
 export async function migrate(db: Db): Promise<void> {

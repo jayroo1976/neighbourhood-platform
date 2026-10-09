@@ -3,7 +3,7 @@
 **Last updated:** 2026-10-04 (generalised to "management company"; tests re-run) · **Version:** 0.1.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
 
 ## Works and has been verified
-- API typechecks and builds; 17 automated tests pass (`npm test`): TOTP vector, signed links, tamper detection, auth/lockout/CSRF, full report lifecycle, inbound email webhook, affects-me rules and admin toggle, privacy/blurring/private reports, EXIF stripping, data export/erasure, admin link duplicates + roles, KPI maths.
+- API typechecks and builds; 18 automated tests pass (`npm test`): TOTP vector, signed links, tamper detection, auth/lockout/CSRF, full report lifecycle, inbound email webhook, affects-me rules and admin toggle, privacy/blurring/private reports, EXIF stripping, data export/erasure, admin link duplicates + roles, KPI maths.
 - Web app builds (`vite build`). Smoke-tested in a browser with demo data: login, community feed, report form, incident page, notifications, profile, scorecard, all admin pages. No console errors. Screenshots taken.
 - Sleep-mode gate (start page, 503 "asleep", status/wake endpoints, normal startup) tested locally.
 

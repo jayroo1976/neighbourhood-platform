@@ -5,10 +5,23 @@ import { useAuth } from '../auth';
 import { Banner, ErrorNote, Spinner, Stamp, useAsync } from '../ui';
 
 export function IncidentCard({ i }: { i: ListItem }) {
+  const reported = i.affects_count + 1;
   return (
-    <Link to={`/incident/${i.id}`} className="card incident-card">
-      {i.thumb_url ? <img src={i.thumb_url} alt="" loading="lazy" className="thumb" /> : <div className="thumb placeholder" aria-hidden />}
-      <div className="card-body">
+    <div className="card incident-card">
+      <div className="card-media">
+        <Link to={`/incident/${i.id}`} aria-label={`Open ${i.ref}`} className="media-link">
+          {i.thumb_url ? <img src={i.thumb_url} alt="" loading="lazy" className="thumb" /> : <div className="thumb placeholder" aria-hidden />}
+          <span className="count-badge" title="Residents who have reported this">
+            {reported} reported
+          </span>
+        </Link>
+        {i.can_affect && (
+          <Link to={`/incident/${i.id}?affects=1`} className="btn small affects-btn">
+            This affects me too
+          </Link>
+        )}
+      </div>
+      <Link to={`/incident/${i.id}`} className="card-body">
         <div className="card-top">
           <span className="ref">{i.ref}</span>
           <Stamp status={i.status} />
@@ -21,14 +34,13 @@ export function IncidentCard({ i }: { i: ListItem }) {
         </div>
         <div className="meta strong">
           {i.mgmt_case_number && <span>Case {i.mgmt_case_number}</span>}
-          {i.affects_count > 0 && <span>{i.affects_count + 1} residents affected</span>}
           {i.linked_reports > 0 && <span>{i.linked_reports} linked</span>}
           {i.is_mine && <span className="pill">Yours</span>}
           {i.i_affect && <span className="pill">You're affected</span>}
           {i.private && <span className="pill">Private</span>}
         </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }
 

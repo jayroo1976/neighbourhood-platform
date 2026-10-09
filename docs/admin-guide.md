@@ -1,7 +1,7 @@
 # Admin guide
 
 ## Roles
-- **Resident:** reports, "affects me", adds case numbers, confirms fixed / poorly fixed with a photo.
+- **Resident:** reports, "affects me", adds case numbers (the reporter's, and each affected resident's own incident ID, which is included in the email to management), confirms fixed / poorly fixed with a photo.
 - **Committee:** read-only view with blurred locations (for resident committee members).
 - **Admin:** everything below. **Super admin:** also removes demo data.
 
@@ -14,7 +14,7 @@
 
 ## First-time setup
 1. Create the admin (see docs/unraid.md), sign in, enrol MFA.
-2. Admin > Settings: set the real tower names (default Tower A-C), the management email, SLAs and toggles. 3. Remove demo data if you seeded.
+2. Admin > Settings: set the real tower names (default MR 1-C), the management email, SLAs and toggles. 3. Remove demo data if you seeded.
 4. Invite testers with the invite code.
 
 ## CSV import of existing issues
