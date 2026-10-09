@@ -3,6 +3,7 @@
 ## 2026-10-09 - Photo upload fix
 - Cause (most likely): Docker creates the bind-mounted `files` folder as root while the app runs as user `node`, so saving a photo failed with a permission error (HTTP 500) and the report form could not continue.
 - Fix: new `docker-entrypoint.sh` starts as root, `chown`s the photo folder, then drops to `node` (via `setpriv`). No manual `chown` needed any more.
+- The Dockerfile now sets the entrypoint's executable bit and strips CRLF itself (uploading via the GitHub website drops the +x flag, which stopped the container starting).
 - The web client now shows a clear message when the server/proxy returns a non-JSON error (e.g. 413 too large) instead of failing silently.
 
 ## 2026-10-09 - create-admin resets lockout

@@ -17,7 +17,8 @@ COPY --from=build /app/api/package.json api/
 COPY --from=build /app/api/dist api/dist
 COPY --from=build /app/web/dist web/dist
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN mkdir -p /data/files && chown node:node /data/files
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod 755 /usr/local/bin/docker-entrypoint.sh \
+ && mkdir -p /data/files && chown node:node /data/files
 EXPOSE 8080
 HEALTHCHECK CMD node -e "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 ENTRYPOINT ["docker-entrypoint.sh"]
