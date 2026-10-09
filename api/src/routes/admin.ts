@@ -214,6 +214,7 @@ export function adminRouter(): Router {
     wrap(async (req, res) => {
       const body = parse(
         z.object({
+          name: z.string().trim().min(2).max(80).optional(),
           mgmt_email: z.string().email().max(200).optional(),
           towers: z.array(z.string().trim().min(1).max(40)).max(100).optional(),
           settings: z
@@ -238,6 +239,7 @@ export function adminRouter(): Router {
       const merged = mergeSettings({ ...JSON.parse(c.settings), ...body.settings, sla_resolve_days: { ...mergeSettings(c.settings).sla_resolve_days, ...(body.settings?.sla_resolve_days ?? {}) } });
       await req.db('communities').where({ id: c.id }).update({
         settings: JSON.stringify(merged),
+        ...(body.name ? { name: body.name } : {}),
         ...(body.mgmt_email ? { mgmt_email: body.mgmt_email } : {}),
         ...(body.towers ? { towers: JSON.stringify(body.towers) } : {}),
       });

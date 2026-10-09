@@ -559,7 +559,7 @@ export function AdminSettings() {
     setError(null);
     setMsg(null);
     try {
-      await api.patch('/admin/settings', { mgmt_email: s!.community.mgmt_email, towers: towers.split('\n').map((t) => t.trim()).filter(Boolean), settings: s!.settings });
+      await api.patch('/admin/settings', { name: s!.community.name, mgmt_email: s!.community.mgmt_email, towers: towers.split('\n').map((t) => t.trim()).filter(Boolean), settings: s!.settings });
       setMsg('Settings saved.');
     } catch (err) {
       setError(err);
@@ -574,6 +574,9 @@ export function AdminSettings() {
       <form className="stack" onSubmit={save}>
         <fieldset disabled={!writer} className="panel stack">
           <h2>Where reports go</h2>
+          <Field label="Community name" hint="Shown at the top of the dashboard.">
+            <input value={s.community.name} onChange={(e) => setS({ ...s, community: { ...s.community, name: e.target.value } })} required minLength={2} maxLength={80} />
+          </Field>
           <Field label="Management email address" hint="Every report and 'affects me' is emailed here. Check this before real use.">
             <input type="email" value={s.community.mgmt_email} onChange={(e) => setS({ ...s, community: { ...s.community, mgmt_email: e.target.value } })} required />
           </Field>

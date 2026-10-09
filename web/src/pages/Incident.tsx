@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CATEGORY_LABELS, OPEN_STATUSES, STATUS_LABELS, api, dateTime, duration, type IncidentDetail, type IncidentEvent, type Status } from '../api';
 import { useAuth } from '../auth';
-import { Banner, ErrorNote, Field, PhotoButton, Sheet, Spinner, Stamp, shrinkImage, useAsync } from '../ui';
+import { Banner, ErrorNote, Field, PhotoButton, Sheet, Spinner, ShareButton, Stamp, shrinkImage, useAsync } from '../ui';
 
 export function eventText(e: IncidentEvent): string {
   const p = e.payload;
@@ -250,6 +250,7 @@ export function IncidentPage() {
           {d.visibility === 'private' && <span className="pill">Private</span>}
         </div>
         <p className="muted small">Reported {dateTime(d.reported_at)}{d.emailed_at ? ` · emailed to management ${dateTime(d.emailed_at)}` : ' · email pending'}</p>
+        {d.visibility === 'community' && open && <ShareButton incidentId={d.id} refLabel={d.ref} title={d.title} />}
       </header>
 
       <PhotoStrip photos={d.photos} />

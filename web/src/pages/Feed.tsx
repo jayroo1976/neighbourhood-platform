@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CATEGORY_LABELS, ago, api, qs, type ListItem } from '../api';
 import { useAuth } from '../auth';
-import { Banner, ErrorNote, Spinner, Stamp, useAsync } from '../ui';
+import { ErrorNote, Spinner, Stamp, useAsync } from '../ui';
 
 export function IncidentCard({ i }: { i: ListItem }) {
   const reported = i.affects_count + 1;
@@ -62,13 +62,29 @@ export function Feed() {
 
   return (
     <div className="page">
-      <header className="page-head">
-        <h1>{me?.community?.name ?? 'Community'}</h1>
-        <p className="muted">Everything reported here is also emailed to the management company.</p>
+      <header className="page-head brand-head">
+        <img src="/icons/any/app-96.png" alt="" className="brand-logo" width={56} height={56} />
+        <div>
+          <h1>{me?.community?.name ?? 'Community'}</h1>
+          <p className="muted">Everything reported here is also emailed to the management company.</p>
+        </div>
       </header>
 
+      <Link to="/report" className="report-cta">
+        <span className="report-cta-plus" aria-hidden>+</span>
+        <span>
+          <strong>Report an issue</strong>
+          <small>Take a photo, we email the management company</small>
+        </span>
+      </Link>
+
       {attention.data?.items.length ? (
-        <Banner tone="warn" title="Needs your attention">
+        <details className="attention">
+          <summary>
+            <span className="attention-count">{attention.data.items.length}</span>
+            {attention.data.items.length === 1 ? '1 incident needs your attention' : `${attention.data.items.length} incidents need your attention`}
+            <span className="attention-chevron" aria-hidden>▾</span>
+          </summary>
           <ul className="plain">
             {attention.data.items.map((a) => (
               <li key={a.id}>
@@ -78,10 +94,10 @@ export function Feed() {
               </li>
             ))}
           </ul>
-        </Banner>
+        </details>
       ) : null}
 
-      <div className="seg" role="tablist">
+      <div className="tabs" role="tablist">
         <button role="tab" aria-selected={scope === 'community'} className={scope === 'community' ? 'on' : ''} onClick={() => setScope('community')}>
           Community
         </button>
@@ -90,16 +106,22 @@ export function Feed() {
         </button>
       </div>
 
-      <div className="filters">
-        <input type="search" placeholder="Search issues" value={text} onChange={(e) => setText(e.target.value)} aria-label="Search" />
-        <div className="chips">
-          {(['open', 'closed', 'all'] as const).map((s) => (
-            <button key={s} className={`chip ${state === s ? 'on' : ''}`} onClick={() => setState(s)}>
-              {s === 'open' ? 'Open' : s === 'closed' ? 'Closed' : 'All'}
+      <div className="feed-filters">
+        <label className="search">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" strokeWidth="2" />
+            <path d="M15.5 15.5L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          <input type="search" placeholder="Search issues" value={text} onChange={(e) => setText(e.target.value)} aria-label="Search" />
+        </label>
+        <div className="state-tabs" role="radiogroup" aria-label="Show">
+          {(['open', 'closed', 'all'] as const).map((st) => (
+            <button key={st} role="radio" aria-checked={state === st} className={state === st ? 'on' : ''} onClick={() => setState(st)}>
+              {st === 'open' ? 'Open' : st === 'closed' ? 'Closed' : 'All'}
             </button>
           ))}
         </div>
-        <div className="row">
+        <div className="selects">
           <select value={tower} onChange={(e) => setTower(e.target.value)} aria-label="Tower">
             <option value="">All towers</option>
             {me?.community?.towers.map((t) => (

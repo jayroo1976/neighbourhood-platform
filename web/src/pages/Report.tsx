@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CATEGORY_LABELS, api, dateTime, qs } from '../api';
 import { useAuth } from '../auth';
-import { Banner, ErrorNote, Field, PhotoButton, Toggle, shrinkImage } from '../ui';
+import { Banner, ErrorNote, Field, PhotoButton, Toggle, ShareButton, shrinkImage } from '../ui';
 import { draftWithOwnAi, loadOwnAi } from '../ownAi';
 
 interface Photo {
@@ -48,7 +48,7 @@ export function Report() {
   const [similar, setSimilar] = useState<Similar[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ id: string; ref: string } | null>(null);
+  const [done, setDone] = useState<{ id: string; ref: string; shareable: boolean } | null>(null);
   const touched = useRef({ title: false, description: false, category: false, severity: false });
   const openedAt = useRef(new Date());
 
@@ -139,7 +139,7 @@ export function Report() {
         visibility: priv ? 'private' : 'community',
         upload_ids: photos.map((p) => p.id),
       });
-      setDone(r);
+      setDone({ ...r, shareable: !priv });
     } catch (e) {
       setError(e);
     } finally {
@@ -159,6 +159,14 @@ export function Report() {
           <Banner tone="info" title="Next step">
             When they reply with a case number, add it on the report. We'll remind you if nothing arrives within {me?.config.sla_case_hours ?? 24} hours.
           </Banner>
+          {done.shareable && (
+            <div className="share-box">
+              <p>
+                <strong>Neighbours have the same problem?</strong> Send them this link. They sign in, tap once, and are counted on your report.
+              </p>
+              <ShareButton incidentId={done.id} refLabel={done.ref} title={title} />
+            </div>
+          )}
           <div className="stack">
             <Link className="btn primary block" to={`/incident/${done.id}`}>
               View report

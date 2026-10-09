@@ -1,5 +1,15 @@
 # Changelog (newest first)
 
+## 2026-10-09 - New app icon
+- Main app icon (building with teal dome) from your icon set now used for the browser tab, the Android install/shortcut icon (any + maskable PNGs, 32-512 px) and the iPhone home-screen icon (`web/public/icons/apple-touch-icon.png`, 180 px). Theme colour changed to the icon's navy `#0a1c34`. Old `icon.svg` / `icon-192.png` / `icon-512.png` removed; service-worker cache bumped to v2.
+- The per-category icons from the set (plumbing, electrical, elevator, etc.) are NOT used yet, by choice.
+- Not checked on a real phone. Already-installed shortcuts may keep the old icon until removed and re-added.
+- Admin > Settings now has an editable Community name (the dashboard heading showed the placeholder `127.0.01`).
+- Dashboard redesign: app icon beside the heading and in the top bar; full-width search box with a magnifier; Open/Closed/All as a segmented control; Community / My reports as underline tabs; tower and sort selectors side by side. Checked at phone width in a browser against demo data.
+- Report button: big amber "Report an issue" button at the top of the dashboard, and the bottom-bar "+" is now a labelled "+ Report" pill.
+- "Needs your attention" is collapsed into one line ("6 incidents need your attention") that opens on tap.
+- Share link: after reporting, and on any open community report, "Share link so neighbours can add themselves" (phone share sheet, or copies the link). The link is `/incident/<id>?affects=1`; it survives sign-in and account creation (sign-in now returns you to the page you were opening) and opens the "This affects me too" sheet. Private reports cannot be shared. Checked in a browser: logged out -> link -> sign in -> lands on the sheet.
+
 ## 2026-10-09 - MR towers, dashboard "affects me" button, per-resident incident ID
 - Towers renamed MR 1 / MR 2 / MR 3 (new default, seed, tests). Migration `002` renames existing Tower A/B/C in communities, users, incidents and affects, so your current data is converted on the next start. Admins can still edit the list in Settings.
 - Dashboard cards: "N reported" badge on the photo and a "This affects me too" button under it (shown only when you can still add yourself). It opens the report with the sheet ready.

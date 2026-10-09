@@ -127,3 +127,32 @@ export function PhotoButton({ onFile, label = 'Take or choose photo', capture = 
     </label>
   );
 }
+
+/** Shares a link that opens the report straight into "This affects me too" (works through sign-in). */
+export function ShareButton({ incidentId, refLabel, title }: { incidentId: string; refLabel?: string; title: string }) {
+  const [copied, setCopied] = useState(false);
+  const url = `${location.origin}/incident/${incidentId}?affects=1`;
+  async function share() {
+    const text = `Same problem in our building? Add yourself in two taps: ${title}${refLabel ? ` (${refLabel})` : ''}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Neighbourhood report', text, url });
+        return;
+      }
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt('Copy this link', url);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+  return (
+    <button type="button" className="btn block share-btn" onClick={share}>
+      {copied ? 'Link copied' : 'Share link so neighbours can add themselves'}
+    </button>
+  );
+}

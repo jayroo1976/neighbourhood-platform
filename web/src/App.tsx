@@ -50,7 +50,7 @@ function Protected({ admin }: { admin?: boolean }) {
   const loc = useLocation();
   if (loading) return <Spinner />;
   const u = me?.user;
-  if (!u) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
+  if (!u) return <Navigate to="/login" replace state={{ from: loc.pathname + loc.search }} />;
   if (u.mfa_enrol_required) return loc.pathname === '/mfa' ? <Outlet /> : <Navigate to="/mfa" replace />;
   if (admin && u.role !== 'admin' && u.role !== 'super_admin') return <Navigate to="/" replace />;
   const staff = u.role === 'admin' || u.role === 'super_admin';
@@ -58,7 +58,7 @@ function Protected({ admin }: { admin?: boolean }) {
   return (
     <div className="shell">
       <header className="topbar">
-        <NavLink to="/" className="brand"><span className="brand-mark">N</span> {me?.community?.name ?? 'Neighbourhood'}</NavLink>
+        <NavLink to="/" className="brand"><img src="/icons/any/app-48.png" alt="" className="brand-mark" width={30} height={30} /> {me?.community?.name ?? 'Neighbourhood'}</NavLink>
         <nav className="topnav" aria-label="Main">
           <NavLink to="/" end>Community</NavLink>
           <NavLink to="/scorecard">Scorecard</NavLink>
@@ -83,7 +83,7 @@ function Protected({ admin }: { admin?: boolean }) {
       </main>
       <nav className="bottomnav" aria-label="Main">
         <NavLink to="/" end>Community</NavLink>
-        <NavLink to="/report" className="fab">+</NavLink>
+        <NavLink to="/report" className="fab"><span aria-hidden>+</span> Report</NavLink>
         <NavLink to="/alerts">Alerts{unread > 0 && <span className="badge">{unread}</span>}</NavLink>
         <NavLink to="/scorecard">Scores</NavLink>
         <NavLink to={staff ? '/admin/incidents' : '/profile'}>{staff ? 'Admin' : 'Me'}</NavLink>

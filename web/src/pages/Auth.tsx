@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { useAuth } from '../auth';
 import { Banner, ErrorNote, Field } from '../ui';
@@ -17,9 +17,17 @@ function Shell({ title, sub, children }: { title: string; sub?: string; children
   );
 }
 
+/** Where to go after signing in: the page the person was trying to open (same-site paths only). */
+function useReturnTo(): string {
+  const st = useLocation().state as { from?: unknown } | null;
+  const from = typeof st?.from === 'string' ? st.from : '/';
+  return from.startsWith('/') && !from.startsWith('//') && !from.startsWith('/login') ? from : '/';
+}
+
 export function Login() {
   const { refresh } = useAuth();
   const nav = useNavigate();
+  const returnTo = useReturnTo();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfa, setMfa] = useState('');
@@ -35,7 +43,7 @@ export function Login() {
     try {
       const r = await api.post<{ mfa_enrol_required: boolean }>('/auth/login', { email, password, ...(useRecovery ? { recovery_code: mfa } : mfa ? { mfa_code: mfa } : {}) });
       await refresh();
-      nav(r.mfa_enrol_required ? '/mfa' : '/', { replace: true });
+      nav(r.mfa_enrol_required ? '/mfa' : returnTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.code === 'mfa_required') setNeedMfa(true);
       else setError(err);
@@ -69,7 +77,7 @@ export function Login() {
         )}
       </form>
       <p className="center">
-        <Link to="/forgot">Forgot password?</Link> · <Link to="/register">Create account</Link>
+        <Link to="/forgot">Forgot password?</Link> · <Link to="/register" state={{ from: returnTo }}>Create account</Link>
       </p>
     </Shell>
   );
@@ -78,6 +86,7 @@ export function Login() {
 export function Register() {
   const { me, refresh } = useAuth();
   const nav = useNavigate();
+  const returnTo = useReturnTo();
   const [f, setF] = useState({ name: '', email: '', password: '', tower: '', unit: '', invite_code: '', consent: false });
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -91,7 +100,7 @@ export function Register() {
     try {
       await api.post('/auth/register', { ...f, invite_code: f.invite_code || undefined });
       await refresh();
-      nav('/', { replace: true });
+      nav(returnTo, { replace: true });
     } catch (err) {
       setError(err);
     } finally {
@@ -145,7 +154,7 @@ export function Register() {
         </button>
       </form>
       <p className="center">
-        Already registered? <Link to="/login">Sign in</Link>
+        Already registered? <Link to="/login" state={{ from: returnTo }}>Sign in</Link>
       </p>
     </Shell>
   );
