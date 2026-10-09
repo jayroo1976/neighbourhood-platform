@@ -145,3 +145,13 @@ details summary{cursor:pointer;font-weight:600}
 .whatsapp-btn{background:#1faa59;border-color:#1faa59;color:#fff;text-align:center;text-decoration:none;font-weight:700}
 .share-text{width:100%;font:inherit;font-size:.85rem;color:var(--muted);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.6rem}
 .share-note{margin:0;padding:.55rem .75rem;background:#e9f3f1;border-radius:10px;font-weight:600;color:var(--teal)}
+
+/* no green bar on phones (bottom bar has navigation); no duplicate logo/title on desktop (bar has them) */
+.topbar{display:none}
+@media(min-width:760px){.topbar{display:flex}.brand-head .brand-logo,.brand-head .brand-title{display:none}}
+/* the big orange button */
+.report-cta{display:flex;align-items:center;gap:.9rem;background:linear-gradient(#f59a1f,#e07f08);color:#fff;text-decoration:none;border-radius:18px;padding:1rem 1.1rem;margin-bottom:1rem;border:2px solid #b8650a;border-bottom-width:6px;box-shadow:0 8px 18px rgba(201,122,10,.4);min-height:78px;transition:transform .08s,border-bottom-width .08s}
+.report-cta:active{transform:translateY(4px);border-bottom-width:2px}
+.report-cta-text{flex:1}.report-cta strong{display:block;font-size:1.25rem;letter-spacing:.04em}.report-cta small{display:block;opacity:.95;font-size:.85rem;margin-top:.1rem}
+.report-cta-plus{width:48px;height:48px;background:#fff;color:#e07f08;font-weight:700}
+.report-cta-go{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.25);font-size:2rem;line-height:1;flex:none}

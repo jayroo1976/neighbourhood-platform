@@ -65,17 +65,18 @@ export function Feed() {
       <header className="page-head brand-head">
         <img src="/icons/any/app-96.png" alt="" className="brand-logo" width={56} height={56} />
         <div>
-          <h1>{me?.community?.name ?? 'Community'}</h1>
+          <h1 className="brand-title">{me?.community?.name ?? 'Community'}</h1>
           <p className="muted">Everything reported here is also emailed to the management company.</p>
         </div>
       </header>
 
       <Link to="/report" className="report-cta">
         <span className="report-cta-plus" aria-hidden>+</span>
-        <span>
-          <strong>Report an issue</strong>
-          <small>Take a photo, we email the management company</small>
+        <span className="report-cta-text">
+          <strong>REPORT AN ISSUE</strong>
+          <small>Take a photo. We email the management company.</small>
         </span>
+        <span className="report-cta-go" aria-hidden>&rsaquo;</span>
       </Link>
 
       {attention.data?.items.length ? (

@@ -66,7 +66,6 @@ function Protected({ admin }: { admin?: boolean }) {
           <NavLink to="/profile">Profile</NavLink>
           {staff && <NavLink to="/admin/incidents">Admin</NavLink>}
         </nav>
-        <NavLink to="/report" className="btn primary small topreport">+ Report</NavLink>
       </header>
       {inAdmin && (
         <nav className="subnav" aria-label="Admin">

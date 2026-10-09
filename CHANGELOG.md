@@ -1,5 +1,9 @@
 # Changelog (newest first)
 
+## 2026-10-09 - Cleaner top of the dashboard
+- Removed the green top bar on phones (navigation is the bottom bar) and the extra "+ Report" button at the top right. On desktop the bar stays for navigation; the duplicate logo/title in the page header is hidden there.
+- The orange "REPORT AN ISSUE" button now looks like a physical button: gradient, raised edge, shadow, arrow, and presses down when tapped.
+
 ## 2026-10-09 - Share sheet, WhatsApp, link previews
 - Replaced the browser popups with a "Share with neighbours" sheet: **Send on WhatsApp** (opens WhatsApp with the message and link pre-filled), **Copy message and link**, **Copy link only**, and the phone's share sheet where available. Copying now works on plain http (home server) via a fallback; the old popups appeared because browsers block the modern clipboard/share APIs on non-HTTPS pages.
 - Optional **WhatsApp group invite link** in Admin > Settings adds "Post in our WhatsApp group": WhatsApp cannot pre-fill a post into a chosen group, so the message is copied and the group opens for pasting.
