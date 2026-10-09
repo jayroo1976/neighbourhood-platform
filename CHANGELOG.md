@@ -1,5 +1,22 @@
 # Changelog (newest first)
 
+## 2026-10-09 - Photo upload fix
+- Cause (most likely): Docker creates the bind-mounted `files` folder as root while the app runs as user `node`, so saving a photo failed with a permission error (HTTP 500) and the report form could not continue.
+- Fix: new `docker-entrypoint.sh` starts as root, `chown`s the photo folder, then drops to `node` (via `setpriv`). No manual `chown` needed any more.
+- The web client now shows a clear message when the server/proxy returns a non-JSON error (e.g. 413 too large) instead of failing silently.
+
+## 2026-10-09 - create-admin resets lockout
+- Re-running create-admin for an existing user now also clears failed-login count and lockout. Documented recovery steps in docs/admin-guide.md. Untested on Unraid (needs a new image to take effect; tsc passes).
+
+## 2026-10-04 - Unraid compose: COOKIE_SECURE pass-through
+- `docker-compose.unraid.yml` now passes `COOKIE_SECURE` so plain-http LAN testing can log in; docs/unraid.md and docs/configuration.md explain the symptom and the fix. Untested on Unraid.
+
+## 2026-10-04 - Docs fix
+- Corrected the create-admin command in docs/unraid.md and README.md (it needs an email and name); explained invite code vs admin creation.
+
+## 2026-10-04 - Compose fix
+- `docker-compose.unraid.yml`: removed `build: .` (it would try to build from a missing source folder on Unraid), added `pull_policy: always`. docs/unraid.md updated. Untested on Unraid.
+
 ## 2026-10-04 - Generalised "Dubai Holding" to "management company"
 - All user-facing text, emails, privacy notice and docs now say "the management company". No brand name remains in the code or docs.
 - Internal renames (nothing deployed yet, so no data migration): `dh_*` columns/fields/event types -> `mgmt_*` (e.g. `mgmt_email`, `mgmt_case_number`, `mgmt_closed_at`, `mgmt_closed_count`, status `mgmt_closed`, event `mgmt_reply_received`), env var `DH_EMAIL` -> `MGMT_EMAIL` (also in Bicep param `mgmtEmail`, compose, workflows), function names `queueMgmtEmail`/`recordMgmtReply`. CSV export header `dh_case_number` -> `mgmt_case_number`.

@@ -18,7 +18,7 @@ services:
     # Pulled from GitHub Container Registry (built by .github/workflows/publish-image.yml).
     # Set NP_IMAGE in .env, e.g. ghcr.io/<your-github-user>/neighbourhood-platform:latest
     image: ${NP_IMAGE:?set NP_IMAGE in .env}
-    build: .   # only used with `docker compose up --build`
+    pull_policy: always
     labels:
       - com.centurylinklabs.watchtower.enable=true
     restart: unless-stopped
@@ -42,6 +42,7 @@ services:
       REGISTRATION_CODE: ${REGISTRATION_CODE:-}
       STORAGE_PROVIDER: local
       STORAGE_LOCAL_DIR: /data/files
+      COOKIE_SECURE: ${COOKIE_SECURE:-}               # set false ONLY for plain-http LAN testing; leave blank behind HTTPS
       REQUIRE_ADMIN_MFA: ${REQUIRE_ADMIN_MFA:-true}
     volumes:
       - ${APPDATA:-/mnt/user/appdata/neighbourhood}/files:/data/files

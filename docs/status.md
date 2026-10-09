@@ -10,7 +10,7 @@
 ## Not verified (assume it needs testing)
 - **Not run on Unraid / Docker** (Dockerfile, `docker-compose.unraid.yml`, Watchtower, `publish-image.yml`). First real run may need fixes.
 - **Azure Bicep, backups job, sleep-mode permissions, `infra.yml`/`deploy.yml`**: written, never validated or deployed.
-- Real email sending (SMTP/ACS), inbound email webhook wiring, photo upload from a real phone camera, GPS on a phone, push of reminders over time, browser BYO-AI calls with real keys.
+- Real email sending (SMTP/ACS), inbound email webhook wiring, photo upload from a real phone camera (permission fix 2026-10-09, awaiting confirmation), GPS on a phone, push of reminders over time, browser BYO-AI calls with real keys.
 - Postgres in practice (tests and demo run on SQLite).
 - Nothing has been reviewed by a lawyer.
 

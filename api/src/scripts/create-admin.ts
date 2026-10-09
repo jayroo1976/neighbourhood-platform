@@ -5,7 +5,8 @@ import { hashPassword, passwordProblem } from '../security/crypto';
 
 /**
  * Usage: npm run create-admin -w api -- admin@example.com "Full Name" [super_admin|admin|committee]
- * Password comes from ADMIN_PASSWORD, or a strong one is generated and printed once.
+ * Password comes from ADMIN_PASSWORD (12+ characters, not containing the email), or a strong one is generated and printed once.
+ * Running it again for an existing email resets the password, role and any lockout.
  */
 async function main() {
   const [email, name, role = 'super_admin'] = process.argv.slice(2);
@@ -22,7 +23,7 @@ async function main() {
   const now = new Date().toISOString();
   const existing = await db('users').where({ email: email.toLowerCase() }).first('id');
   if (existing) {
-    await db('users').where({ id: existing.id }).update({ role, active: 1, password_hash: await hashPassword(password), token_version: db.raw('token_version + 1') });
+    await db('users').where({ id: existing.id }).update({ role, active: 1, password_hash: await hashPassword(password), token_version: db.raw('token_version + 1'), failed_logins: 0, locked_until: null });
   } else {
     await db('users').insert({ id: crypto.randomUUID(), community_id: communityId, email: email.toLowerCase(), password_hash: await hashPassword(password), name, role, tower: null, unit: null, consent_at: now, consent_version: 'admin-bootstrap', created_at: now });
   }

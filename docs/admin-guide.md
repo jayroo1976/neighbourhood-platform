@@ -26,3 +26,8 @@ Admin > Data > Import (use **dry run** first). Columns (header row): `title` (re
 
 ## Export
 Admin > Data > Export CSV (formula-injection safe).
+
+## Locked out or forgotten admin password
+Run create-admin again for the same email; it resets the password (and, from the next image, any lockout):
+`docker exec -it -e ADMIN_PASSWORD='ChooseA-LongPassword-1' neighbourhood-app-1 node api/dist/scripts/create-admin.js you@example.com "Your Name"`
+Older images do not clear a lockout: run `docker exec neighbourhood-db-1 psql -U np -d np -c "update users set failed_logins=0, locked_until=null;"` or wait 15 minutes. Five wrong passwords lock an account for 15 minutes.

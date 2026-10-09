@@ -18,7 +18,14 @@ async function request<T>(method: string, path: string, body?: unknown, form?: F
   }
   const res = await fetch(`/api${path}`, { method, headers, body: payload, credentials: 'same-origin' });
   const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
+  let data: any = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    // not JSON (e.g. a proxy error page)
+    if (!res.ok) throw new ApiError(res.status, res.status === 413 ? 'That photo is too large for the server.' : `The server returned an error (${res.status}). Please try again.`);
+    throw new ApiError(res.status, 'Unexpected response from the server.');
+  }
   if (res.status === 503 && data.code === 'asleep') {
     location.reload(); // the service went to sleep: the reload shows the start page
     await new Promise(() => undefined);

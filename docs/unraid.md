@@ -5,7 +5,7 @@ Good for a short test with a few people. Not for the real pilot (home power/inte
 ## 0. How updates flow
 You push to GitHub `main` -> the **Publish image** workflow builds the image and stores it in GitHub's registry (ghcr.io) -> Watchtower on your Unraid sees the new image within 5 minutes and restarts the app. Database changes apply automatically on start. Rollback: set `NP_IMAGE` to an older `...:<commit-sha>` tag and run `docker compose up -d`.
 
-**Private repo:** create a GitHub personal access token with only `read:packages`, run `docker login ghcr.io -u <user>` on the Unraid, and copy the resulting `~/.docker/config.json` to `/mnt/user/appdata/neighbourhood/docker-config.json` (Watchtower uses it). Public repo: no login needed (create an empty file for that path). Do not put secrets or real data in the repo; `.env` stays on the Unraid.
+**Private repo:** create a GitHub personal access token with only `read:packages`, run `docker login ghcr.io -u <user>` on the Unraid, and copy the resulting `~/.docker/config.json` to `/mnt/user/appdata/neighbourhood/docker-config.json` (Watchtower uses it). Public repo: no login needed, but the file must still exist: run `echo '{}' > /mnt/user/appdata/neighbourhood/docker-config.json` (otherwise Docker creates a folder of that name and Watchtower fails). Do not put secrets or real data in the repo; `.env` stays on the Unraid.
 
 ## 1. Get the compose file and set secrets
 1. You only need `docker-compose.unraid.yml` on the Unraid (copy it, or `git clone`). The code itself arrives as the pre-built image.
@@ -21,12 +21,16 @@ MGMT_EMAIL=your-own-address@...      # NOT the management company while testing
 REGISTRATION_CODE=choose-an-invite-code
 ```
 ## 2. Start it
-Install the **Docker Compose Manager** plugin (Community Apps), add a stack pointing at `docker-compose.unraid.yml`, "Compose Up". Or in a terminal: `docker compose -f docker-compose.unraid.yml up -d --build`.
+Install the **Docker Compose Manager** plugin (Community Apps), add a stack pointing at `docker-compose.unraid.yml`, "Compose Up". Or in a terminal: `docker compose -f docker-compose.unraid.yml up -d`.
 
 ## 3. Create your admin
-`docker compose -f docker-compose.unraid.yml exec app node api/dist/scripts/create-admin.js`
+`docker exec -it neighbourhood-app-1 node api/dist/scripts/create-admin.js you@example.com "Your Name"` (prints a temporary password once; you must enrol an authenticator app at first sign-in; container name may differ, check `docker ps`)
+
+Residents sign up on the site with the invite code (`REGISTRATION_CODE` in `.env`); the admin above is created by this command, not by sign-up.
 
 ## 4. HTTPS (required)
+**Symptom if missing:** you sign in, the page returns to the login screen (the browser discards the secure cookie over plain http). For LAN-only testing you can set `COOKIE_SECURE=false` in `.env`, then Compose Down/Up. Remove it once HTTPS works.
+
 Phones only allow GPS and a secure login cookie over HTTPS. Easiest safe options:
 - **Cloudflare Tunnel** (cloudflared container): no open ports; point a hostname at `http://app:8080`.
 - **Tailscale** (testers install the app) with Tailscale serve/funnel.

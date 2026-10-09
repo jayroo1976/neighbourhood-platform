@@ -22,7 +22,7 @@ Full steps: **[docs/unraid.md](docs/unraid.md)**. In short:
 1. Push this repo to your **personal** GitHub (private). The **Publish image** workflow builds `ghcr.io/<you>/neighbourhood-platform:latest`.
 2. On Unraid, use `docker-compose.unraid.yml` (app + PostgreSQL + Watchtower) with a `.env` (secrets, `NP_IMAGE`, `APP_BASE_URL`).
 3. Put HTTPS in front (Cloudflare Tunnel or Tailscale). GPS and secure cookies need HTTPS.
-4. Create the admin: `docker compose -f docker-compose.unraid.yml exec app node api/dist/scripts/create-admin.js`.
+4. Create the admin: `docker exec -it neighbourhood-app-1 node api/dist/scripts/create-admin.js you@example.com "Your Name"` (prints a temporary password once; you must enrol an authenticator app at first sign-in; container name may differ, check `docker ps`).
 5. Updates: push to `main` -> new image -> Watchtower restarts the app within ~5 minutes.
 Keep `EMAIL_PROVIDER=console` and `MGMT_EMAIL` set to your own address while testing so nothing reaches the management company by accident.
 

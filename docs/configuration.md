@@ -11,7 +11,7 @@ Set in `.env` (Unraid) or the host's settings. Production (`NODE_ENV=production`
 | `DATABASE_SSL` | off (dev) / require (prod) | `off`, `require`, `no-verify` (use `off` for the Unraid Postgres container) |
 | `JWT_SECRET`, `FILE_SIGNING_SECRET`, `MFA_ENCRYPTION_KEY` | - | 32+ random chars each (required in production) |
 | `SESSION_HOURS` | 12 | Session lifetime |
-| `COOKIE_SECURE` | true in prod | Override only for plain-HTTP LAN testing |
+| `COOKIE_SECURE` | true in prod | Override only for plain-HTTP LAN testing (passed through by the Unraid compose file) |
 | `REQUIRE_ADMIN_MFA` | true in prod | Admins must enrol TOTP |
 | `REGISTRATION_CODE` | blank | Invite code for sign-up (blank = open) |
 | `DEFAULT_COMMUNITY_NAME` / `DEFAULT_COMMUNITY_SLUG` | Pilot Community / pilot | Created on first start |
