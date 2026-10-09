@@ -1,7 +1,7 @@
 import type { Db } from '../db';
 import { ADMIN_ROLES, mergeSettings, type Role } from '../domain';
 import { incidentKpis } from './kpi';
-import { signedPath } from './fileLinks';
+import { shareUrl, signedPath } from './fileLinks';
 import type { Actor } from './incidents';
 
 type Viewer = Pick<Actor, 'id' | 'role' | 'community_id'>;
@@ -122,6 +122,7 @@ export async function incidentDetail(db: Db, row: any, viewer: Viewer, opts: { f
   const reporter = admin && row.reporter_id ? await db('users').where({ id: row.reporter_id }).first('name', 'email', 'phone') : null;
   const showExact = mine || staff;
   const detail: Record<string, unknown> = {
+    share_url: row.visibility === 'community' && row.status !== 'withdrawn' ? shareUrl(row.id) : null,
     id: row.id,
     ref: row.ref,
     title: row.title,

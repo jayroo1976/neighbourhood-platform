@@ -250,7 +250,7 @@ export function IncidentPage() {
           {d.visibility === 'private' && <span className="pill">Private</span>}
         </div>
         <p className="muted small">Reported {dateTime(d.reported_at)}{d.emailed_at ? ` · emailed to management ${dateTime(d.emailed_at)}` : ' · email pending'}</p>
-        {d.visibility === 'community' && open && <ShareButton incidentId={d.id} refLabel={d.ref} title={d.title} />}
+        {d.share_url && open && <ShareButton shareUrl={d.share_url} refLabel={d.ref} title={d.title} groupUrl={me?.config.whatsapp_group_url || undefined} />}
       </header>
 
       <PhotoStrip photos={d.photos} />

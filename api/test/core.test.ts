@@ -1,3 +1,4 @@
+import { withPreview } from '../src/services/sharePreview';
 import request from 'supertest';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { verifyChain } from '../src/services/events';
@@ -205,6 +206,24 @@ describe('affects me', () => {
     expect((await admin.agent.patch('/api/admin/settings').set(H).send({ settings: { require_photo_for_affects: false } })).status).toBe(200);
     expect((await b.agent.post(`/api/incidents/${created.id}/affects`).set(H).send({})).status).toBe(201);
     await admin.agent.patch('/api/admin/settings').set(H).send({ settings: { require_photo_for_affects: true } });
+  });
+});
+
+describe('share link preview', () => {
+  it('shows title and photo only with a valid share token, never the apartment number', async () => {
+    const a = await register(ctx.app, { tower: 'MR 1', unit: '9876' });
+    const created = await createReport(a.agent, { title: 'Broken gate at the car park' });
+    const detail = (await a.agent.get(`/api/incidents/${created.id}`)).body;
+    expect(detail.share_url).toContain(`/incident/${created.id}?affects=1&s=`);
+    const token = new URL(detail.share_url).searchParams.get('s');
+    const html = '<html><head></head><body></body></html>';
+    const good = await withPreview(ctx.db, html, `/incident/${created.id}`, created.id, token);
+    expect(good).toContain('Broken gate at the car park');
+    expect(good).toContain('og:image');
+    expect(good).not.toContain('9876');
+    const bad = await withPreview(ctx.db, html, `/incident/${created.id}`, created.id, 'x'.repeat(24));
+    expect(bad).not.toContain('Broken gate');
+    expect(bad).toContain('Neighbourhood Reports');
   });
 });
 

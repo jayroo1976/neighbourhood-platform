@@ -47,3 +47,7 @@ Defined in `services/kpi.ts` (`KPI_DEFINITIONS`, served at `/api/kpi/summary`): 
 
 ## Email design
 New report and each "affects me" produce an independent email to the management company with expiring signed photo links (never attachments) and a per-incident reply-to `inc+<id>@REPLY_DOMAIN`. Replies can be fed back to the inbound webhook, which extracts case numbers by regex and records a `mgmt_reply_received` event.
+
+
+## Share links and previews
+`GET /incident/:id` (web route, served by `app.ts`) injects Open Graph tags via `services/sharePreview.ts`. The share URL is `APP_BASE_URL/incident/<id>?affects=1&s=<token>`; the token is an HMAC of the incident id using `FILE_SIGNING_SECRET` (`services/fileLinks.ts`). A valid token shows the report title, category, building, resident count and a 30-day signed link to the first photo. Without it the card is generic. `share_url` is returned by `POST /incidents` and `GET /incidents/:id` (null for private or withdrawn reports). Setting `whatsapp_group_url` is exposed in `/api/me` config.

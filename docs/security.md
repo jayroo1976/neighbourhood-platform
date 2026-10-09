@@ -11,3 +11,7 @@
 - Secrets: env/Container Apps secrets (32+ chars enforced in production). Move to Key Vault references when ready.
 - Azure: managed identity for Blob and ACR; no storage keys; TLS only; backups in-country.
 - Known gaps for v1: no email verification at sign-up (invite code is the gate); Postgres allows Azure services via firewall (move to private networking for production); dev-only npm audit notices in vitest/vite tooling.
+
+
+## Share links
+Anyone holding a share link can see the report's title, building, resident count and first photo in the link preview (like any shared link), and must sign in to see or do anything else. Private and withdrawn reports never produce previews. Rotating `FILE_SIGNING_SECRET` invalidates all share links and photo links.

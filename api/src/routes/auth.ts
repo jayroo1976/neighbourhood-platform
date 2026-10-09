@@ -155,6 +155,7 @@ export function authRouter(): Router {
           require_photo_for_affects: s.require_photo_for_affects,
           ai_suggest: s.ai_suggest_enabled && config.ai.enabled,
           sla_case_hours: s.sla_case_hours,
+          whatsapp_group_url: s.whatsapp_group_url,
         },
       });
     }),

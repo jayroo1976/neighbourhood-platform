@@ -1,5 +1,10 @@
 # Changelog (newest first)
 
+## 2026-10-09 - Share sheet, WhatsApp, link previews
+- Replaced the browser popups with a "Share with neighbours" sheet: **Send on WhatsApp** (opens WhatsApp with the message and link pre-filled), **Copy message and link**, **Copy link only**, and the phone's share sheet where available. Copying now works on plain http (home server) via a fallback; the old popups appeared because browsers block the modern clipboard/share APIs on non-HTTPS pages.
+- Optional **WhatsApp group invite link** in Admin > Settings adds "Post in our WhatsApp group": WhatsApp cannot pre-fill a post into a chosen group, so the message is copied and the group opens for pasting.
+- **Link preview card** (photo, title, "N residents reported"): the app now serves Open Graph tags for `/incident/:id`. Details show only when the link carries a valid share token (`&s=`, HMAC of the incident id); otherwise a generic card with the app icon. Never includes names, apartment numbers or location text; private/withdrawn reports never show. The photo link in the preview is valid for 30 days. Needs a public HTTPS address (Cloudflare Tunnel) and the right `APP_BASE_URL`: WhatsApp cannot fetch previews from 192.168.x.x. 19 tests pass (new: preview privacy).
+
 ## 2026-10-09 - New app icon
 - Main app icon (building with teal dome) from your icon set now used for the browser tab, the Android install/shortcut icon (any + maskable PNGs, 32-512 px) and the iPhone home-screen icon (`web/public/icons/apple-touch-icon.png`, 180 px). Theme colour changed to the icon's navy `#0a1c34`. Old `icon.svg` / `icon-192.png` / `icon-512.png` removed; service-worker cache bumped to v2.
 - The per-category icons from the set (plumbing, electrical, elevator, etc.) are NOT used yet, by choice.

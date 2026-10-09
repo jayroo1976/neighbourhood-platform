@@ -128,31 +128,87 @@ export function PhotoButton({ onFile, label = 'Take or choose photo', capture = 
   );
 }
 
-/** Shares a link that opens the report straight into "This affects me too" (works through sign-in). */
-export function ShareButton({ incidentId, refLabel, title }: { incidentId: string; refLabel?: string; title: string }) {
-  const [copied, setCopied] = useState(false);
-  const url = `${location.origin}/incident/${incidentId}?affects=1`;
-  async function share() {
-    const text = `Same problem in our building? Add yourself in two taps: ${title}${refLabel ? ` (${refLabel})` : ''}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: 'Neighbourhood report', text, url });
-        return;
-      }
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') return;
+/** Copy text to the clipboard. Falls back to the old select-and-copy method, which still works on plain http (e.g. a home server). */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
     }
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      window.prompt('Copy this link', url);
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+  } catch {
+    /* fall through */
   }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Share a link that opens the report straight into "This affects me too". WhatsApp-first. */
+export function ShareButton({ shareUrl, refLabel, title, groupUrl }: { shareUrl: string; refLabel?: string; title: string; groupUrl?: string }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const message = `Same problem in our building? "${title}"${refLabel ? ` (${refLabel})` : ''}. Tap to add yourself in two taps:\n${shareUrl}`;
+  const flash = (t: string) => {
+    setNote(t);
+    setTimeout(() => setNote(null), 3500);
+  };
+  async function copy(text: string, done: string) {
+    flash((await copyText(text)) ? done : 'Could not copy automatically. Press and hold the text above to copy it.');
+  }
+  const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share;
   return (
-    <button type="button" className="btn block share-btn" onClick={share}>
-      {copied ? 'Link copied' : 'Share link so neighbours can add themselves'}
-    </button>
+    <>
+      <button type="button" className="btn block share-btn" onClick={() => setOpen(true)}>
+        Share with neighbours
+      </button>
+      {open && (
+        <Sheet title="Share with neighbours" onClose={() => setOpen(false)}>
+          <div className="stack">
+            <p className="muted small">Neighbours who open this sign in, then add themselves to your report with a photo. The preview shows your report's photo and title.</p>
+            <a className="btn block whatsapp-btn" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer">
+              Send on WhatsApp
+            </a>
+            {groupUrl && (
+              <button
+                type="button"
+                className="btn block"
+                onClick={async () => {
+                  const ok = await copyText(message);
+                  flash(ok ? 'Message copied. Paste it into the group.' : 'Open the group and paste the link from "Copy link".');
+                  window.open(groupUrl, '_blank', 'noopener');
+                }}
+              >
+                Post in our WhatsApp group
+              </button>
+            )}
+            <button type="button" className="btn block" onClick={() => copy(message, 'Message and link copied.')}>
+              Copy message and link
+            </button>
+            <button type="button" className="btn block" onClick={() => copy(shareUrl, 'Link copied.')}>
+              Copy link only
+            </button>
+            {canNativeShare && (
+              <button type="button" className="btn block" onClick={() => navigator.share({ title: 'Neighbourhood report', text: message, url: shareUrl }).catch(() => undefined)}>
+                More apps...
+              </button>
+            )}
+            <textarea className="share-text" readOnly rows={4} value={message} onFocus={(e) => e.currentTarget.select()} aria-label="Message to share" />
+            {note && <p className="share-note" role="status">{note}</p>}
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }

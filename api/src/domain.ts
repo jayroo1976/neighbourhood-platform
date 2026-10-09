@@ -59,6 +59,8 @@ export interface CommunitySettings {
   cc_reporter: boolean;
   ai_suggest_enabled: boolean;
   registration_open: boolean;
+  /** Optional WhatsApp group invite link (https://chat.whatsapp.com/...) for the "post in our group" share button */
+  whatsapp_group_url: string;
 }
 
 export const DEFAULT_SETTINGS: CommunitySettings = {
@@ -72,6 +74,7 @@ export const DEFAULT_SETTINGS: CommunitySettings = {
   cc_reporter: false,
   ai_suggest_enabled: false,
   registration_open: true,
+  whatsapp_group_url: '',
 };
 
 export function mergeSettings(raw: unknown): CommunitySettings {

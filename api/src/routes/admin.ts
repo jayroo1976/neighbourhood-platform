@@ -229,6 +229,7 @@ export function adminRouter(): Router {
               cc_reporter: z.boolean(),
               ai_suggest_enabled: z.boolean(),
               registration_open: z.boolean(),
+              whatsapp_group_url: z.string().trim().max(200).refine((v) => v === '' || /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+/.test(v), 'Use a WhatsApp group invite link starting https://chat.whatsapp.com/'),
             })
             .partial()
             .optional(),

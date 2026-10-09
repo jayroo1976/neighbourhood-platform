@@ -31,3 +31,7 @@ Admin > Data > Export CSV (formula-injection safe).
 Run create-admin again for the same email; it resets the password (and, from the next image, any lockout):
 `docker exec -it -e ADMIN_PASSWORD='ChooseA-LongPassword-1' neighbourhood-app-1 node api/dist/scripts/create-admin.js you@example.com "Your Name"`
 Older images do not clear a lockout: run `docker exec neighbourhood-db-1 psql -U np -d np -c "update users set failed_logins=0, locked_until=null;"` or wait 15 minutes. Five wrong passwords lock an account for 15 minutes.
+
+
+## WhatsApp sharing
+Residents get a Share sheet with "Send on WhatsApp". To add a "Post in our WhatsApp group" button, paste the group's invite link (WhatsApp > group > Invite via link) in Settings. WhatsApp cannot pre-fill a post into a chosen group, so the message is copied and the group opens for pasting. Link previews with a photo only work when the app is on a public HTTPS address.

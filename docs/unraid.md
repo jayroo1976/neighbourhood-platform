@@ -41,3 +41,7 @@ Set `APP_BASE_URL` to the final https address.
 - Share `/mnt/user/appdata/neighbourhood` (pgdata, files) in your normal Unraid backup. Add a nightly `pg_dump` (`docker compose exec db pg_dump -U np np > /mnt/user/backups/np.sql`) via User Scripts.
 - Keep emails on `console` until you want real ones, so nothing reaches management by accident.
 - Tell testers it is a test, use demo or low-sensitivity data, and delete the stack and `appdata` folder when finished.
+
+
+## WhatsApp previews need a public address
+Share links built on `http://192.168.x.x` work for copying, but WhatsApp cannot fetch a preview photo from a private address. Put the app behind the Cloudflare Tunnel and set `APP_BASE_URL` to the public https address.

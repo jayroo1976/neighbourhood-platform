@@ -66,7 +66,7 @@ export interface Me {
     consent_current: boolean;
   };
   community?: { name: string; towers: string[] };
-  config: { privacy_notice_version: string; invite_required: boolean; require_photo_for_affects?: boolean; ai_suggest?: boolean; sla_case_hours?: number };
+  config: { privacy_notice_version: string; invite_required: boolean; require_photo_for_affects?: boolean; ai_suggest?: boolean; sla_case_hours?: number; whatsapp_group_url?: string };
 }
 
 export interface ListItem {
@@ -142,6 +142,7 @@ export interface IncidentDetail {
   photos: { id: string; kind: string; url: string; thumb_url: string; created_at: string; mine: boolean }[];
   events: IncidentEvent[];
   kpis: Kpis;
+  share_url?: string | null;
   permissions: { is_mine: boolean; i_affect: boolean; can_act: boolean; can_affect: boolean; affect_needs_photo: boolean; my_case_number?: string | null };
   reporter?: { name: string; email: string; phone: string | null } | null;
   affects?: { tower: string; unit: string; at: string; mgmt_case_number?: string | null }[];

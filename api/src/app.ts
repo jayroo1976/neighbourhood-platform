@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import type { Db } from './db';
 import { config } from './config';
+import { withPreview } from './services/sharePreview';
 import { csrfGuard, errorHandler, loadSession } from './http';
 import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
@@ -76,7 +77,16 @@ export function createApp(db: Db): Express {
   const webDist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(webDist)) {
     app.use(express.static(webDist, { index: false, maxAge: '1h', setHeaders: (res, p) => p.endsWith('sw.js') && res.setHeader('Cache-Control', 'no-cache') }));
-    app.get('*', (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
+    const indexPath = path.join(webDist, 'index.html');
+    app.get('/incident/:id', async (req, res, next) => {
+      try {
+        const html = await withPreview(db, fs.readFileSync(indexPath, 'utf8'), req.path, req.params.id, req.query.s);
+        res.set('Cache-Control', 'no-cache').type('html').send(html);
+      } catch (e) {
+        next(e);
+      }
+    });
+    app.get('*', (_req, res) => res.sendFile(indexPath));
   }
 
   app.use(errorHandler);

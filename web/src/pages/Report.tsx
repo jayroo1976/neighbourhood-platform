@@ -48,7 +48,7 @@ export function Report() {
   const [similar, setSimilar] = useState<Similar[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ id: string; ref: string; shareable: boolean } | null>(null);
+  const [done, setDone] = useState<{ id: string; ref: string; share_url: string | null } | null>(null);
   const touched = useRef({ title: false, description: false, category: false, severity: false });
   const openedAt = useRef(new Date());
 
@@ -126,7 +126,7 @@ export function Report() {
     setBusy(true);
     setError(null);
     try {
-      const r = await api.post<{ id: string; ref: string }>('/incidents', {
+      const r = await api.post<{ id: string; ref: string; share_url: string | null }>('/incidents', {
         title,
         description,
         category: category || 'other',
@@ -139,7 +139,7 @@ export function Report() {
         visibility: priv ? 'private' : 'community',
         upload_ids: photos.map((p) => p.id),
       });
-      setDone({ ...r, shareable: !priv });
+      setDone(r);
     } catch (e) {
       setError(e);
     } finally {
@@ -159,12 +159,12 @@ export function Report() {
           <Banner tone="info" title="Next step">
             When they reply with a case number, add it on the report. We'll remind you if nothing arrives within {me?.config.sla_case_hours ?? 24} hours.
           </Banner>
-          {done.shareable && (
+          {done.share_url && (
             <div className="share-box">
               <p>
                 <strong>Neighbours have the same problem?</strong> Send them this link. They sign in, tap once, and are counted on your report.
               </p>
-              <ShareButton incidentId={done.id} refLabel={done.ref} title={title} />
+              <ShareButton shareUrl={done.share_url} refLabel={done.ref} title={title} groupUrl={me?.config.whatsapp_group_url || undefined} />
             </div>
           )}
           <div className="stack">

@@ -17,7 +17,7 @@ import {
   setCaseNumber,
   setMyCaseNumber,
 } from '../services/incidents';
-import { signedPath } from '../services/fileLinks';
+import { shareUrl, signedPath } from '../services/fileLinks';
 import { affectsCounts, incidentDetail, listItems } from '../services/serializers';
 import { findSimilar } from '../services/similar';
 import { getStorage } from '../services/storage';
@@ -190,7 +190,7 @@ export function incidentsRouter(): Router {
     wrap(async (req, res) => {
       const body = parse(createSchema, req.body);
       const inc = await createIncident(req.db, req.user!, { ...body, category: body.category as Category });
-      res.status(201).json({ id: inc.id, ref: inc.ref });
+      res.status(201).json({ id: inc.id, ref: inc.ref, share_url: inc.visibility === 'community' ? shareUrl(inc.id) : null });
     }),
   );
 

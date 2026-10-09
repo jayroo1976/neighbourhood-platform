@@ -532,6 +532,7 @@ interface SettingsResp {
     cc_reporter: boolean;
     ai_suggest_enabled: boolean;
     registration_open: boolean;
+    whatsapp_group_url: string;
   };
   ai_available: boolean;
 }
@@ -597,6 +598,9 @@ export function AdminSettings() {
               <input type="number" min={1} max={100} value={s.settings.reports_max_per_day} onChange={num('reports_max_per_day')} />
             </Field>
           </div>
+          <Field label="WhatsApp group invite link (optional)" hint="Adds a 'Post in our WhatsApp group' button when residents share. WhatsApp cannot pre-fill a group post, so the message is copied and the group opens for pasting. Looks like https://chat.whatsapp.com/XXXX">
+            <input type="url" value={s.settings.whatsapp_group_url ?? ''} onChange={(e) => set('whatsapp_group_url', e.target.value)} placeholder="https://chat.whatsapp.com/..." />
+          </Field>
           <Toggle checked={s.settings.registration_open} onChange={(v) => set('registration_open', v)} label="Registration open" />
           <Toggle checked={s.settings.ai_suggest_enabled} onChange={(v) => set('ai_suggest_enabled', v)} label="AI-drafted titles from photos" hint={s.ai_available ? 'Sends the photo to the AI provider configured on the server. Check privacy approval first.' : 'No AI provider is configured on the server, so a free keyword-based draft is used.'} />
         </fieldset>
