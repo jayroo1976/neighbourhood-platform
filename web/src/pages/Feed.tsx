@@ -66,7 +66,7 @@ export function Feed() {
         <img src="/icons/any/app-96.png" alt="" className="brand-logo" width={56} height={56} />
         <div>
           <h1 className="brand-title">{me?.community?.name ?? 'Community'}</h1>
-          <p className="muted">Everything reported here is also emailed to the management company.</p>
+          <p className="muted">Reports are logged here and emailed to the management company.</p>
         </div>
       </header>
 
@@ -74,7 +74,7 @@ export function Feed() {
         <span className="report-cta-plus" aria-hidden>+</span>
         <span className="report-cta-text">
           <strong>REPORT AN ISSUE</strong>
-          <small>Take a photo. We email the management company.</small>
+          <small>Take a photo, then send it from your own email.</small>
         </span>
         <span className="report-cta-go" aria-hidden>&rsaquo;</span>
       </Link>

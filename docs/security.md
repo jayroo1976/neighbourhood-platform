@@ -15,3 +15,7 @@
 
 ## Share links
 Anyone holding a share link can see the report's title, building, resident count and first photo in the link preview (like any shared link), and must sign in to see or do anything else. Private and withdrawn reports never produce previews. Rotating `FILE_SIGNING_SECRET` invalidates all share links and photo links.
+
+
+## Sign-up control
+Pending and declined accounts cannot sign in (checked after the password, so it does not reveal which emails exist to strangers). Admins are created or promoted only by super admins. Set-password links for added people expire after 7 days and are single use. Every approval, decline and creation is written to the audit log.

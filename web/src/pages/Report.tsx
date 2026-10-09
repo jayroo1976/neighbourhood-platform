@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CATEGORY_LABELS, api, dateTime, qs } from '../api';
 import { useAuth } from '../auth';
+import { EmailPanel } from '../EmailPanel';
 import { Banner, ErrorNote, Field, PhotoButton, Toggle, ShareButton, shrinkImage } from '../ui';
 import { draftWithOwnAi, loadOwnAi } from '../ownAi';
 
@@ -48,7 +49,7 @@ export function Report() {
   const [similar, setSimilar] = useState<Similar[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ id: string; ref: string; share_url: string | null } | null>(null);
+  const [done, setDone] = useState<{ id: string; ref: string; share_url: string | null; email_mode?: 'resident' | 'platform' } | null>(null);
   const touched = useRef({ title: false, description: false, category: false, severity: false });
   const openedAt = useRef(new Date());
 
@@ -126,7 +127,7 @@ export function Report() {
     setBusy(true);
     setError(null);
     try {
-      const r = await api.post<{ id: string; ref: string; share_url: string | null }>('/incidents', {
+      const r = await api.post<{ id: string; ref: string; share_url: string | null; email_mode?: 'resident' | 'platform' }>('/incidents', {
         title,
         description,
         category: category || 'other',
@@ -151,14 +152,24 @@ export function Report() {
     return (
       <div className="page">
         <div className="success">
-          <div className="stamp-big">Sent</div>
-          <h1>{done.ref} reported</h1>
-          <p>
-            We're emailing the management company now, with your photo, location and apartment number. The time and date are recorded: <strong>{dateTime(new Date().toISOString())}</strong>.
-          </p>
-          <Banner tone="info" title="Next step">
-            When they reply with a case number, add it on the report. We'll remind you if nothing arrives within {me?.config.sla_case_hours ?? 24} hours.
-          </Banner>
+          {done.email_mode === 'resident' ? (
+            <>
+              <div className="stamp-big">Saved</div>
+              <h1>{done.ref} saved</h1>
+              <EmailPanel incidentId={done.id} autoOpen />
+            </>
+          ) : (
+            <>
+              <div className="stamp-big">Sent</div>
+              <h1>{done.ref} reported</h1>
+              <p>
+                We're emailing the management company now, with your photo, location and apartment number. The time and date are recorded: <strong>{dateTime(new Date().toISOString())}</strong>.
+              </p>
+              <Banner tone="info" title="Next step">
+                When they reply with a case number, add it on the report. We'll remind you if nothing arrives within {me?.config.sla_case_hours ?? 24} hours.
+              </Banner>
+            </>
+          )}
           {done.share_url && (
             <div className="share-box">
               <p>

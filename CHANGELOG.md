@@ -1,5 +1,26 @@
 # Changelog (newest first)
 
+## 2026-10-09 - Join request on the login page, data notice, terms of use
+- **Login page:** a clear "Request to join" box (shows "Create an account" when approval is off). The form asks for name, email, tower, apartment and password.
+- **"What we store" notice** on the sign-up form lists what is kept about you and who sees it, followed by two tick boxes: one for the privacy notice and data sharing, one for the terms of use. Both must be ticked; the server rejects sign-ups without them.
+- **New Terms of use page (`/terms`)** written for the UAE: independent resident-run service, 18+ residents only, factual and lawful posts (defamation, privacy, cybercrime), moderation, scorecard wording, no emergency use, PDPL (Federal Decree-Law 45 of 2021), UAE law with Dubai courts. Draft pilot text, **needs lawyer review** before a wider launch. Operator entity is not named yet.
+- Acceptance is stored per person (`users.terms_at`, `terms_version`; migration `005_terms_acceptance`) alongside the existing privacy consent. 22 tests pass (new: sign-up refused without terms).
+- Approve/decline already works from People (see the entry below); turn on "Approve new sign-ups" in Settings to use it.
+
+## 2026-10-09 - Adding people: approval, invites, admin add
+- **Self-request with approval:** new Settings toggle "Approve new sign-ups". People fill in the sign-up form, see "request sent", and cannot sign in until a moderator approves (new `users.approval_status`: approved / pending / rejected). Moderators get an email per request, a red number on People and Admin, and a "waiting for approval" panel with Approve / Decline at the top of People. The person is emailed the outcome. Entering the invite code (if you use one) skips the wait.
+- **Resident invites:** Profile has "Invite neighbours" with a personal link (`/register?ref=...`), WhatsApp and copy buttons. Joiners are recorded as invited by that resident (shown to moderators on the request). Setting "Trust residents' invite links" lets those joiners skip approval.
+- **Admin add:** People > "+ Add a person" (name, email, tower, apartment, role). They get an email with a set-your-password link valid 7 days; the link is also shown to copy and send yourself (useful while email is still on console). Only super admins can add admins.
+- Sign-in messages: pending and declined people see a clear reason instead of "wrong password". Migration `004_signup_approval_and_invites`. 22 tests pass (new: approval flow, invites, admin add).
+- Default unchanged for now: approval is OFF until you turn it on.
+
+## 2026-10-09 - Residents email management from their own email app
+- **New default (`email_mode: resident`):** reporting saves the report on the platform, then opens the resident's own email app with the email to management already written (subject, details, secure photo links), so it comes from them. They press Send, return and tap "I've sent it"; that confirmation is recorded with a timestamp (`email_sent` event, `emailed_at`). If they skip it, the report page shows the same panel until done. The same applies when adding yourself with "This affects me too" (`affects.email_confirmed_at`). The server no longer sends the email in this mode. Admins can switch back to "Platform sends the email" in Settings.
+- Limits to know: the app cannot tell whether the email was really sent (it relies on the resident's confirmation), and photos go as secure links, not attachments (mailto cannot attach files). Reminders and the response-time clock start when the resident confirms.
+- "This affects me too": a photo is now **recommended, not required** (default off; migration 003 switches it off for existing communities, admins can turn it back on), and the sheet no longer asks for an incident ID (it can still be added later on the report page).
+- Smaller community title on the dashboard. Migrations: `003_resident_email_and_optional_affect_photo`. 20 tests pass (new: resident email flow).
+- Main "Report an issue" form still requires a photo; tell me if that should also become optional.
+
 ## 2026-10-09 - Cleaner top of the dashboard
 - Removed the green top bar on phones (navigation is the bottom bar) and the extra "+ Report" button at the top right. On desktop the bar stays for navigation; the duplicate logo/title in the page header is hidden there.
 - The orange "REPORT AN ISSUE" button now looks like a physical button: gradient, raised edge, shadow, arrow, and presses down when tapped.

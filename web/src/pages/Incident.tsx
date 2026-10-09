@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CATEGORY_LABELS, OPEN_STATUSES, STATUS_LABELS, api, dateTime, duration, type IncidentDetail, type IncidentEvent, type Status } from '../api';
 import { useAuth } from '../auth';
+import { EmailPanel } from '../EmailPanel';
 import { Banner, ErrorNote, Field, PhotoButton, Sheet, Spinner, ShareButton, Stamp, shrinkImage, useAsync } from '../ui';
 
 export function eventText(e: IncidentEvent): string {
@@ -14,7 +15,7 @@ export function eventText(e: IncidentEvent): string {
     case 'email_queued':
       return 'Email to management queued.';
     case 'email_sent':
-      return p.kind === 'mgmt_affects' ? 'Additional resident report emailed to the management company.' : p.kind === 'mgmt_resend' ? 'Reminder emailed to the management company.' : 'Report emailed to the management company.';
+      return p.kind === 'resident_new' ? 'The reporter emailed the management company from their own email.' : p.kind === 'resident_affects' ? 'An affected resident emailed the management company from their own email.' : p.kind === 'mgmt_affects' ? 'Additional resident report emailed to the management company.' : p.kind === 'mgmt_resend' ? 'Reminder emailed to the management company.' : 'Report emailed to the management company.';
     case 'email_failed':
       return 'Email to management failed - will be retried.';
     case 'case_number_added':
@@ -175,7 +176,7 @@ export function EvidenceSheet({
             </button>
           </div>
         ) : (
-          <PhotoButton onFile={pick} busy={uploading} label={required ? 'Take a photo (required)' : 'Add a photo (optional)'} />
+          <PhotoButton onFile={pick} busy={uploading} label={required ? 'Take a photo (required)' : kind === 'affects' ? 'Add a photo (recommended)' : 'Add a photo (optional)'} />
         )}
         {withNote && (
           <Field label="Note (optional)">
@@ -249,9 +250,15 @@ export function IncidentPage() {
           {d.severity !== 'normal' && <span className="pill">{d.severity === 'urgent' ? 'Safety risk' : d.severity}</span>}
           {d.visibility === 'private' && <span className="pill">Private</span>}
         </div>
-        <p className="muted small">Reported {dateTime(d.reported_at)}{d.emailed_at ? ` · emailed to management ${dateTime(d.emailed_at)}` : ' · email pending'}</p>
+        <p className="muted small">Reported {dateTime(d.reported_at)}{d.emailed_at ? ` · emailed to management ${dateTime(d.emailed_at)}` : p.email_mode === 'resident' ? ' · waiting for the reporter to send their email' : ' · email pending'}</p>
         {d.share_url && open && <ShareButton shareUrl={d.share_url} refLabel={d.ref} title={d.title} groupUrl={me?.config.whatsapp_group_url || undefined} />}
       </header>
+
+      {p.needs_my_email && (
+        <section className="panel">
+          <EmailPanel incidentId={d.id} onConfirmed={() => q.reload()} />
+        </section>
+      )}
 
       <PhotoStrip photos={d.photos} />
       {d.description && <p className="desc">{d.description}</p>}
@@ -297,7 +304,7 @@ export function IncidentPage() {
       {p.i_affect && (
         <section className="panel">
           <h2>Your own incident ID</h2>
-          <p className="muted small">Report this to the management company yourself too, then enter the reference they give you. It is recorded against your apartment.</p>
+          <p className="muted small">When the management company gives you your own reference, add it here. Optional.</p>
           {p.my_case_number && <p className="case-no">{p.my_case_number}</p>}
           <form
             className="row"
@@ -415,15 +422,14 @@ export function IncidentPage() {
         <EvidenceSheet
           title="This affects me too"
           kind="affects"
-          withCase
           required={p.affect_needs_photo}
-          confirmLabel="Add me and email the management company"
+          confirmLabel="Add me to this report"
           intro={
             <>
               <p>
-                Your tower and apartment ({me?.user?.tower}, {me?.user?.unit}) will be emailed to the management company as an additional resident affected.
+                Your tower and apartment ({me?.user?.tower}, {me?.user?.unit}) will be counted as an additional resident affected. Next you will send the email to management from your own email app.
               </p>
-              {p.affect_needs_photo && <p>Please take a new photo showing how it affects you, so each addition is real evidence.</p>}
+              {p.affect_needs_photo ? <p>Please take a new photo showing how it affects you, so each addition is real evidence.</p> : <p>A photo of how it affects you is recommended. It makes your report stronger, but you can add yourself without one.</p>}
               <p className="muted small">Not the same problem, or you don't want neighbours to see it? Log a separate report instead.</p>
             </>
           }

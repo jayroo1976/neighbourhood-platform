@@ -23,3 +23,15 @@
 
 ## 2026-10-09: Per-resident incident ID
 Each resident who taps "This affects me too" can record the management company's reference for their own report (`affects.mgmt_case_number`). It is private to that resident and the admins, and is included in the email to management. The shared incident-level case number is unchanged. Buildings are named MR 1, MR 2, MR 3.
+
+
+## 2026-10-09: Email comes from the resident, not the platform
+Management is more likely to act on an email from a named resident's own address than on one from a platform. Default is now `mailto:` from the resident's own email app; the platform records the report and the resident's confirmation. Trade-off: delivery cannot be verified and photos are links. Server-sent email remains as an admin option. Adding yourself to a report no longer requires a photo (recommended only).
+
+
+## 2026-10-09: Approval is a setting, invite code is the fast lane
+Open sign-up is risky for a platform that shows reports to neighbours. Approval is an option (default off during testing). With it on, an invite code or a trusted resident link skips the wait, so friends and neighbours are not slowed down. Declined people are blocked at sign-in with a clear message.
+
+
+## Terms of use and sign-up consent (2026-10-09)
+Decision: two separate required tick boxes (privacy/data sharing, terms) with a short data notice on the form. Reason: PDPL consent should be specific and informed, and terms acceptance is a different thing from data consent. Terms are a pilot draft under UAE law (Dubai courts), pending lawyer review; the operator entity is deliberately not named yet.

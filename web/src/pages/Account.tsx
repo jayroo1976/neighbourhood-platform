@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, ago } from '../api';
 import { useAuth } from '../auth';
-import { Banner, ErrorNote, Field, Spinner, Toggle, useAsync } from '../ui';
+import { Banner, ErrorNote, Field, Spinner, Toggle, copyText, useAsync } from '../ui';
 import { loadOwnAi, saveOwnAi, type Provider } from '../ownAi';
 
 function OwnAiPanel() {
@@ -84,6 +84,36 @@ export function Notifications() {
         </div>
       )}
     </div>
+  );
+}
+
+function InvitePanel() {
+  const q = useAsync(() => api.get<{ url: string; invited: number; auto_approved: boolean; approval_required: boolean }>('/me/invite'), []);
+  const [note, setNote] = useState<string | null>(null);
+  if (!q.data) return null;
+  const msg = `Join our building's issue reporting platform so we can get problems fixed together: ${q.data.url}`;
+  return (
+    <section className="panel stack">
+      <h2>Invite neighbours</h2>
+      <p className="muted small">
+        Send your personal link to neighbours who live here.{' '}
+        {q.data.approval_required && !q.data.auto_approved ? 'A moderator approves each new person, and sees that you invited them.' : 'They can join straight away.'}
+        {q.data.invited > 0 ? ` ${q.data.invited} joined so far through your link.` : ''}
+      </p>
+      <a className="btn block whatsapp-btn" href={`https://wa.me/?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer">
+        Invite on WhatsApp
+      </a>
+      <button
+        className="btn block"
+        onClick={async () => {
+          setNote((await copyText(msg)) ? 'Invitation and link copied.' : 'Could not copy automatically.');
+          setTimeout(() => setNote(null), 3000);
+        }}
+      >
+        Copy invitation
+      </button>
+      {note && <p className="share-note" role="status">{note}</p>}
+    </section>
   );
 }
 
@@ -177,6 +207,8 @@ export function Profile() {
           <Link to="/mfa">Turn it on</Link>
         </Banner>
       )}
+
+      <InvitePanel />
 
       <form className="panel stack" onSubmit={changePassword}>
         <h2>Change password</h2>

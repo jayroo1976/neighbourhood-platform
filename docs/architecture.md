@@ -32,7 +32,7 @@ resident (own reports + community), committee (read-only, blurred GPS, no intern
 `reported` -> `case_number_received` -> `in_progress` -> `mgmt_closed` (management says closed, **unverified**) -> `resolved_ok` (resident photo) | `resolved_poor` (photo) -> `reopened` -> ...; `withdrawn`. Resolutions need a photo unless an admin overrides with a note. Every transition writes a timestamped event.
 
 ## API (all under `/api`; JSON; cookie session `np_session`; header `X-Requested-With: neighbourhood` required)
-- **auth:** POST register, login, logout, forgot, reset, mfa/setup, mfa/enable, consent; GET me.
+- **auth:** POST register (needs consent + terms), login, logout, forgot, reset, mfa/setup, mfa/enable, consent; GET me (/terms and /privacy are public pages).
 - **me:** PATCH profile, POST password, GET export, POST delete; **notifications** GET /, POST /read.
 - **incidents:** POST /uploads (photo; re-encoded, EXIF stripped); POST /ai/suggest; GET /incidents, /attention, /similar, /:id; POST /incidents, /:id/affects (optional `case_number`), /:id/my-case-number (affected resident's own management ID), /:id/case-number, /:id/status, /:id/note.
 - **misc:** GET /files/* (signed expiring links), GET /kpi/summary, POST /inbound/email (header `x-inbound-secret`).
@@ -51,3 +51,11 @@ New report and each "affects me" produce an independent email to the management 
 
 ## Share links and previews
 `GET /incident/:id` (web route, served by `app.ts`) injects Open Graph tags via `services/sharePreview.ts`. The share URL is `APP_BASE_URL/incident/<id>?affects=1&s=<token>`; the token is an HMAC of the incident id using `FILE_SIGNING_SECRET` (`services/fileLinks.ts`). A valid token shows the report title, category, building, resident count and a 30-day signed link to the first photo. Without it the card is generic. `share_url` is returned by `POST /incidents` and `GET /incidents/:id` (null for private or withdrawn reports). Setting `whatsapp_group_url` is exposed in `/api/me` config.
+
+
+## Resident-sent email (default)
+`settings.email_mode` = `resident` (default) or `platform`. In resident mode `createIncident`/`addAffect` do not queue a server email. `GET /incidents/:id/email-draft` returns `{kind,to,subject,body}` for the reporter (kind `new`) or an affected resident (kind `affects`) built by `composeMgmtEmail(..., {resident:true})`; the web builds a `mailto:` link. `POST /incidents/:id/email-sent` records an `email_sent` event (`resident_new` / `resident_affects`) and sets `incidents.emailed_at` or `affects.email_confirmed_at`. Photos are signed links, not attachments.
+
+
+## Sign-up approval and invites
+`users.approval_status` (approved/pending/rejected), `invited_by`, `invite_token` (migration 004). Settings `require_approval`, `trust_resident_invites`. `POST /auth/register` returns 202 `{pending:true}` and issues no session when approval is needed; `POST /auth/login` returns 403 `pending_approval` / `not_approved`. Admin: `GET /admin/users/pending-count`, `POST /admin/users` (create + 7-day set-password link), `POST /admin/users/:id/approve|decline`. Residents: `GET /me/invite`. Unauthenticated `/me` config includes `approval_required`.

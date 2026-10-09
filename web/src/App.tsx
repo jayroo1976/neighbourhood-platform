@@ -1,9 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { api } from './api';
 import { useAuth } from './auth';
 import { Banner, ErrorNote, Spinner } from './ui';
-import { Forgot, Login, MfaSetup, Privacy, Register, Reset } from './pages/Auth';
+import { Forgot, Login, MfaSetup, Privacy, Register, Reset, Terms } from './pages/Auth';
 import { Feed } from './pages/Feed';
 import { Report } from './pages/Report';
 import { IncidentPage } from './pages/Incident';
@@ -48,6 +48,12 @@ function ConsentGate({ children }: { children: ReactNode }) {
 function Protected({ admin }: { admin?: boolean }) {
   const { me, loading, unread } = useAuth();
   const loc = useLocation();
+  const isStaff = me?.user?.role === 'admin' || me?.user?.role === 'super_admin';
+  const [pendingUsers, setPendingUsers] = useState(0);
+  useEffect(() => {
+    if (!isStaff) return;
+    api.get<{ count: number }>('/admin/users/pending-count').then((r) => setPendingUsers(r.count)).catch(() => undefined);
+  }, [isStaff, loc.pathname]);
   if (loading) return <Spinner />;
   const u = me?.user;
   if (!u) return <Navigate to="/login" replace state={{ from: loc.pathname + loc.search }} />;
@@ -70,7 +76,7 @@ function Protected({ admin }: { admin?: boolean }) {
       {inAdmin && (
         <nav className="subnav" aria-label="Admin">
           <NavLink to="/admin/incidents">Reports</NavLink>
-          <NavLink to="/admin/users">Users</NavLink>
+          <NavLink to="/admin/users">People{pendingUsers > 0 && <span className="badge">{pendingUsers}</span>}</NavLink>
           <NavLink to="/admin/settings">Settings</NavLink>
           <NavLink to="/admin/data">Data</NavLink>
         </nav>
@@ -85,7 +91,7 @@ function Protected({ admin }: { admin?: boolean }) {
         <NavLink to="/report" className="fab"><span aria-hidden>+</span> Report</NavLink>
         <NavLink to="/alerts">Alerts{unread > 0 && <span className="badge">{unread}</span>}</NavLink>
         <NavLink to="/scorecard">Scores</NavLink>
-        <NavLink to={staff ? '/admin/incidents' : '/profile'}>{staff ? 'Admin' : 'Me'}</NavLink>
+        <NavLink to={staff ? '/admin/incidents' : '/profile'}>{staff ? 'Admin' : 'Me'}{staff && pendingUsers > 0 && <span className="badge">{pendingUsers}</span>}</NavLink>
       </nav>
     </div>
   );
@@ -99,6 +105,7 @@ export function App() {
       <Route path="/forgot" element={<Forgot />} />
       <Route path="/reset" element={<Reset />} />
       <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
       <Route element={<Protected />}>
         <Route path="/mfa" element={<MfaSetup />} />
         <Route path="/" element={<Feed />} />

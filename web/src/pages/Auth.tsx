@@ -25,9 +25,10 @@ function useReturnTo(): string {
 }
 
 export function Login() {
-  const { refresh } = useAuth();
+  const { refresh, me } = useAuth();
   const nav = useNavigate();
   const returnTo = useReturnTo();
+  const approval = !!me?.config.approval_required;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfa, setMfa] = useState('');
@@ -76,8 +77,15 @@ export function Login() {
           </button>
         )}
       </form>
+      <div className="join-box">
+        <strong>New here?</strong>
+        <span>Residents can ask to join. You need your email, tower and apartment number.</span>
+        <Link className="btn block" to="/register" state={{ from: returnTo }}>
+          {approval ? 'Request to join' : 'Create an account'}
+        </Link>
+      </div>
       <p className="center">
-        <Link to="/forgot">Forgot password?</Link> · <Link to="/register" state={{ from: returnTo }}>Create account</Link>
+        <Link to="/forgot">Forgot password?</Link>
       </p>
     </Shell>
   );
@@ -87,9 +95,13 @@ export function Register() {
   const { me, refresh } = useAuth();
   const nav = useNavigate();
   const returnTo = useReturnTo();
-  const [f, setF] = useState({ name: '', email: '', password: '', tower: '', unit: '', invite_code: '', consent: false });
+  const [search] = useSearchParams();
+  const ref = search.get('ref') || undefined;
+  const [requested, setRequested] = useState(false);
+  const [f, setF] = useState({ name: '', email: '', password: '', tower: '', unit: '', invite_code: '', consent: false, terms: false });
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const approval = !!me?.config.approval_required;
   const towers = me?.community?.towers ?? [];
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
 
@@ -98,7 +110,11 @@ export function Register() {
     setBusy(true);
     setError(null);
     try {
-      await api.post('/auth/register', { ...f, invite_code: f.invite_code || undefined });
+      const r = await api.post<{ pending?: boolean }>('/auth/register', { ...f, invite_code: f.invite_code || undefined, ref });
+      if (r.pending) {
+        setRequested(true);
+        return;
+      }
       await refresh();
       nav(returnTo, { replace: true });
     } catch (err) {
@@ -108,8 +124,19 @@ export function Register() {
     }
   }
 
+  if (requested) {
+    return (
+      <Shell title="Request sent" sub="A moderator will review it.">
+        <Banner tone="ok">Thank you. We will email you at {f.email} as soon as your request has been approved, then you can sign in.</Banner>
+        <p className="center">
+          <Link to="/login">Back to sign in</Link>
+        </p>
+      </Shell>
+    );
+  }
+
   return (
-    <Shell title="Create your account" sub="Your tower and apartment are saved once and added to every report for you.">
+    <Shell title={approval ? 'Request to join' : 'Create your account'} sub={approval ? 'A moderator checks each request so only real residents join. You will get an email when you are approved.' : 'Your tower and apartment are saved once and added to every report for you.'}>
       <form onSubmit={submit} className="stack">
         <Field label="Full name">
           <input value={f.name} onChange={set('name')} autoComplete="name" required minLength={2} />
@@ -138,19 +165,36 @@ export function Register() {
           <input type="password" value={f.password} onChange={set('password')} autoComplete="new-password" required minLength={12} />
         </Field>
         {me?.config.invite_required && (
-          <Field label="Invite code" hint="Ask the person who invited you to the pilot.">
-            <input value={f.invite_code} onChange={set('invite_code')} required />
+          <Field label={approval ? 'Invite code (optional)' : 'Invite code'} hint={approval ? 'Have a code? Enter it to be approved straight away. Otherwise leave it empty and we will review your request.' : 'Ask the person who invited you to the pilot.'}>
+            <input value={f.invite_code} onChange={set('invite_code')} required={!approval} />
           </Field>
         )}
+        <div className="data-notice">
+          <strong>What we store about you</strong>
+          <ul>
+            <li>Your name, email, tower and apartment number, and a scrambled (hashed) password.</li>
+            <li>The reports, photos, comments and "affects me" ticks you add, and when you add them.</li>
+            <li>Approximate locations you choose to share, and basic security logs (such as sign-in times).</li>
+          </ul>
+          <strong>Who sees it</strong>
+          <ul>
+            <li>The management company sees your report with your tower, apartment, first name and photos so it can act.</li>
+            <li>Neighbours see the report and photos, never your name or apartment number.</li>
+            <li>Moderators of this service can see everything, to approve people and keep it fair.</li>
+          </ul>
+          <span>You can download or delete your data from your profile at any time. <Link to="/privacy">Full privacy notice</Link></span>
+        </div>
         <label className="check">
           <input type="checkbox" checked={f.consent} onChange={(e) => setF({ ...f, consent: e.target.checked })} required />
-          <span>
-            I have read the <Link to="/privacy">privacy notice</Link> and agree my reports, photos and apartment number are shared with the management company to get issues fixed.
-          </span>
+          <span>I have read the <Link to="/privacy">privacy notice</Link> and I agree to my details being stored and shared as described above.</span>
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={f.terms} onChange={(e) => setF({ ...f, terms: e.target.checked })} required />
+          <span>I accept the <Link to="/terms">terms of use</Link>.</span>
         </label>
         <ErrorNote error={error} />
-        <button className="btn primary block" disabled={busy || !f.consent}>
-          {busy ? 'Creating...' : 'Create account'}
+        <button className="btn primary block" disabled={busy || !f.consent || !f.terms}>
+          {busy ? 'Sending...' : approval ? 'Send my request' : 'Create account'}
         </button>
       </form>
       <p className="center">
@@ -320,6 +364,54 @@ export function Privacy() {
         </p>
         <p>
           <strong>Emergencies.</strong> This service is not monitored. In an emergency call 999 or the building emergency number.
+        </p>
+      </div>
+      <p className="center">
+        <Link to="/login">Back</Link>
+      </p>
+    </Shell>
+  );
+}
+
+export function Terms() {
+  return (
+    <Shell title="Terms of use">
+      <div className="prose">
+        <p>
+          <em>Pilot terms, version 2026-10-v1. A lawyer will review these before a wider launch.</em>
+        </p>
+        <p>
+          <strong>1. What this service is.</strong> Neighbourhood Reports is an independent, resident-run service that helps residents report issues in their community, see whether neighbours are affected, and track whether issues are fixed. It is not operated by, or an official channel of, your management company, developer or any government body.
+        </p>
+        <p>
+          <strong>2. Who can join.</strong> You must be 18 or over and a genuine resident or authorised occupier of the community. Give accurate details. We may approve, decline or remove any account, for example if we cannot confirm you live there.
+        </p>
+        <p>
+          <strong>3. Your account.</strong> Keep your password private and tell us if you think someone else has used your account. You are responsible for what is done through it.
+        </p>
+        <p>
+          <strong>4. What you post.</strong> Post only facts you believe to be true, about the building, services and common areas. Do not post anything false, abusive, defamatory, discriminatory or private about a named person, and do not photograph people, faces or number plates. Do not post anything that breaks UAE law, including laws on defamation, privacy and cybercrime. You keep ownership of what you post, and you give us permission to store it, show it to residents, moderators and the management company, and use it in anonymised statistics such as the scorecard.
+        </p>
+        <p>
+          <strong>5. Moderation.</strong> Moderators may edit, hide or remove posts that break these terms, and may suspend accounts that do so repeatedly.
+        </p>
+        <p>
+          <strong>6. Scorecard and statuses.</strong> Response times and "closed but not fixed" figures are calculated from the dates and evidence recorded on this service. They reflect what has been recorded here and are not a legal finding about anyone.
+        </p>
+        <p>
+          <strong>7. Not for emergencies.</strong> This service is not monitored. In an emergency call 999 or the building emergency number. Do not rely on this service for urgent safety issues.
+        </p>
+        <p>
+          <strong>8. Your data.</strong> We handle personal data under the UAE Personal Data Protection Law (Federal Decree-Law No. 45 of 2021) and as set out in the <Link to="/privacy">privacy notice</Link>. You can download or delete your data from your profile.
+        </p>
+        <p>
+          <strong>9. No guarantees.</strong> This is a pilot, provided as it is. We do not promise it will always be available or error free, and we cannot promise the management company will act on a report. To the extent UAE law allows, we are not liable for indirect losses arising from your use of it.
+        </p>
+        <p>
+          <strong>10. Changes.</strong> We may update these terms. If the change is important we will ask you to accept the new version.
+        </p>
+        <p>
+          <strong>11. Law and courts.</strong> These terms are governed by the laws of the United Arab Emirates as applied in the Emirate of Dubai, and the courts of Dubai have jurisdiction, unless mandatory law says otherwise.
         </p>
       </div>
       <p className="center">

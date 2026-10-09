@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CATEGORY_LABELS, OPEN_STATUSES, STATUS_LABELS, api, dateTime, qs, type IncidentDetail, type Role, type Status } from '../api';
 import { useAuth } from '../auth';
-import { Banner, ErrorNote, Field, Sheet, Spinner, Stamp, Toggle, useAsync } from '../ui';
+import { Banner, ErrorNote, Field, Sheet, Spinner, Stamp, Toggle, copyText, useAsync } from '../ui';
 import { KpiStrip, PhotoStrip, Timeline } from './Incident';
 
 interface Row {
@@ -434,6 +434,112 @@ interface UserRow {
   created_at: string;
   last_login_at: string | null;
   deleted: boolean;
+  approval_status: 'approved' | 'pending' | 'rejected';
+  invited_by: string | null;
+}
+
+function AddPerson({ superAdmin, onDone }: { superAdmin: boolean; onDone: () => void }) {
+  const { me } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ name: '', email: '', tower: '', unit: '', role: 'resident' });
+  const [error, setError] = useState<unknown>(null);
+  const [link, setLink] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const towers = me?.community?.towers ?? [];
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.post<{ setup_link: string }>('/admin/users', { ...f, tower: f.tower || undefined, unit: f.unit || undefined });
+      setLink(r.setup_link);
+      setF({ name: '', email: '', tower: '', unit: '', role: 'resident' });
+      onDone();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <p>
+        <button className="btn primary" onClick={() => setOpen(true)}>
+          + Add a person
+        </button>
+      </p>
+    );
+  }
+  return (
+    <section className="panel">
+      <h2>Add a person</h2>
+      <p className="muted small">They get an email with a link to set their own password (valid 7 days). You can also copy the link and send it yourself.</p>
+      <form className="stack" onSubmit={submit}>
+        <div className="row">
+          <Field label="Full name">
+            <input value={f.name} onChange={set('name')} required minLength={2} />
+          </Field>
+          <Field label="Email">
+            <input type="email" value={f.email} onChange={set('email')} required />
+          </Field>
+        </div>
+        <div className="row">
+          <Field label="Tower / building">
+            {towers.length ? (
+              <select value={f.tower} onChange={set('tower')}>
+                <option value="">Select...</option>
+                {towers.map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+            ) : (
+              <input value={f.tower} onChange={set('tower')} />
+            )}
+          </Field>
+          <Field label="Apartment no.">
+            <input value={f.unit} onChange={set('unit')} />
+          </Field>
+          <Field label="Role">
+            <select value={f.role} onChange={set('role')}>
+              <option value="resident">Resident</option>
+              <option value="committee">Committee (read-only)</option>
+              {superAdmin && <option value="admin">Moderator</option>}
+              {superAdmin && <option value="super_admin">Super admin</option>}
+            </select>
+          </Field>
+        </div>
+        <ErrorNote error={error} />
+        {link && (
+          <Banner tone="ok" title="Added. Invitation emailed.">
+            <p className="small">Email may not be set up on your server yet, so here is their private set-password link:</p>
+            <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} aria-label="Set-password link" />
+            <button
+              type="button"
+              className="btn small"
+              onClick={async () => {
+                setCopied(await copyText(link));
+                setTimeout(() => setCopied(false), 2500);
+              }}
+            >
+              {copied ? 'Copied' : 'Copy link'}
+            </button>
+          </Banner>
+        )}
+        <div className="row">
+          <button className="btn primary" disabled={busy}>
+            {busy ? 'Adding...' : 'Add and send invitation'}
+          </button>
+          <button type="button" className="btn ghost" onClick={() => setOpen(false)}>
+            Close
+          </button>
+        </div>
+      </form>
+    </section>
+  );
 }
 
 export function AdminUsers() {
@@ -442,6 +548,7 @@ export function AdminUsers() {
   const [error, setError] = useState<unknown>(null);
   const [note, setNote] = useState<string | null>(null);
   const superAdmin = me?.user?.role === 'super_admin';
+  const pending = (q.data?.items ?? []).filter((u) => !u.deleted && u.approval_status === 'pending');
 
   async function act(fn: () => Promise<unknown>, ok?: string) {
     setError(null);
@@ -462,6 +569,31 @@ export function AdminUsers() {
       </header>
       <ErrorNote error={error ?? q.error} />
       {note && <Banner tone="ok">{note}</Banner>}
+      {pending.length > 0 && (
+        <section className="panel pending-panel">
+          <h2>{pending.length} request{pending.length === 1 ? '' : 's'} waiting for approval</h2>
+          {pending.map((u) => (
+            <div key={u.id} className="pending-row">
+              <div>
+                <strong>{u.name}</strong>
+                <div className="muted small">
+                  {u.email} · {u.tower}, {u.unit}
+                  {u.invited_by ? ` · invited by ${u.invited_by}` : ''} · {dateTime(u.created_at)}
+                </div>
+              </div>
+              <div className="row">
+                <button className="btn primary small" onClick={() => act(() => api.post(`/admin/users/${u.id}/approve`), `${u.name} approved and emailed`)}>
+                  Approve
+                </button>
+                <button className="btn small" onClick={() => confirm(`Decline ${u.name}?`) && act(() => api.post(`/admin/users/${u.id}/decline`), `${u.name} declined`)}>
+                  Decline
+                </button>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+      <AddPerson superAdmin={superAdmin} onDone={() => q.reload()} />
       {q.loading && !q.data ? (
         <Spinner />
       ) : (
@@ -471,7 +603,7 @@ export function AdminUsers() {
               <tr><th>Name</th><th>Home</th><th>Role</th><th>2FA</th><th>Reports</th><th>Last sign-in</th><th /></tr>
             </thead>
             <tbody>
-              {q.data?.items.filter((u) => !u.deleted).map((u) => (
+              {q.data?.items.filter((u) => !u.deleted && u.approval_status === 'approved').map((u) => (
                 <tr key={u.id} className={u.active ? '' : 'muted'}>
                   <td>
                     {u.name}
@@ -533,6 +665,9 @@ interface SettingsResp {
     ai_suggest_enabled: boolean;
     registration_open: boolean;
     whatsapp_group_url: string;
+    email_mode: 'resident' | 'platform';
+    require_approval: boolean;
+    trust_resident_invites: boolean;
   };
   ai_available: boolean;
 }
@@ -581,6 +716,12 @@ export function AdminSettings() {
           <Field label="Management email address" hint="Every report and 'affects me' is emailed here. Check this before real use.">
             <input type="email" value={s.community.mgmt_email} onChange={(e) => setS({ ...s, community: { ...s.community, mgmt_email: e.target.value } })} required />
           </Field>
+          <Field label="How reports reach management" hint="Default: the resident sends the email from their own email app, so it comes from them, and the platform records it. 'Platform' means the server sends it for them instead.">
+            <select value={s.settings.email_mode ?? 'resident'} onChange={(e) => set('email_mode', e.target.value as 'resident' | 'platform')}>
+              <option value="resident">Resident sends from their own email app (default)</option>
+              <option value="platform">Platform sends the email</option>
+            </select>
+          </Field>
           <Toggle checked={s.settings.cc_reporter} onChange={(v) => set('cc_reporter', v)} label="Copy the reporter on the email" hint="Shares the resident's email address with management." />
           <Field label="Towers (one per line)">
             <textarea rows={4} value={towers} onChange={(e) => setTowers(e.target.value)} />
@@ -601,6 +742,8 @@ export function AdminSettings() {
           <Field label="WhatsApp group invite link (optional)" hint="Adds a 'Post in our WhatsApp group' button when residents share. WhatsApp cannot pre-fill a group post, so the message is copied and the group opens for pasting. Looks like https://chat.whatsapp.com/XXXX">
             <input type="url" value={s.settings.whatsapp_group_url ?? ''} onChange={(e) => set('whatsapp_group_url', e.target.value)} placeholder="https://chat.whatsapp.com/..." />
           </Field>
+          <Toggle checked={s.settings.require_approval} onChange={(v) => set('require_approval', v)} label="Approve new sign-ups" hint="New people ask to join and a moderator approves them under People. Anyone with the invite code is approved straight away." />
+          <Toggle checked={s.settings.trust_resident_invites} onChange={(v) => set('trust_resident_invites', v)} label="Trust residents' invite links" hint="People who join through a resident's personal invite link skip approval. Off means every request without the invite code waits for you." />
           <Toggle checked={s.settings.registration_open} onChange={(v) => set('registration_open', v)} label="Registration open" />
           <Toggle checked={s.settings.ai_suggest_enabled} onChange={(v) => set('ai_suggest_enabled', v)} label="AI-drafted titles from photos" hint={s.ai_available ? 'Sends the photo to the AI provider configured on the server. Check privacy approval first.' : 'No AI provider is configured on the server, so a free keyword-based draft is used.'} />
         </fieldset>

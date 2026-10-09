@@ -35,3 +35,18 @@ Older images do not clear a lockout: run `docker exec neighbourhood-db-1 psql -U
 
 ## WhatsApp sharing
 Residents get a Share sheet with "Send on WhatsApp". To add a "Post in our WhatsApp group" button, paste the group's invite link (WhatsApp > group > Invite via link) in Settings. WhatsApp cannot pre-fill a post into a chosen group, so the message is copied and the group opens for pasting. Link previews with a photo only work when the app is on a public HTTPS address.
+
+
+## How reports reach management
+Default: after reporting, the resident's own email app opens with the email written; they press Send and confirm. Check Settings > "How reports reach management" to switch to server-sent email. Reports show "waiting for the reporter to send their email" until confirmed.
+
+
+## Adding people
+- **Add directly:** Admin > People > + Add a person. They are emailed a set-password link (7 days); the link is also shown so you can send it yourself.
+- **Let people request access:** Settings > turn on *Approve new sign-ups*. Requests appear at the top of People with Approve / Decline; you also get an email and a number on the People tab. An invite code (env `REGISTRATION_CODE`) skips the wait.
+- **Resident invites:** each resident has a personal link under Profile > Invite neighbours. With *Trust residents' invite links* on, people who use it are approved at once; otherwise they wait for you and you see who invited them.
+- Roles: only a super admin can add or promote admins. Declined people cannot sign in.
+
+
+## Join requests and terms
+People reach the form from the login page ("Request to join"). They enter name, email, tower, apartment and a password, read the data notice, and tick the privacy and terms boxes. With "Approve new sign-ups" on (Settings), the request waits in People for Approve or Decline. The terms and privacy text are at /terms and /privacy.

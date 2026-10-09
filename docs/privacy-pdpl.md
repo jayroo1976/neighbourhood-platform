@@ -14,6 +14,7 @@ Have a UAE data-protection lawyer review before launch. Federal Decree-Law No. 4
 | Outbound emails | Delivery to management | Outbox table, Azure Communication Services (UAE data location) | Prune sent mail after 90 days (to implement) |
 
 ## Principles built in
+- Sign-up shows a plain-language "what we store / who sees it" box with two required tick boxes (privacy consent, terms of use); both are recorded with versions (`consent_version`, `terms_version`, `terms_at`).
 - Consent recorded with notice version; re-consent prompt when the notice changes.
 - Neighbours never see name or apartment number; GPS blurred for non-owners; "Keep private" option.
 - Photo links are signed and expire; photos go to management as links, not attachments.
@@ -27,3 +28,11 @@ Have a UAE data-protection lawyer review before launch. Federal Decree-Law No. 4
 4. **Scorecard**: it publishes performance claims about a named company. Get legal review for defamation risk before sharing outside the pilot. Wording is evidence-based and definitions are shown.
 5. **Breach process**: define who notifies the UAE Data Office and residents, and how fast.
 6. **Retention schedule** for sent emails and old reports needs a decision.
+
+
+## Resident-sent email
+In the default mode the email goes from the resident's own account, so management sees their email address and name along with tower and apartment. The privacy notice should say so. Photo links in the email expire after the configured number of days.
+
+
+## Sign-up requests
+A request stores name, email, tower, apartment and who invited the person. Declined requests keep the record so the person cannot simply re-register with the same email; delete them from People if you do not want to keep them. Update the privacy notice to mention that a moderator reviews requests.

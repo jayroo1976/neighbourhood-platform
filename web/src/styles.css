@@ -155,3 +155,19 @@ details summary{cursor:pointer;font-weight:600}
 .report-cta-text{flex:1}.report-cta strong{display:block;font-size:1.25rem;letter-spacing:.04em}.report-cta small{display:block;opacity:.95;font-size:.85rem;margin-top:.1rem}
 .report-cta-plus{width:48px;height:48px;background:#fff;color:#e07f08;font-weight:700}
 .report-cta-go{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.25);font-size:2rem;line-height:1;flex:none}
+
+.brand-head h1{font-size:1.45rem;line-height:1.15}
+.email-panel{display:flex;flex-direction:column;gap:.7rem}.email-panel h2{margin:0}.email-panel p{margin:0}
+.btn.big{min-height:56px;font-size:1.1rem}
+.email-done{padding:.7rem .9rem;background:#e4f3e9;border-radius:12px;color:var(--ok);font-weight:600;margin:0}
+
+.pending-panel{border-left:4px solid var(--amber);background:#fff8e8}
+.pending-row{display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;padding:.6rem 0;border-top:1px solid var(--line)}
+.pending-row .row{flex:none}.pending-row .row>*{flex:none}
+
+/* sign-up notice and join box */
+.join-box { display: grid; gap: 8px; margin-top: 18px; padding: 14px; border: 1px solid var(--line, #d7dde6); border-radius: 12px; background: rgba(10, 28, 52, 0.04); text-align: center; }
+.join-box span { font-size: 0.9rem; opacity: 0.8; }
+.data-notice { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line, #d7dde6); background: rgba(10, 28, 52, 0.04); font-size: 0.88rem; }
+.data-notice ul { margin: 4px 0 10px; padding-left: 18px; }
+.data-notice li { margin: 2px 0; }
