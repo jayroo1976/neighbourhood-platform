@@ -23,12 +23,28 @@ import {
 import { queueEmail } from '../services/mailer';
 import { adminListItem, affectsCounts, incidentDetail } from '../services/serializers';
 import { getStorage } from '../services/storage';
+import { publicVersion } from '../version';
 import { audit } from '../services/support';
 
 const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
 
 export function adminRouter(): Router {
   const r = Router();
+
+  // ---------------- system: which build is running, and the update history ----------------
+  r.get(
+    '/system',
+    requireStaff,
+    wrap(async (req, res) => {
+      const events = await req.db('system_events').orderBy('at', 'desc').limit(100);
+      res.json({
+        ...publicVersion(),
+        watchtower_configured: Boolean(config.watchtowerSecret),
+        watchtower_last: events.find((e: { kind: string }) => e.kind === 'watchtower')?.at ?? null,
+        events,
+      });
+    }),
+  );
 
   // ---------------- incidents ----------------
   r.get(

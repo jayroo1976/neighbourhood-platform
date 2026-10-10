@@ -31,6 +31,7 @@ services:
       DATABASE_URL: postgres://np:${PG_PASSWORD}@db:5432/np
       DATABASE_SSL: "off"
       APP_BASE_URL: ${APP_BASE_URL:?public https URL, e.g. https://np.example.com}
+      WATCHTOWER_SECRET: ${WATCHTOWER_SECRET:-}
       JWT_SECRET: ${JWT_SECRET:?}
       FILE_SIGNING_SECRET: ${FILE_SIGNING_SECRET:?}
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?}
@@ -55,6 +56,10 @@ services:
       WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_POLL_INTERVAL: "300"
       WATCHTOWER_CLEANUP: "true"
+      # Sends each update notice to the app so you can read it on Admin > System (no Docker access needed)
+      WATCHTOWER_NOTIFICATIONS: shoutrrr
+      WATCHTOWER_NOTIFICATION_URL: "generic+http://app:8080/api/inbound/watchtower?template=json&@X-Watchtower-Secret=${WATCHTOWER_SECRET:-unset}"
+      WATCHTOWER_NOTIFICATION_REPORT: "true"
       # Needed only for a private repo/package: mounted docker login below
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

@@ -278,6 +278,21 @@ const migrations: Migration[] = [
       });
     },
   },
+  {
+    name: '006_system_events',
+    up: async (db) => {
+      await db.schema.createTable('system_events', (t) => {
+        t.text('id').primary();
+        t.text('at').notNullable();
+        t.text('kind').notNullable(); // start | update | watchtower
+        t.text('title').notNullable();
+        t.text('message').notNullable().defaultTo('');
+        t.text('version');
+        t.text('build');
+        t.index(['at']);
+      });
+    },
+  },
 ];
 
 export async function migrate(db: Db): Promise<void> {

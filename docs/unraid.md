@@ -5,6 +5,8 @@ Good for a short test with a few people. Not for the real pilot (home power/inte
 ## 0. How updates flow
 You push to GitHub `main` -> the **Publish image** workflow builds the image and stores it in GitHub's registry (ghcr.io) -> Watchtower on your Unraid sees the new image within 5 minutes and restarts the app. Database changes apply automatically on start. Rollback: set `NP_IMAGE` to an older `...:<commit-sha>` tag and run `docker compose up -d`.
 
+**Watchtower messages in the app:** add `WATCHTOWER_SECRET=` (any long random string) to your `.env`, re-apply the compose file; update notices then appear on Admin > System. The version at the top of every page shows which build is running. Raw log: Docker tab > watchtower > Logs.
+
 **Private repo:** create a GitHub personal access token with only `read:packages`, run `docker login ghcr.io -u <user>` on the Unraid, and copy the resulting `~/.docker/config.json` to `/mnt/user/appdata/neighbourhood/docker-config.json` (Watchtower uses it). Public repo: no login needed, but the file must still exist: run `echo '{}' > /mnt/user/appdata/neighbourhood/docker-config.json` (otherwise Docker creates a folder of that name and Watchtower fails). Do not put secrets or real data in the repo; `.env` stays on the Unraid.
 
 ## 1. Get the compose file and set secrets

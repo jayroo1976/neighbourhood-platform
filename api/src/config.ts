@@ -31,6 +31,9 @@ export const config = {
   requireAdminMfa: env.REQUIRE_ADMIN_MFA ? env.REQUIRE_ADMIN_MFA === 'true' : isProd,
 
   // Pilot gate: when set, registration requires this invite code.
+  // Shared secret Watchtower uses when it posts update notices to /api/inbound/watchtower
+  watchtowerSecret: env.WATCHTOWER_SECRET ?? '',
+
   registrationCode: env.REGISTRATION_CODE ?? '',
 
   storage: {

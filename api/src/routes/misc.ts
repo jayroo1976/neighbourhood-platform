@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { z } from 'zod';
 import { config } from '../config';
 import { mergeSettings } from '../domain';
@@ -8,6 +8,7 @@ import { verifyFileLink } from '../security/crypto';
 import { HttpError, recordMgmtReply } from '../services/incidents';
 import { KPI_DEFINITIONS, communityKpis } from '../services/kpi';
 import { getStorage } from '../services/storage';
+import { addSystemEvent, summariseWatchtower } from '../services/system';
 
 /** Photos are served through short-lived HMAC-signed links (the same links go to management by email). */
 export function filesRouter(): Router {
@@ -53,6 +54,30 @@ export function kpiRouter(): Router {
  */
 export function inboundRouter(): Router {
   const r = Router();
+  /**
+   * Watchtower (the auto-updater) posts a notice here whenever it checks, pulls or restarts the app, so
+   * the update history can be read on Admin > System without needing access to Docker.
+   */
+  r.post(
+    '/watchtower',
+    express.text({ type: '*/*', limit: '100kb' }),
+    wrap(async (req, res) => {
+      const got = Buffer.from(req.get('x-watchtower-secret') ?? '');
+      const want = Buffer.from(config.watchtowerSecret);
+      if (!config.watchtowerSecret || got.length !== want.length || !crypto.timingSafeEqual(got, want)) throw new HttpError(401, 'Unauthorized');
+      let body: unknown = req.body;
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);
+        } catch {
+          /* plain text is fine */
+        }
+      }
+      const s = summariseWatchtower(body);
+      await addSystemEvent(req.db, { kind: 'watchtower', title: s.title, message: s.message });
+      res.json({ ok: true });
+    }),
+  );
   r.post(
     '/email',
     wrap(async (req, res) => {

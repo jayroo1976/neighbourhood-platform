@@ -9,6 +9,8 @@ import { Report } from './pages/Report';
 import { IncidentPage } from './pages/Incident';
 import { Scorecard } from './pages/Scorecard';
 import { Notifications, Profile } from './pages/Account';
+import { VersionBar } from './VersionBar';
+import { AdminSystem } from './pages/AdminSystem';
 import { AdminData, AdminIncident, AdminIncidents, AdminSettings, AdminUsers } from './pages/Admin';
 
 function ConsentGate({ children }: { children: ReactNode }) {
@@ -79,6 +81,7 @@ function Protected({ admin }: { admin?: boolean }) {
           <NavLink to="/admin/users">People{pendingUsers > 0 && <span className="badge">{pendingUsers}</span>}</NavLink>
           <NavLink to="/admin/settings">Settings</NavLink>
           <NavLink to="/admin/data">Data</NavLink>
+          <NavLink to="/admin/system">System</NavLink>
         </nav>
       )}
       <main>
@@ -99,6 +102,8 @@ function Protected({ admin }: { admin?: boolean }) {
 
 export function App() {
   return (
+    <>
+    <VersionBar />
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -121,8 +126,10 @@ export function App() {
         <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/admin/data" element={<AdminData />} />
+        <Route path="/admin/system" element={<AdminSystem />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }

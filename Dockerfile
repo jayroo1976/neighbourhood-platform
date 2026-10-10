@@ -9,7 +9,10 @@ COPY . .
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-slim
-ENV NODE_ENV=production PORT=8080
+ARG BUILD_NUMBER=dev
+ARG BUILD_SHA=local
+ARG BUILD_DATE=
+ENV NODE_ENV=production PORT=8080 BUILD_NUMBER=$BUILD_NUMBER BUILD_SHA=$BUILD_SHA BUILD_DATE=$BUILD_DATE
 WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules

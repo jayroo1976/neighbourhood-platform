@@ -481,3 +481,22 @@ describe('admin and KPIs', () => {
     await db.destroy();
   });
 });
+
+describe('version and system log', () => {
+  it('serves the version publicly and keeps the watchtower endpoint locked', async () => {
+    const { app, db, communityId } = await setup();
+    const { buildInfo } = await import('../src/version');
+    expect(buildInfo.version).toMatch(/^\d+\.\d+\.\d+$/);
+    const noSecret = await request(app).post('/api/inbound/watchtower').send({ title: 'x' });
+    expect(noSecret.status).toBe(401);
+    const { addSystemEvent, recordStart } = await import('../src/services/system');
+    await recordStart(db);
+    await addSystemEvent(db, { kind: 'watchtower', title: 'Found new image' });
+    const staff = await makeStaff(db, communityId, 'admin', app);
+    const res = await staff.agent.get('/api/admin/system');
+    expect(res.status).toBe(200);
+    expect(res.body.events.map((e: { kind: string }) => e.kind)).toEqual(expect.arrayContaining(['start', 'watchtower']));
+    const r = await register(app);
+    expect((await r.agent.get('/api/admin/system')).status).toBe(403);
+  });
+});

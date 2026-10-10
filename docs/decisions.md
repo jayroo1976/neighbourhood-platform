@@ -40,5 +40,8 @@ Decision: two separate required tick boxes (privacy/data sharing, terms) with a 
 ## Two report types for now (2026-10-10)
 Decision: the report form offers Maintenance (default) or Security only. Reason: fewer taps and no wrong-category guesses in the first pilot. The 15 detailed categories stay valid in the API and data so reports can be re-categorised by moderators and the form can offer them again later.
 
+## Version strip and Watchtower feed (2026-10-10)
+Version is shown to everyone (not secret, useful to residents reporting a bug); update history is staff-only. The app is not given Docker socket access (too much power); instead Watchtower pushes its notices to the app through a secret-protected webhook.
+
 ## Metrics: resident-safe vs staff-only (2026-10-10)
 Decision: everything computed from reports (rates, ages, response times, top-affected) is shown to all signed-in residents on the scorecard; operational chase lists (not yet emailed, people counts) are staff-only. Reason: transparency is the point, but operational lists add little for residents. A logged-out public page is deferred until the wording is legally reviewed.

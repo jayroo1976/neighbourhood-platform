@@ -181,3 +181,15 @@ details summary{cursor:pointer;font-weight:600}
 .insights > summary { cursor: pointer; padding: 4px 0 10px; }
 .insights h3 { margin: 14px 0 6px; font-size: 0.95rem; }
 .linkish { background: none; border: 0; padding: 0; color: var(--accent, #0f5a50); text-decoration: underline; font: inherit; font-size: 0.8rem; cursor: pointer; }
+
+/* version strip (top of every page) */
+.versionbar{display:flex;justify-content:center;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.2rem .75rem;background:#0b3636;color:#cfe3e1;font:600 .72rem/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
+.versionbar a{color:#cfe3e1;text-decoration:none}.versionbar a:hover{text-decoration:underline}
+.versionbar-new{background:var(--amber);color:#fff;border:0;border-radius:999px;padding:.15rem .7rem;font:inherit;cursor:pointer}
+.sys-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin:.6rem 0 1rem}
+.sys-grid .tile b{display:block;font-size:1.15rem}
+.sys-log{display:flex;flex-direction:column;gap:.5rem}
+.sys-ev{border:1px solid var(--line);border-left-width:4px;border-radius:10px;background:var(--paper);padding:.55rem .75rem}
+.sys-ev.k-update{border-left-color:var(--ok)}.sys-ev.k-start{border-left-color:var(--info)}.sys-ev.k-watchtower{border-left-color:var(--amber)}
+.sys-ev time{color:var(--muted);font-size:.8rem}
+.sys-ev pre{margin:.35rem 0 0;white-space:pre-wrap;word-break:break-word;font:.78rem/1.4 ui-monospace,Menlo,monospace;color:var(--ink)}

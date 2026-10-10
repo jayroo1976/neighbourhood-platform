@@ -60,6 +60,9 @@ New report and each "affects me" produce an independent email to the management 
 ## Sign-up approval and invites
 `users.approval_status` (approved/pending/rejected), `invited_by`, `invite_token` (migration 004). Settings `require_approval`, `trust_resident_invites`. `POST /auth/register` returns 202 `{pending:true}` and issues no session when approval is needed; `POST /auth/login` returns 403 `pending_approval` / `not_approved`. Admin: `GET /admin/users/pending-count`, `POST /admin/users` (create + 7-day set-password link), `POST /admin/users/:id/approve|decline`. Residents: `GET /me/invite`. Unauthenticated `/me` config includes `approval_required`.
 
+## Version and system log
+`api/src/version.ts` reads `APP_VERSION` (else root package.json), `BUILD_NUMBER`, `BUILD_SHA`, `BUILD_DATE` (set by the image build). `GET /api/system/version` is served by the gate in `server.ts` (works while the DB is asleep). Table `system_events` (migration 006: id, at, kind start|update|watchtower, title, message, version, build; newest 500 kept). `recordStart` runs on every boot and logs `update` when version/build differ from the last start. `POST /api/inbound/watchtower` (header `X-Watchtower-Secret` vs `WATCHTOWER_SECRET`, timing-safe) stores Watchtower notices. `GET /api/admin/system` (staff) feeds the web page `/admin/system`; `web/src/VersionBar.tsx` is the strip on every page.
+
 ## Metrics endpoints
 - `GET /api/kpi/summary?days=` (any signed-in resident): resident-safe community metrics (no names, no apartments), including response-time distribution, by-priority, this week vs last, top affected, reopen rate.
 - `GET /api/admin/insights?days=` (staff only): the same KPIs plus waiting-for-reply, not-yet-emailed, longest-open lists and people counts. Computed in `api/src/services/kpi.ts` (`communityKpis`) and `api/src/routes/admin.ts`.

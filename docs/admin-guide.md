@@ -55,5 +55,8 @@ People reach the form from the login page ("Request to join"). They enter name, 
 ## Report types
 Residents choose Maintenance or Security when reporting. Older, detailed categories still exist on earlier reports and you can change a report's category from its page in Admin.
 
+## System tab (versions and updates)
+Admin > System shows the running version/build and a history of starts, updates and Watchtower messages. Compare the strip at the top of any page with the build number of the latest green "Publish image" run on GitHub: if they match, the update has arrived. Watchtower checks every 5 minutes. The raw log is in Unraid > Docker > watchtower > Logs.
+
 ## Insights panel
 Admin > Reports opens with Insights (last 90 days). Tiles with "Show these" filter the list below. Watch "Saved but not yet emailed": in the default mode the resident sends the email, so reports the resident never confirmed are not yet with management. "Waiting longest for a reply" is the list to chase.

@@ -5,6 +5,8 @@ import { ensureCommunity } from './bootstrap';
 import { config } from './config';
 import { createDb, migrate } from './db';
 import { startScheduler } from './services/scheduler';
+import { recordStart } from './services/system';
+import { publicVersion } from './version';
 import { WAKE_HTML, WAKE_JS, serverState, sleepManaged, wakeServer } from './services/sleep';
 
 /**
@@ -23,6 +25,10 @@ async function main() {
   gate.get('/api/system/status', async (_req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({ state: real ? 'up' : await serverState() });
+  });
+  gate.get('/api/system/version', (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json(publicVersion());
   });
   gate.post(
     '/api/system/wake',
@@ -65,6 +71,7 @@ async function main() {
       console.warn('[warn] The management company email address is still a placeholder. Set it in Admin > Settings before real use.');
     }
     if (config.isProd && config.email.provider === 'console') console.warn('[warn] EMAIL_PROVIDER=console: no real emails will be sent.');
+    await recordStart(db).catch((e) => console.warn('[warn] could not record start event', e));
     real = createApp(db);
     if (config.schedulerEnabled) stopScheduler = startScheduler(db);
     console.log('Database ready: serving the full app');
