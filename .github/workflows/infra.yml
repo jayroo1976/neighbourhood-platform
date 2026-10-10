@@ -18,7 +18,7 @@ jobs:
       - run: |
           az group create -n ${{ vars.RESOURCE_GROUP }} -l uaenorth
           az deployment group create -g ${{ vars.RESOURCE_GROUP }} -f infra/main.bicep \
-            -p pgAdminPassword='${{ secrets.PG_ADMIN_PASSWORD }}' dhEmail='${{ vars.DH_EMAIL }}' \
+            -p pgAdminPassword='${{ secrets.PG_ADMIN_PASSWORD }}' mgmtEmail='${{ vars.MGMT_EMAIL }}' \
             jwtSecret='${{ secrets.JWT_SECRET }}' fileSigningSecret='${{ secrets.FILE_SIGNING_SECRET }}' \
             mfaEncryptionKey='${{ secrets.MFA_ENCRYPTION_KEY }}' inboundEmailSecret='${{ secrets.INBOUND_EMAIL_SECRET }}' \
             appBaseUrl='${{ vars.APP_BASE_URL }}'

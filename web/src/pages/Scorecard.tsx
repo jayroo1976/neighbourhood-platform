@@ -30,6 +30,12 @@ export interface Summary {
   closure_quality: { management_closed_total: number; disputed: number; disputed_rate: number | null; awaiting_verification: number; awaiting_verification_over_7d: number; verified_fix_rate: number | null };
   backlog: { open: number; overdue: number; overdue_rate: number | null; median_age_days: number | null; oldest_days: number | null; ageing: { bucket: string; count: number }[] };
   repeat: { linked_reports: number; clusters: number; affects_total: number; avg_residents_per_report: number | null };
+  response: { median_hours: number | null; distribution: { bucket: string; count: number }[] };
+  by_severity: { severity: string; target_days: number; total: number; open: number; overdue: number; median_fix_days: number | null }[];
+  week: { this: { reported: number; fixed: number }; last: { reported: number; fixed: number } };
+  top_affected: { id: string; ref: string; title: string; tower: string | null; homes: number; age_days: number }[];
+  reopen: { closed_total: number; reopened: number; rate: number | null };
+  engagement: { reporters: number; reports_with_neighbours: number; share_with_neighbours: number | null };
   by_category: Group[];
   by_tower: Group[];
   trend: { week: string; reported: number; resolved_ok: number; disputed: number }[];
@@ -177,7 +183,19 @@ export function Scorecard() {
             <Tile label="Overdue open reports" value={String(s.backlog.overdue)} sub={`oldest ${s.backlog.oldest_days != null ? Math.round(s.backlog.oldest_days) : '-'} days`} tone={s.backlog.overdue_rate == null ? undefined : s.backlog.overdue_rate > 0.5 ? 'bad' : s.backlog.overdue_rate > 0.2 ? 'mid' : 'ok'} />
           </section>
 
+          <section className="panel">
+            <h2>This week</h2>
+            <p>
+              <b>{s.week.this.reported}</b> reported and <b>{s.week.this.fixed}</b> verified fixed so far, compared with {s.week.last.reported} reported and {s.week.last.fixed} fixed last week.
+            </p>
+          </section>
+
           <div className="grid-2">
+            <section className="panel">
+              <h2>How fast management replies</h2>
+              <Bars data={s.response.distribution.map((a) => ({ label: a.bucket, value: a.count }))} />
+              <p className="muted small">Hours from our email to a case number or reply{s.response.median_hours != null ? `. Median ${s.response.median_hours}h.` : '.'}</p>
+            </section>
             <section className="panel">
               <h2>Open reports by age</h2>
               <Bars data={s.backlog.ageing.map((a) => ({ label: a.bucket, value: a.count }))} />
@@ -187,6 +205,24 @@ export function Scorecard() {
               <Trend data={s.trend} />
             </section>
           </div>
+
+          {s.top_affected.length > 0 && (
+            <section className="panel">
+              <h2>Issues affecting the most homes</h2>
+              <ul className="plain">
+                {s.top_affected.map((t) => (
+                  <li key={t.id}>
+                    <Link to={`/incident/${t.id}`}>
+                      {t.ref} {t.title}
+                    </Link>{' '}
+                    <span className="muted small">
+                      {t.homes} homes · {t.tower} · open {Math.round(t.age_days)} days
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {s.disputed_closures.length > 0 && (
             <section className="panel">
@@ -240,9 +276,27 @@ export function Scorecard() {
           </div>
 
           <section className="panel">
+            <h2>By priority</h2>
+            <table className="table">
+              <thead>
+                <tr><th>Priority</th><th>Target</th><th>Reports</th><th>Open</th><th>Overdue</th><th>Median fix</th></tr>
+              </thead>
+              <tbody>
+                {s.by_severity.map((g) => (
+                  <tr key={g.severity}>
+                    <td>{g.severity === 'urgent' ? 'Safety risk' : g.severity[0].toUpperCase() + g.severity.slice(1)}</td>
+                    <td>{g.target_days} d</td><td>{g.total}</td><td>{g.open}</td><td>{g.overdue}</td><td>{g.median_fix_days != null ? `${g.median_fix_days} d` : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section className="panel">
             <h2>Neighbours affected</h2>
             <p>
-              {s.repeat.affects_total} additional residents confirmed they were affected, averaging <b>{s.repeat.avg_residents_per_report ?? '-'}</b> residents per issue. {s.repeat.clusters} groups of repeat reports were linked by moderators.
+              {s.repeat.affects_total} additional residents confirmed they were affected, averaging <b>{s.repeat.avg_residents_per_report ?? '-'}</b> residents per issue. {s.repeat.clusters} groups of repeat reports were linked by moderators. {s.engagement.reporters} residents have reported, and {pct(s.engagement.share_with_neighbours)} of reports have at least one neighbour added.
+              {s.reopen.rate != null && <> Of {s.reopen.closed_total} reports management closed, {s.reopen.reopened} ({pct(s.reopen.rate)}) were reopened.</>}
             </p>
           </section>
 

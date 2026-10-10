@@ -67,6 +67,7 @@ export const config = {
   },
 
   privacyNoticeVersion: '2026-10-v1',
+  termsVersion: '2026-10-v1',
   schedulerEnabled: env.SCHEDULER_ENABLED ? env.SCHEDULER_ENABLED === 'true' : !isTest,
 };
 

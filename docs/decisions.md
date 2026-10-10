@@ -35,3 +35,10 @@ Open sign-up is risky for a platform that shows reports to neighbours. Approval 
 
 ## Terms of use and sign-up consent (2026-10-09)
 Decision: two separate required tick boxes (privacy/data sharing, terms) with a short data notice on the form. Reason: PDPL consent should be specific and informed, and terms acceptance is a different thing from data consent. Terms are a pilot draft under UAE law (Dubai courts), pending lawyer review; the operator entity is deliberately not named yet.
+
+
+## Two report types for now (2026-10-10)
+Decision: the report form offers Maintenance (default) or Security only. Reason: fewer taps and no wrong-category guesses in the first pilot. The 15 detailed categories stay valid in the API and data so reports can be re-categorised by moderators and the form can offer them again later.
+
+## Metrics: resident-safe vs staff-only (2026-10-10)
+Decision: everything computed from reports (rates, ages, response times, top-affected) is shown to all signed-in residents on the scorecard; operational chase lists (not yet emailed, people counts) are staff-only. Reason: transparency is the point, but operational lists add little for residents. A logged-out public page is deferred until the wording is legally reviewed.

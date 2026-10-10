@@ -5,8 +5,9 @@ import { parse as parseCsv } from 'csv-parse/sync';
 import { z } from 'zod';
 import { config } from '../config';
 import { CATEGORIES, SEVERITIES, STATUSES, mergeSettings, type Category, type Severity, type Status } from '../domain';
+import { communityKpis } from '../services/kpi';
 import { clientIp, parse, requireAdmin, requireStaff, wrap } from '../http';
-import { sha256 } from '../security/crypto';
+import { hashPassword, sha256 } from '../security/crypto';
 import { addEvent, verifyChain } from '../services/events';
 import {
   HttpError,
@@ -30,6 +31,45 @@ export function adminRouter(): Router {
   const r = Router();
 
   // ---------------- incidents ----------------
+  r.get(
+    '/insights',
+    requireStaff,
+    wrap(async (req, res) => {
+      const q = parse(z.object({ days: z.coerce.number().int().min(1).max(3650).optional() }), req.query);
+      const me = req.user!;
+      const community = await req.db('communities').where({ id: me.community_id }).first();
+      const settings = mergeSettings(community.settings);
+      const now = Date.now();
+      const from = q.days ? new Date(now - q.days * 86_400_000).toISOString() : undefined;
+      const kpis = await communityKpis(req.db, me.community_id, settings, { from });
+      const open = (await req.db('incidents').where({ community_id: me.community_id }).whereIn('status', ['reported', 'case_number_received', 'in_progress', 'reopened']).select()) as Record<string, any>[];
+      const age = (iso: string) => Math.round(((now - Date.parse(iso)) / 86_400_000) * 10) / 10;
+      const waiting = open
+        .filter((x) => !x.case_number_at && !x.mgmt_first_reply_at)
+        .map((x) => ({ id: x.id, ref: x.ref, title: x.title, tower: x.tower, hours: Math.round((now - Date.parse(x.emailed_at ?? x.reported_at)) / 3_600_000), emailed: !!x.emailed_at }))
+        .sort((a, b) => b.hours - a.hours);
+      const notEmailed = waiting.filter((x) => !x.emailed && x.hours >= 1);
+      const longest = open
+        .map((x) => ({ id: x.id, ref: x.ref, title: x.title, tower: x.tower, severity: x.severity, age_days: age(x.reported_at) }))
+        .sort((a, b) => b.age_days - a.age_days)
+        .slice(0, 5);
+      const people = (await req.db('users').where({ community_id: me.community_id }).whereNull('deleted_at').select('role', 'approval_status', 'active')) as { role: string; approval_status: string; active: number }[];
+      res.json({
+        kpis,
+        awaiting_reply: waiting.filter((x) => x.emailed).slice(0, 5),
+        awaiting_reply_total: waiting.filter((x) => x.emailed).length,
+        not_emailed: notEmailed.slice(0, 5),
+        not_emailed_total: notEmailed.length,
+        longest_open: longest,
+        people: {
+          residents: people.filter((u) => u.role === 'resident' && u.approval_status === 'approved' && u.active).length,
+          pending: people.filter((u) => u.approval_status === 'pending').length,
+          staff: people.filter((u) => u.role !== 'resident' && u.active).length,
+        },
+      });
+    }),
+  );
+
   r.get(
     '/incidents',
     requireStaff,
@@ -229,6 +269,9 @@ export function adminRouter(): Router {
               cc_reporter: z.boolean(),
               ai_suggest_enabled: z.boolean(),
               registration_open: z.boolean(),
+              email_mode: z.enum(['resident', 'platform']),
+              require_approval: z.boolean(),
+              trust_resident_invites: z.boolean(),
               whatsapp_group_url: z.string().trim().max(200).refine((v) => v === '' || /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+/.test(v), 'Use a WhatsApp group invite link starting https://chat.whatsapp.com/'),
             })
             .partial()
@@ -257,6 +300,7 @@ export function adminRouter(): Router {
       const users = await req.db('users').where({ community_id: req.user!.community_id }).orderBy('created_at', 'desc').limit(1000);
       const counts = (await req.db('incidents').groupBy('reporter_id').select('reporter_id').count({ c: '*' })) as unknown as { reporter_id: string; c: number | string }[];
       const cm = new Map(counts.map((c: { reporter_id: string; c: number | string }) => [c.reporter_id, Number(c.c)]));
+      const byId = new Map(users.map((u) => [u.id, `${u.name}${u.tower ? ` (${u.tower})` : ''}`]));
       res.json({
         items: users.map((u) => ({
           id: u.id,
@@ -271,8 +315,87 @@ export function adminRouter(): Router {
           created_at: u.created_at,
           last_login_at: u.last_login_at,
           deleted: !!u.deleted_at,
+          approval_status: u.approval_status ?? 'approved',
+          invited_by: u.invited_by ? (byId.get(u.invited_by) ?? null) : null,
         })),
       });
+    }),
+  );
+
+  r.get(
+    '/users/pending-count',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const c = await req.db('users').where({ community_id: req.user!.community_id, approval_status: 'pending' }).whereNull('deleted_at').count({ c: '*' }).first();
+      res.json({ count: Number(c?.c ?? 0) });
+    }),
+  );
+
+  r.post(
+    '/users',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const me = req.user!;
+      const body = parse(
+        z.object({
+          name: z.string().trim().min(2).max(80),
+          email: z.string().trim().toLowerCase().email().max(200),
+          tower: z.string().trim().max(40).optional(),
+          unit: z.string().trim().max(20).optional(),
+          role: z.enum(['resident', 'committee', 'admin', 'super_admin']).default('resident'),
+        }),
+        req.body,
+      );
+      if ((body.role === 'admin' || body.role === 'super_admin') && me.role !== 'super_admin') throw new HttpError(403, 'Only a super admin can add an admin.');
+      if (await req.db('users').where({ email: body.email }).first()) throw new HttpError(409, 'An account with this email already exists.');
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      await req.db('users').insert({
+        id,
+        community_id: me.community_id,
+        email: body.email,
+        password_hash: await hashPassword(crypto.randomBytes(24).toString('base64url') + 'Aa1!'), // unusable until they set their own
+        name: body.name,
+        tower: body.tower || null,
+        unit: body.unit || null,
+        role: body.role,
+        approval_status: 'approved',
+        created_at: now,
+      });
+      const token = crypto.randomBytes(32).toString('base64url');
+      await req.db('password_resets').insert({ id: crypto.randomUUID(), user_id: id, token_hash: sha256(token), expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString() });
+      const setup_link = `${config.appBaseUrl}/reset?token=${token}`;
+      await queueEmail(req.db, { kind: 'user_invite', communityId: me.community_id, to: body.email, subject: 'You have been added to Neighbourhood Reports', text: `Hello ${body.name},\n\nYou have been added to your community's reporting platform. Set your password within 7 days using this link:\n${setup_link}\n\nThen sign in at ${config.appBaseUrl}` });
+      await audit(req.db, { actorId: me.id, actorRole: me.role, action: 'user_create', targetType: 'user', targetId: id, ip: clientIp(req), detail: { role: body.role } });
+      res.status(201).json({ ok: true, id, setup_link });
+    }),
+  );
+
+  r.post(
+    '/users/:id/approve',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const me = req.user!;
+      const u = await req.db('users').where({ id: req.params.id, community_id: me.community_id, approval_status: 'pending' }).whereNull('deleted_at').first();
+      if (!u) throw new HttpError(404, 'No pending request found.');
+      await req.db('users').where({ id: u.id }).update({ approval_status: 'approved' });
+      await queueEmail(req.db, { kind: 'signup_approved', communityId: me.community_id, to: u.email, subject: 'Your request to join was approved', text: `Hello ${u.name},\n\nYour request to join was approved. You can sign in now:\n${config.appBaseUrl}/login` });
+      await audit(req.db, { actorId: me.id, actorRole: me.role, action: 'user_approve', targetType: 'user', targetId: u.id, ip: clientIp(req) });
+      res.json({ ok: true });
+    }),
+  );
+
+  r.post(
+    '/users/:id/decline',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const me = req.user!;
+      const u = await req.db('users').where({ id: req.params.id, community_id: me.community_id, approval_status: 'pending' }).whereNull('deleted_at').first();
+      if (!u) throw new HttpError(404, 'No pending request found.');
+      await req.db('users').where({ id: u.id }).update({ approval_status: 'rejected', active: 0 });
+      await queueEmail(req.db, { kind: 'signup_declined', communityId: me.community_id, to: u.email, subject: 'Your request to join', text: `Hello ${u.name},\n\nWe could not approve your request to join at this time. If you think this is a mistake, please contact your community moderators.` });
+      await audit(req.db, { actorId: me.id, actorRole: me.role, action: 'user_decline', targetType: 'user', targetId: u.id, ip: clientIp(req) });
+      res.json({ ok: true });
     }),
   );
 

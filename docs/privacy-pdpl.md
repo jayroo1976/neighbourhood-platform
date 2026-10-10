@@ -36,3 +36,6 @@ In the default mode the email goes from the resident's own account, so managemen
 
 ## Sign-up requests
 A request stores name, email, tower, apartment and who invited the person. Declined requests keep the record so the person cannot simply re-register with the same email; delete them from People if you do not want to keep them. Update the privacy notice to mention that a moderator reviews requests.
+
+## Metrics visibility
+Residents see community-level metrics only (counts, rates, ages, tower and priority breakdowns, and report titles with tower). Staff-only insights add lists of reports and counts of residents, but no extra personal data. Neither view shows names or apartment numbers to residents.

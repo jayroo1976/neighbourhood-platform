@@ -54,8 +54,10 @@ describe('auth', () => {
   });
 
   it('registers, signs in, locks after repeated failures and keeps errors generic', async () => {
-    const weak = await request(ctx.app).post('/api/auth/register').set(H).send({ email: 'weak@example.test', password: 'password', name: 'Weak', tower: 'MR 1', unit: '1', consent: true });
+    const weak = await request(ctx.app).post('/api/auth/register').set(H).send({ email: 'weak@example.test', password: 'password', name: 'Weak', tower: 'MR 1', unit: '1', consent: true, terms: true });
     expect(weak.status).toBe(400);
+    const noTerms = await request(ctx.app).post('/api/auth/register').set(H).send({ email: 'nt@example.test', password: PASSWORD, name: 'No Terms', tower: 'MR 1', unit: '1', consent: true });
+    expect(noTerms.status).toBe(400);
     const noConsent = await request(ctx.app).post('/api/auth/register').set(H).send({ email: 'nc@example.test', password: PASSWORD, name: 'No Consent', tower: 'MR 1', unit: '1', consent: false });
     expect(noConsent.status).toBe(400);
 
@@ -209,6 +211,104 @@ describe('affects me', () => {
   });
 });
 
+describe('adding people', () => {
+  const setSettings = (o: Record<string, unknown>) => ctx.db('communities').where({ id: ctx.communityId }).update({ settings: JSON.stringify({ email_mode: 'platform', require_photo_for_affects: true, ...o }) });
+  const signup = (email: string, extra: Record<string, unknown> = {}) =>
+    request(ctx.app).post('/api/auth/register').set(H).send({ name: 'New Person', email, password: PASSWORD, tower: 'MR 2', unit: '77', consent: true, terms: true, ...extra });
+
+  it('holds self-requests for approval, lets an admin approve or decline, and blocks sign-in until then', async () => {
+    await setSettings({ require_approval: true });
+    try {
+      const admin = await makeStaff(ctx.db, ctx.communityId, 'admin', ctx.app);
+      const r1 = await signup('pending1@example.test');
+      expect(r1.status).toBe(202);
+      expect(r1.body.pending).toBe(true);
+      expect(r1.headers['set-cookie']).toBeUndefined();
+      const login = await request(ctx.app).post('/api/auth/login').set(H).send({ email: 'pending1@example.test', password: PASSWORD });
+      expect(login.status).toBe(403);
+      expect(login.body.code).toBe('pending_approval');
+      expect((await admin.agent.get('/api/admin/users/pending-count')).body.count).toBeGreaterThanOrEqual(1);
+      const users = (await admin.agent.get('/api/admin/users')).body.items;
+      const row = users.find((u: { email: string }) => u.email === 'pending1@example.test');
+      expect(row.approval_status).toBe('pending');
+      expect((await admin.agent.post(`/api/admin/users/${row.id}/approve`).set(H)).status).toBe(200);
+      expect((await request(ctx.app).post('/api/auth/login').set(H).send({ email: 'pending1@example.test', password: PASSWORD })).status).toBe(200);
+
+      const r2 = await signup('pending2@example.test');
+      const row2 = (await admin.agent.get('/api/admin/users')).body.items.find((u: { email: string }) => u.email === 'pending2@example.test');
+      expect((await admin.agent.post(`/api/admin/users/${row2.id}/decline`).set(H)).status).toBe(200);
+      expect(r2.status).toBe(202);
+      expect((await request(ctx.app).post('/api/auth/login').set(H).send({ email: 'pending2@example.test', password: PASSWORD })).body.code).toBe('not_approved');
+    } finally {
+      await setSettings({});
+    }
+  });
+
+  it('lets residents invite neighbours with a personal link and admins add people directly', async () => {
+    const a = await register(ctx.app, { tower: 'MR 1', unit: '12' });
+    await setSettings({ require_approval: true, trust_resident_invites: true });
+    try {
+      const invite = (await a.agent.get('/api/me/invite')).body;
+      expect(invite.url).toContain('/register?ref=');
+      const ref = new URL(invite.url).searchParams.get('ref');
+      const viaInvite = await signup('invited@example.test', { ref });
+      expect(viaInvite.status).toBe(201); // trusted invite: approved at once
+      const viaNone = await signup('stranger@example.test');
+      expect(viaNone.status).toBe(202);
+
+      const admin = await makeStaff(ctx.db, ctx.communityId, 'admin', ctx.app);
+      const added = await admin.agent.post('/api/admin/users').set(H).send({ name: 'Added Person', email: 'added@example.test', tower: 'MR 3', unit: '5' });
+      expect(added.status).toBe(201);
+      expect(added.body.setup_link).toContain('/reset?token=');
+      const token = new URL(added.body.setup_link).searchParams.get('token');
+      expect((await request(ctx.app).post('/api/auth/reset').set(H).send({ token, password: PASSWORD })).status).toBe(200);
+      expect((await request(ctx.app).post('/api/auth/login').set(H).send({ email: 'added@example.test', password: PASSWORD })).status).toBe(200);
+      expect((await admin.agent.post('/api/admin/users').set(H).send({ name: 'Boss', email: 'boss@example.test', role: 'admin' })).status).toBe(403); // only super admins add admins
+    } finally {
+      await setSettings({});
+    }
+  });
+});
+
+describe('resident sends the email from their own mail app', () => {
+  it('saves the report without a server email, gives a draft, and records the confirmation', async () => {
+    await ctx.db('communities').where({ id: ctx.communityId }).update({ settings: JSON.stringify({ email_mode: 'resident', require_photo_for_affects: false }) });
+    try {
+      const a = await register(ctx.app, { tower: 'MR 3', unit: '1004' });
+      const b = await register(ctx.app, { tower: 'MR 3', unit: '1005' });
+      const before = (await ctx.db('email_outbox').count({ c: '*' }).first())!.c as number;
+      const created = await createReport(a.agent, { title: 'Ladder left in stairwell' });
+      expect(Number((await ctx.db('email_outbox').count({ c: '*' }).first())!.c)).toBe(Number(before));
+      let detail = (await a.agent.get(`/api/incidents/${created.id}`)).body;
+      expect(detail.permissions.needs_my_email).toBe(true);
+      expect(detail.emailed_at).toBeNull();
+      const draft = (await a.agent.get(`/api/incidents/${created.id}/email-draft`)).body;
+      expect(draft.kind).toBe('new');
+      expect(draft.to).toBeTruthy();
+      expect(draft.body).toContain('Ladder left in stairwell');
+      expect(draft.body).toContain('I am a resident');
+      expect((await a.agent.post(`/api/incidents/${created.id}/email-sent`).set(H)).status).toBe(200);
+      detail = (await a.agent.get(`/api/incidents/${created.id}`)).body;
+      expect(detail.emailed_at).toBeTruthy();
+      expect(detail.permissions.needs_my_email).toBe(false);
+
+      // affects me: no photo needed, no server email, own draft
+      const join = await b.agent.post(`/api/incidents/${created.id}/affects`).set(H).send({});
+      expect(join.status).toBe(201);
+      expect(Number((await ctx.db('email_outbox').count({ c: '*' }).first())!.c)).toBe(Number(before));
+      const d2 = (await b.agent.get(`/api/incidents/${created.id}/email-draft`)).body;
+      expect(d2.kind).toBe('affects');
+      expect(d2.body).toContain('ALSO affected');
+      expect((await b.agent.post(`/api/incidents/${created.id}/email-sent`).set(H)).status).toBe(200);
+      expect((await b.agent.get(`/api/incidents/${created.id}`)).body.permissions.needs_my_email).toBe(false);
+      const stranger = await register(ctx.app);
+      expect((await stranger.agent.get(`/api/incidents/${created.id}/email-draft`)).status).toBe(403);
+    } finally {
+      await ctx.db('communities').where({ id: ctx.communityId }).update({ settings: JSON.stringify({ email_mode: 'platform', require_photo_for_affects: true }) });
+    }
+  });
+});
+
 describe('share link preview', () => {
   it('shows title and photo only with a valid share token, never the apartment number', async () => {
     const a = await register(ctx.app, { tower: 'MR 1', unit: '9876' });
@@ -310,6 +410,18 @@ describe('admin and KPIs', () => {
 
     const audit = (await admin.agent.get('/api/admin/audit')).body.items;
     expect(audit.some((x: { action: string }) => x.action === 'incident_link')).toBe(true);
+
+    // more metrics: resident-safe on the scorecard, staff-only insights
+    const sc = (await a.agent.get('/api/kpi/summary')).body;
+    expect(sc.response.distribution).toHaveLength(5);
+    expect(sc.by_severity.map((x: { severity: string }) => x.severity)).toEqual(['urgent', 'high', 'normal', 'low']);
+    expect(sc.week.this.reported).toBeGreaterThanOrEqual(2);
+    expect(JSON.stringify(sc)).not.toContain('@example.test');
+    expect((await a.agent.get('/api/admin/insights')).status).toBe(403);
+    const ins = (await admin.agent.get('/api/admin/insights')).body;
+    expect(ins.kpis.counts.total).toBeGreaterThanOrEqual(2);
+    expect(ins.people.residents).toBeGreaterThanOrEqual(2);
+    expect(Array.isArray(ins.longest_open)).toBe(true);
   });
 
   it('computes the performance scorecard from resident-verified outcomes', async () => {

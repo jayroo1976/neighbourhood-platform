@@ -15,6 +15,8 @@ export async function setup() {
   const db = createDb('sqlite::memory:');
   await migrate(db);
   const communityId = await ensureCommunity(db);
+  // Existing tests exercise the server-sent email path and the photo requirement; resident-mode tests flip these.
+  await db('communities').where({ id: communityId }).update({ settings: JSON.stringify({ email_mode: 'platform', require_photo_for_affects: true }) });
   const mail = new ConsoleProvider();
   setMailProviderForTests(mail);
   setStorageForTests(new MemoryStorage());
@@ -36,7 +38,7 @@ export async function register(app: Express.Application | any, over: Partial<{ e
     name: over.name ?? 'Test Resident',
     tower: over.tower ?? 'MR 1',
     unit: over.unit ?? '1204',
-    consent: true,
+    consent: true, terms: true,
   };
   const res = await agent.post('/api/auth/register').set(H).send(body);
   if (res.status !== 201) throw new Error(`register failed: ${res.status} ${JSON.stringify(res.body)}`);

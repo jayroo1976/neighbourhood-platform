@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
+import { config } from '../config';
+import { mergeSettings } from '../domain';
 import { clientIp, parse, requireAuth, wrap } from '../http';
 import { hashPassword, passwordProblem, verifyPassword } from '../security/crypto';
 import { addEvent } from '../services/events';
@@ -11,6 +13,23 @@ import { audit } from '../services/support';
 export function meRouter(): Router {
   const r = Router();
   r.use(requireAuth);
+
+  /** Personal invite link: neighbours who sign up through it are recorded as invited by this resident. */
+  r.get(
+    '/invite',
+    wrap(async (req, res) => {
+      let u = await req.db('users').where({ id: req.user!.id }).first();
+      if (!u.invite_token) {
+        const token = crypto.randomBytes(7).toString('base64url');
+        await req.db('users').where({ id: u.id }).update({ invite_token: token });
+        u = { ...u, invite_token: token };
+      }
+      const community = await req.db('communities').where({ id: u.community_id }).first();
+      const st = mergeSettings(community.settings);
+      const c = await req.db('users').where({ invited_by: u.id }).count({ c: '*' }).first();
+      res.json({ url: `${config.appBaseUrl}/register?ref=${u.invite_token}`, invited: Number(c?.c ?? 0), auto_approved: st.require_approval ? st.trust_resident_invites : true, approval_required: st.require_approval });
+    }),
+  );
 
   r.patch(
     '/profile',

@@ -1,5 +1,18 @@
 # Changelog (newest first)
 
+## 2026-10-10 - More metrics: admin insights, scorecard, "My reports" at a glance
+- **Admin > Reports: new Insights panel** (collapsible, last 90 days): open and overdue, no reply in time (median reply hours), closed-but-not-fixed, awaiting verification, reported and fixed this week versus last week, reopened after closure, residents (and how many are waiting for approval or have reported). Each alert tile has "Show these" to filter the list. Lists: waiting longest for a reply, saved but not yet emailed (resident never confirmed sending), open the longest, issues affecting the most homes. New staff-only endpoint `GET /api/admin/insights`.
+- **Scorecard (resident view) gains:** This week vs last week, how fast management replies (under 4h / 4-24h / 1-3 days / over 3 days / no reply yet), a by-priority table (target days, open, overdue, median fix), issues affecting the most homes, residents who have reported, share of reports with a neighbour added, and the reopen rate after management closures. Still no names or apartment numbers.
+- **My reports:** a summary strip on the "My reports" tab: reported by you, joined, still open, fixed, no case number yet, neighbours who joined yours, oldest open report.
+- No migration. 22 tests pass (extended: resident-safe metrics, staff-only insights).
+- Not done: a logged-out public page. The scorecard still needs a sign-in; say if you want a public, read-only version (it would need legal review of the wording first).
+
+## 2026-10-10 - Simpler report form: Maintenance or Security
+- The report form no longer shows 15 issue types. It asks one question, "What kind of issue?", with two choices, **Maintenance** (pre-selected) and **Security**, so a normal report is photo, title, send. Urgency stays.
+- New category `maintenance` added; all older categories remain valid, so existing reports, imports, the scorecard category breakdown and the admin category editor are unchanged. Moderators can still re-categorise a report in Admin.
+- Duplicate suggestions no longer filter by category (every new report is "maintenance" or "security", so filtering would hide matches with older, more specific reports). Own-AI photo drafting can only pick Security; anything else stays Maintenance.
+- No migration needed. Tests: 22 pass. Easy to bring the detailed types back later by restoring the chip list in `web/src/pages/Report.tsx`.
+
 ## 2026-10-09 - Join request on the login page, data notice, terms of use
 - **Login page:** a clear "Request to join" box (shows "Create an account" when approval is off). The form asks for name, email, tower, apartment and password.
 - **"What we store" notice** on the sign-up form lists what is kept about you and who sees it, followed by two tick boxes: one for the privacy notice and data sharing, one for the terms of use. Both must be ticked; the server rejects sign-ups without them.

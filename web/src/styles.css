@@ -171,3 +171,13 @@ details summary{cursor:pointer;font-weight:600}
 .data-notice { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line, #d7dde6); background: rgba(10, 28, 52, 0.04); font-size: 0.88rem; }
 .data-notice ul { margin: 4px 0 10px; padding-left: 18px; }
 .data-notice li { margin: 2px 0; }
+
+/* my reports at a glance, admin insights */
+.my-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 14px; padding: 12px; border: 1px solid var(--line, #d7dde6); border-radius: 12px; background: rgba(10, 28, 52, 0.04); }
+.my-stats div { display: grid; text-align: center; }
+.my-stats b { font-size: 1.3rem; }
+.my-stats span { font-size: 0.78rem; opacity: 0.75; }
+.my-stats p { grid-column: 1 / -1; margin: 2px 0 0; text-align: center; }
+.insights > summary { cursor: pointer; padding: 4px 0 10px; }
+.insights h3 { margin: 14px 0 6px; font-size: 0.95rem; }
+.linkish { background: none; border: 0; padding: 0; color: var(--accent, #0f5a50); text-decoration: underline; font: inherit; font-size: 0.8rem; cursor: pointer; }

@@ -239,6 +239,45 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    name: '003_resident_email_and_optional_affect_photo',
+    up: async (db) => {
+      await db.schema.alterTable('affects', (t) => {
+        t.text('email_confirmed_at');
+      });
+      // Photos are now recommended, not required, when adding yourself to a report.
+      const rows = (await db('communities').select('id', 'settings')) as { id: string; settings: string }[];
+      for (const c of rows) {
+        let st: Record<string, unknown> = {};
+        try {
+          st = JSON.parse(c.settings || '{}');
+        } catch {
+          st = {};
+        }
+        st.require_photo_for_affects = false;
+        await db('communities').where({ id: c.id }).update({ settings: JSON.stringify(st) });
+      }
+    },
+  },
+  {
+    name: '004_signup_approval_and_invites',
+    up: async (db) => {
+      await db.schema.alterTable('users', (t) => {
+        t.text('approval_status').notNullable().defaultTo('approved'); // approved | pending | rejected
+        t.text('invited_by');
+        t.text('invite_token');
+      });
+    },
+  },
+  {
+    name: '005_terms_acceptance',
+    up: async (db) => {
+      await db.schema.alterTable('users', (t) => {
+        t.text('terms_at');
+        t.text('terms_version');
+      });
+    },
+  },
 ];
 
 export async function migrate(db: Db): Promise<void> {

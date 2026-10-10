@@ -1,6 +1,7 @@
 // Shared domain constants and per-community settings.
 
 export const CATEGORIES = [
+  'maintenance',
   'plumbing_leak',
   'electrical',
   'lift',
@@ -61,10 +62,16 @@ export interface CommunitySettings {
   registration_open: boolean;
   /** Optional WhatsApp group invite link (https://chat.whatsapp.com/...) for the "post in our group" share button */
   whatsapp_group_url: string;
+  /** resident = the resident sends the email from their own email app (default); platform = the server emails management */
+  email_mode: 'resident' | 'platform';
+  /** New sign-ups wait for a moderator to approve them (a valid invite code skips the wait) */
+  require_approval: boolean;
+  /** People who join through a resident's personal invite link are approved automatically */
+  trust_resident_invites: boolean;
 }
 
 export const DEFAULT_SETTINGS: CommunitySettings = {
-  require_photo_for_affects: true,
+  require_photo_for_affects: false,
   affects_max_per_day: 10,
   reports_max_per_day: 15,
   case_reminder_hours: 24,
@@ -75,6 +82,9 @@ export const DEFAULT_SETTINGS: CommunitySettings = {
   ai_suggest_enabled: false,
   registration_open: true,
   whatsapp_group_url: '',
+  email_mode: 'resident',
+  require_approval: false,
+  trust_resident_invites: false,
 };
 
 export function mergeSettings(raw: unknown): CommunitySettings {
@@ -96,6 +106,7 @@ export function mergeSettings(raw: unknown): CommunitySettings {
 }
 
 export const CATEGORY_LABELS: Record<Category, string> = {
+  maintenance: 'Maintenance',
   plumbing_leak: 'Plumbing / leak',
   electrical: 'Electrical',
   lift: 'Lift',

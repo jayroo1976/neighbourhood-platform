@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CATEGORY_LABELS, api, dateTime, qs } from '../api';
+import { api, dateTime, qs } from '../api';
 import { useAuth } from '../auth';
 import { EmailPanel } from '../EmailPanel';
 import { Banner, ErrorNote, Field, PhotoButton, Toggle, ShareButton, shrinkImage } from '../ui';
@@ -39,7 +39,7 @@ export function Report() {
   const [note, setNote] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState('maintenance');
   const [severity, setSeverity] = useState('normal');
   const [locationText, setLocationText] = useState('');
   const [gps, setGps] = useState<{ lat: number; lng: number; acc: number } | null>(null);
@@ -82,7 +82,7 @@ export function Report() {
       const t = touched.current;
       if (!t.title && s.title) setTitle(s.title);
       if (!t.description && s.description) setDescription(s.description);
-      if (!t.category && s.category && s.category !== 'other') setCategory(s.category);
+      if (!t.category && s.category === 'security') setCategory('security');
       if (!t.severity && s.severity) setSeverity(s.severity);
       setSuggested({ ai: s.ai_used });
     } catch {
@@ -116,12 +116,12 @@ export function Report() {
     if (title.trim().length < 4) return setSimilar([]);
     const t = setTimeout(() => {
       api
-        .get<{ items: Similar[] }>(`/incidents/similar${qs({ category, tower: user.tower, lat: gps?.lat, lng: gps?.lng, text: `${title} ${description}` })}`)
+        .get<{ items: Similar[] }>(`/incidents/similar${qs({ tower: user.tower, lat: gps?.lat, lng: gps?.lng, text: `${title} ${description}` })}`)
         .then((r) => setSimilar(r.items))
         .catch(() => setSimilar([]));
     }, 500);
     return () => clearTimeout(t);
-  }, [title, description, category, gps, user.tower]);
+  }, [title, description, gps, user.tower]);
 
   async function submit() {
     setBusy(true);
@@ -130,7 +130,7 @@ export function Report() {
       const r = await api.post<{ id: string; ref: string; share_url: string | null; email_mode?: 'resident' | 'platform' }>('/incidents', {
         title,
         description,
-        category: category || 'other',
+        category,
         severity,
         location_text: locationText || null,
         lat: gps?.lat ?? null,
@@ -191,7 +191,7 @@ export function Report() {
     );
   }
 
-  const ready = photos.length > 0 && title.trim().length >= 3 && !!category && !profileMissing;
+  const ready = photos.length > 0 && title.trim().length >= 3 && !profileMissing;
 
   return (
     <div className="page">
@@ -247,9 +247,12 @@ export function Report() {
         </Field>
 
         <div>
-          <span className="field-label">Type</span>
-          <div className="chips wrap" role="radiogroup" aria-label="Type of issue">
-            {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+          <span className="field-label">What kind of issue?</span>
+          <div className="chips" role="radiogroup" aria-label="Type of issue">
+            {[
+              ['maintenance', 'Maintenance'],
+              ['security', 'Security'],
+            ].map(([k, v]) => (
               <button key={k} type="button" role="radio" aria-checked={category === k} className={`chip ${category === k ? 'on' : ''}`} onClick={() => ((touched.current.category = true), setCategory(k))}>
                 {v}
               </button>
@@ -321,7 +324,7 @@ export function Report() {
         </button>
         {!ready && (
           <p className="muted small center">
-            {photos.length === 0 ? 'Add a photo' : title.trim().length < 3 ? 'Add a short title' : !category ? 'Pick a type' : ''} to continue.
+            {photos.length === 0 ? 'Add a photo' : title.trim().length < 3 ? 'Add a short title' : ''} to continue.
           </p>
         )}
         <p className="center">

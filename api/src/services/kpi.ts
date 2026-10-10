@@ -34,6 +34,8 @@ interface Row {
   resolution: string | null;
   reopen_count: number;
   last_activity_at: string;
+  reporter_id: string | null;
+  source?: string;
 }
 
 const baseTime = (r: Row) => ms(r.emailed_at ?? r.reported_at);
@@ -111,6 +113,8 @@ export async function communityKpis(
   const rows: Row[] = await q.select();
   const ids = new Set(rows.map((r) => r.id));
   const affectsRows = (await db('affects').select('incident_id')).filter((a: { incident_id: string }) => ids.has(a.incident_id));
+  const affectsBy = new Map<string, number>();
+  for (const a of affectsRows as { incident_id: string }[]) affectsBy.set(a.incident_id, (affectsBy.get(a.incident_id) ?? 0) + 1);
   const demo = Number((await db('incidents').where({ community_id: communityId, source: 'demo' }).count({ c: '*' }).first())?.c ?? 0);
 
   const open = rows.filter(isOpenish);
@@ -200,6 +204,44 @@ export async function communityKpis(
     disputed: rows.filter((r) => isDisputed(r) && r.resolved_at && weekKey(r.resolved_at) === w).length,
   }));
 
+
+  // --- more resident-safe metrics (no names, no apartments) ---
+  const noReply = rows.filter((r) => Number.isNaN(ackTime(r))).length;
+  const hb = (lo: number, hi: number) => ackHours.filter((h) => h >= lo && h < hi).length;
+  const response = [
+    { bucket: 'Under 4 hours', count: hb(0, 4) },
+    { bucket: '4 to 24 hours', count: hb(4, 24) },
+    { bucket: '1 to 3 days', count: hb(24, 72) },
+    { bucket: 'Over 3 days', count: hb(72, Infinity) },
+    { bucket: 'No reply yet', count: noReply },
+  ];
+  const bySeverity = (['urgent', 'high', 'normal', 'low'] as Severity[]).map((sv) => {
+    const rs = rows.filter((r) => r.severity === sv);
+    const targetDays = settings.sla_resolve_days[sv];
+    return {
+      severity: sv,
+      target_days: targetDays,
+      total: rs.length,
+      open: rs.filter(isOpenish).length,
+      overdue: rs.filter((r) => isOpenish(r) && now - ms(r.reported_at) > targetDays * DAY).length,
+      median_fix_days: round(median(rs.filter((r) => r.resolution === 'ok').map((r) => (ms(r.resolved_at) - ms(r.reported_at)) / DAY))),
+    };
+  });
+  const thisWeek = weekKey(new Date(now).toISOString());
+  const lastWeek = weekKey(new Date(now - 7 * DAY).toISOString());
+  const weekStats = (w: string) => ({
+    reported: rows.filter((r) => weekKey(r.reported_at) === w).length,
+    fixed: rows.filter((r) => r.resolved_at && r.resolution === 'ok' && weekKey(r.resolved_at) === w).length,
+  });
+  const topAffected = open
+    .map((r) => ({ id: r.id, ref: r.ref, title: r.title, tower: r.tower, homes: 1 + (affectsBy.get(r.id) ?? 0), age_days: round((now - ms(r.reported_at)) / DAY) ?? 0 }))
+    .filter((x) => x.homes > 1)
+    .sort((a, b) => b.homes - a.homes || b.age_days - a.age_days)
+    .slice(0, 5);
+  const reopenedEver = closed.filter((r) => r.reopen_count > 0).length;
+  const reporters = new Set(rows.map((r) => r.reporter_id).filter(Boolean));
+  const multiHome = rows.filter((r) => (affectsBy.get(r.id) ?? 0) > 0).length;
+
   // --- transparent score ---
   const ackRate = rate(ackWithin, ackDenominator);
   const resRate = rate(resHit, resDue);
@@ -271,6 +313,12 @@ export async function communityKpis(
       affects_total: affectsRows.length,
       avg_residents_per_report: round(rows.length ? (rows.length + affectsRows.length) / rows.length : null, 2),
     },
+    response: { median_hours: round(median(ackHours)), distribution: response },
+    by_severity: bySeverity,
+    week: { this: weekStats(thisWeek), last: weekStats(lastWeek) },
+    top_affected: topAffected,
+    reopen: { closed_total: closed.length, reopened: reopenedEver, rate: round(rate(reopenedEver, closed.length), 3) },
+    engagement: { reporters: reporters.size, reports_with_neighbours: multiHome, share_with_neighbours: round(rate(multiHome, rows.length), 3) },
     by_category: group((r) => r.category),
     by_tower: group((r) => r.tower ?? 'Unknown'),
     trend,

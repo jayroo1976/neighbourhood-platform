@@ -4,6 +4,7 @@ import { CATEGORY_LABELS, OPEN_STATUSES, STATUS_LABELS, api, dateTime, qs, type 
 import { useAuth } from '../auth';
 import { Banner, ErrorNote, Field, Sheet, Spinner, Stamp, Toggle, copyText, useAsync } from '../ui';
 import { KpiStrip, PhotoStrip, Timeline } from './Incident';
+import type { Summary } from './Scorecard';
 
 interface Row {
   id: string;
@@ -25,6 +26,102 @@ interface Row {
 }
 
 const isWriter = (r?: Role) => r === 'admin' || r === 'super_admin';
+
+interface Insights {
+  kpis: Summary;
+  awaiting_reply: { id: string; ref: string; title: string; tower: string | null; hours: number }[];
+  awaiting_reply_total: number;
+  not_emailed: { id: string; ref: string; title: string; tower: string | null; hours: number }[];
+  not_emailed_total: number;
+  longest_open: { id: string; ref: string; title: string; tower: string | null; severity: string; age_days: number }[];
+  people: { residents: number; pending: number; staff: number };
+}
+
+function InsightsPanel({ d, onFlag }: { d?: Insights; onFlag: (f: string) => void }) {
+  if (!d) return null;
+  const k = d.kpis;
+  const pctv = (v: number | null) => (v == null ? '-' : `${Math.round(v * 100)}%`);
+  const stat = (label: string, value: string, sub?: string, flag?: string) => (
+    <div className="tile" key={label}>
+      <span className="tile-label">{label}</span>
+      <b>{value}</b>
+      {sub && <span className="tile-sub">{sub}</span>}
+      {flag && (
+        <button type="button" className="linkish noprint" onClick={() => onFlag(flag)}>
+          Show these
+        </button>
+      )}
+    </div>
+  );
+  const week = (a: number, b: number) => (a === b ? 'same as last week' : `${a > b ? '+' : ''}${a - b} vs last week`);
+  return (
+    <details className="panel insights" open>
+      <summary>
+        <b>Insights</b> <span className="muted small">last 90 days</span>
+      </summary>
+      <section className="tiles">
+        {stat('Open now', String(k.backlog.open), `${k.backlog.overdue} overdue`, 'overdue')}
+        {stat('No reply in time', String(k.acknowledgement.overdue_unacknowledged), `median reply ${k.acknowledgement.median_hours ?? '-'}h`, 'ack_breached')}
+        {stat('Closed, not fixed', String(k.closure_quality.disputed), `${pctv(k.closure_quality.disputed_rate)} of closures`, 'disputed')}
+        {stat('Awaiting verification', String(k.closure_quality.awaiting_verification), `${k.closure_quality.awaiting_verification_over_7d} over 7 days`, 'awaiting_verification')}
+        {stat('Reported this week', String(k.week.this.reported), week(k.week.this.reported, k.week.last.reported))}
+        {stat('Fixed this week', String(k.week.this.fixed), week(k.week.this.fixed, k.week.last.fixed))}
+        {stat('Reopened after closure', String(k.reopen.reopened), `${pctv(k.reopen.rate)} of ${k.reopen.closed_total} closures`)}
+        {stat('Residents', String(d.people.residents), `${d.people.pending} waiting for approval · ${k.engagement.reporters} have reported`)}
+      </section>
+      <div className="grid-2">
+        <div>
+          <h3>Waiting longest for a reply ({d.awaiting_reply_total})</h3>
+          {d.awaiting_reply.length ? (
+            <ul className="plain">
+              {d.awaiting_reply.map((x) => (
+                <li key={x.id}>
+                  <Link to={`/admin/incidents/${x.id}`}>{x.ref} {x.title}</Link> <span className="muted small">{x.tower} · {x.hours >= 48 ? `${Math.round(x.hours / 24)} days` : `${x.hours}h`} since emailed</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted small">Nothing waiting.</p>
+          )}
+          <h3>Saved but not yet emailed ({d.not_emailed_total})</h3>
+          {d.not_emailed.length ? (
+            <ul className="plain">
+              {d.not_emailed.map((x) => (
+                <li key={x.id}>
+                  <Link to={`/admin/incidents/${x.id}`}>{x.ref} {x.title}</Link> <span className="muted small">{x.tower} · saved {x.hours >= 48 ? `${Math.round(x.hours / 24)} days` : `${x.hours}h`} ago, resident has not confirmed sending</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted small">Every report has been emailed.</p>
+          )}
+        </div>
+        <div>
+          <h3>Open the longest</h3>
+          <ul className="plain">
+            {d.longest_open.map((x) => (
+              <li key={x.id}>
+                <Link to={`/admin/incidents/${x.id}`}>{x.ref} {x.title}</Link> <span className="muted small">{x.tower} · {Math.round(x.age_days)} days · {x.severity}</span>
+              </li>
+            ))}
+          </ul>
+          <h3>Issues affecting the most homes</h3>
+          {k.top_affected.length ? (
+            <ul className="plain">
+              {k.top_affected.map((x) => (
+                <li key={x.id}>
+                  <Link to={`/admin/incidents/${x.id}`}>{x.ref} {x.title}</Link> <span className="muted small">{x.homes} homes</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted small">No shared issues yet.</p>
+          )}
+        </div>
+      </div>
+    </details>
+  );
+}
 
 export function AdminIncidents() {
   const { me } = useAuth();
@@ -55,6 +152,8 @@ export function AdminIncidents() {
     }
   }
 
+  const insights = useAsync(() => api.get<Insights>('/admin/insights?days=90'), []);
+
   return (
     <div className="page wide">
       <header className="page-head row between">
@@ -68,6 +167,8 @@ export function AdminIncidents() {
           </button>
         )}
       </header>
+
+ <InsightsPanel d={insights.data ?? undefined} onFlag={setFlag} />
 
       <div className="filters admin-filters">
         <input type="search" placeholder="Search title, ref or case no." value={text} onChange={(e) => setText(e.target.value)} />

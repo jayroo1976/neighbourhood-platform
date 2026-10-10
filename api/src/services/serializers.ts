@@ -156,6 +156,8 @@ export async function incidentDetail(db: Db, row: any, viewer: Viewer, opts: { f
       is_mine: mine,
       i_affect: !!affectRow,
       my_case_number: affectRow?.mgmt_case_number ?? null,
+      email_mode: settings.email_mode,
+      needs_my_email: settings.email_mode === 'resident' && (mine ? !row.emailed_at : affectRow ? !affectRow.email_confirmed_at : false) && !['withdrawn'].includes(row.status),
       can_act: isAdmin(viewer) || mine || !!affectRow,
       can_affect: !mine && !affectRow && row.visibility === 'community' && ['reported', 'case_number_received', 'in_progress', 'reopened', 'mgmt_closed'].includes(row.status),
       affect_needs_photo: settings.require_photo_for_affects,

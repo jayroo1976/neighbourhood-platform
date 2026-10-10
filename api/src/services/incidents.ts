@@ -134,7 +134,7 @@ export async function createIncident(
           at: now,
           payload: { title: input.title.trim(), category: input.category, severity: input.severity, photos: input.upload_ids.length, gps: input.lat != null },
         });
-        if (!opts.skipEmail) await queueMgmtEmail(trx, id, 'new', actor);
+        if (!opts.skipEmail && community.settings.email_mode === 'platform') await queueMgmtEmail(trx, id, 'new', actor);
       });
       break;
     } catch (e) {
@@ -154,13 +154,14 @@ export async function getIncidentRow(db: Db, id: string) {
 
 // ---------------- emails to management ----------------
 
-export async function queueMgmtEmail(
+export async function composeMgmtEmail(
   db: Db,
   incidentId: string,
   kind: 'new' | 'affects' | 'resend',
   actor: Actor,
-  extra: { uploadId?: string | null; caseNumber?: string | null } = {},
-): Promise<string> {
+  extra: { uploadId?: string | null; caseNumber?: string | null; resident?: boolean } = {},
+) {
+  const resident = !!extra.resident;
   const inc = await getIncidentRow(db, incidentId);
   const community = await getCommunity(db, inc.community_id);
   const reporter = inc.reporter_id ? await db('users').where({ id: inc.reporter_id }).first('name', 'email') : null;
@@ -178,7 +179,8 @@ export async function queueMgmtEmail(
 
   const affector = kind === 'affects' ? actor : null;
   const unitLine = kind === 'affects' ? `${affector?.tower ?? ''}, Unit ${affector?.unit ?? ''}` : `${inc.tower ?? ''}, Unit ${inc.unit ?? ''}`;
-  const firstName = (kind === 'affects' ? affector?.name : reporter?.name)?.split(' ')[0] ?? 'A resident';
+  const fullName = (kind === 'affects' ? affector?.name : reporter?.name) ?? 'A resident';
+  const firstName = resident ? fullName : fullName.split(' ')[0];
   const loc = [inc.location_text, inc.lat != null ? `https://www.google.com/maps?q=${inc.lat},${inc.lng}` : null].filter(Boolean).join(' | ');
   const catLabel = CATEGORY_LABELS[inc.category as Category] ?? inc.category;
   const replyTo = config.email.replyDomain ? `inc+${inc.reply_token}@${config.email.replyDomain}` : null;
@@ -187,10 +189,14 @@ export async function queueMgmtEmail(
     'Dear Management Team,',
     '',
     kind === 'affects'
-      ? `Another resident has confirmed they are ALSO affected by the issue below (${affectsCount} additional resident${affectsCount === 1 ? '' : 's'} so far). Please link this to the existing case.`
+      ? resident
+        ? `I am ALSO affected by the issue below, which a neighbour has already reported (${affectsCount} additional resident${affectsCount === 1 ? '' : 's'} so far). Please link my report to the existing case.`
+        : `Another resident has confirmed they are ALSO affected by the issue below (${affectsCount} additional resident${affectsCount === 1 ? '' : 's'} so far). Please link this to the existing case.`
       : kind === 'resend'
         ? 'This is a re-send of an earlier report; we have not yet received a case number.'
-        : 'A resident has reported the following issue.',
+        : resident
+          ? 'I am a resident and I am reporting the following issue.'
+          : 'A resident has reported the following issue.',
     '',
     `Reference:     ${inc.ref}`,
     inc.mgmt_case_number ? `Your case no.:  ${inc.mgmt_case_number}` : null,
@@ -208,9 +214,11 @@ export async function queueMgmtEmail(
     ...photoLinks.map((l: string) => `  ${l}`),
     photoLinks.length ? '' : null,
     'Please reply to this email with your case / ticket number and the expected resolution date.',
-    replyTo ? 'Your reply is recorded automatically against this report.' : null,
+    !resident && replyTo ? 'Your reply is recorded automatically against this report.' : null,
     '',
-    'Sent by Neighbourhood Reports, an independent resident-run platform (not operated by your management company).',
+    resident
+      ? `Logged on Neighbourhood Reports (reference ${inc.ref}), an independent resident-run platform that is not operated by your management company.`
+      : 'Sent by Neighbourhood Reports, an independent resident-run platform (not operated by your management company).',
   ].filter((l): l is string => l !== null);
 
   const text = lines.join('\n');
@@ -222,11 +230,22 @@ export async function queueMgmtEmail(
   const subject = `[${inc.ref}${inc.mgmt_case_number ? ` / ${inc.mgmt_case_number}` : ''}] ${subjectPrefix}: ${catLabel} - ${inc.title} - ${inc.tower ?? ''}`.slice(0, 200);
 
   const cc = community.settings.cc_reporter && reporter?.email && kind === 'new' ? reporter.email : null;
+  return { community, to: community.mgmt_email as string, cc, replyTo, subject, text, html };
+}
+
+export async function queueMgmtEmail(
+  db: Db,
+  incidentId: string,
+  kind: 'new' | 'affects' | 'resend',
+  actor: Actor,
+  extra: { uploadId?: string | null; caseNumber?: string | null } = {},
+): Promise<string> {
+  const { community, to, cc, replyTo, subject, text, html } = await composeMgmtEmail(db, incidentId, kind, actor, extra);
   const outboxId = await queueEmail(db, {
     kind: `mgmt_${kind}`,
     communityId: community.id,
     incidentId,
-    to: community.mgmt_email,
+    to,
     cc,
     replyTo,
     subject,
@@ -285,10 +304,48 @@ export async function addAffect(db: Db, actor: Actor, incidentId: string, upload
     const count = Number((await trx('affects').where({ incident_id: incidentId }).count({ c: '*' }).first())?.c ?? 0);
     await addEvent(trx, { incidentId, type: 'affects_added', actorId: actor.id, actorRole: actor.role, at: now, payload: { affects_count: count, upload_id: uploadId ?? null } });
     await trx('incidents').where({ id: incidentId }).update({ last_activity_at: now, updated_at: now });
-    if (!opts.skipEmail) await queueMgmtEmail(trx, incidentId, 'affects', actor, { uploadId, caseNumber: ownCase });
+    if (!opts.skipEmail && community.settings.email_mode === 'platform') await queueMgmtEmail(trx, incidentId, 'affects', actor, { uploadId, caseNumber: ownCase });
     if (inc.reporter_id) {
       await notify(trx, { userId: inc.reporter_id, incidentId, type: 'affects', at: now, message: `${count} neighbour${count === 1 ? '' : 's'} confirmed they're also affected by ${inc.ref}.` });
     }
+  });
+}
+
+// ---------------- resident sends the email from their own mail app ----------------
+
+/** The email a resident sends from their own email app (so it comes from them). */
+export async function residentEmailDraft(db: Db, actor: Actor, incidentId: string) {
+  const inc = await getIncidentRow(db, incidentId);
+  if (inc.community_id !== actor.community_id) throw new HttpError(404, 'Incident not found');
+  if (inc.reporter_id === actor.id) {
+    const d = await composeMgmtEmail(db, incidentId, 'new', actor, { resident: true });
+    return { kind: 'new' as const, to: d.to, subject: d.subject, body: d.text, confirmed_at: inc.emailed_at as string | null };
+  }
+  const mine = await db('affects').where({ incident_id: incidentId, user_id: actor.id }).first();
+  if (!mine) throw new HttpError(403, 'Only the reporter or an affected resident can email management.');
+  const d = await composeMgmtEmail(db, incidentId, 'affects', actor, { uploadId: mine.upload_id, caseNumber: mine.mgmt_case_number, resident: true });
+  return { kind: 'affects' as const, to: d.to, subject: d.subject, body: d.text, confirmed_at: (mine.email_confirmed_at as string | null) ?? null };
+}
+
+/** The resident confirms they pressed send in their own email app. Recorded with a timestamp. */
+export async function confirmResidentEmail(db: Db, actor: Actor, incidentId: string) {
+  const inc = await getIncidentRow(db, incidentId);
+  if (inc.community_id !== actor.community_id) throw new HttpError(404, 'Incident not found');
+  const now = new Date().toISOString();
+  if (inc.reporter_id === actor.id) {
+    if (inc.emailed_at) return;
+    await db.transaction(async (trx) => {
+      await trx('incidents').where({ id: incidentId }).update({ emailed_at: now, last_activity_at: now, updated_at: now });
+      await addEvent(trx, { incidentId, type: 'email_sent', actorId: actor.id, actorRole: actor.role, at: now, payload: { kind: 'resident_new' } });
+    });
+    return;
+  }
+  const mine = await db('affects').where({ incident_id: incidentId, user_id: actor.id }).first();
+  if (!mine) throw new HttpError(403, 'Only the reporter or an affected resident can do this.');
+  if (mine.email_confirmed_at) return;
+  await db.transaction(async (trx) => {
+    await trx('affects').where({ id: mine.id }).update({ email_confirmed_at: now });
+    await addEvent(trx, { incidentId, type: 'email_sent', actorId: actor.id, actorRole: actor.role, at: now, payload: { kind: 'resident_affects' } });
   });
 }
 

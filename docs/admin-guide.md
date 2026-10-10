@@ -50,3 +50,10 @@ Default: after reporting, the resident's own email app opens with the email writ
 
 ## Join requests and terms
 People reach the form from the login page ("Request to join"). They enter name, email, tower, apartment and a password, read the data notice, and tick the privacy and terms boxes. With "Approve new sign-ups" on (Settings), the request waits in People for Approve or Decline. The terms and privacy text are at /terms and /privacy.
+
+
+## Report types
+Residents choose Maintenance or Security when reporting. Older, detailed categories still exist on earlier reports and you can change a report's category from its page in Admin.
+
+## Insights panel
+Admin > Reports opens with Insights (last 90 days). Tiles with "Show these" filter the list below. Watch "Saved but not yet emailed": in the default mode the resident sends the email, so reports the resident never confirmed are not yet with management. "Waiting longest for a reply" is the list to chase.

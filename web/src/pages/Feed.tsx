@@ -44,6 +44,32 @@ export function IncidentCard({ i }: { i: ListItem }) {
   );
 }
 
+function MyStats() {
+  const all = useAsync(() => api.get<{ items: ListItem[] }>(`/incidents${qs({ scope: 'mine', state: 'all' })}`), []);
+  const items = all.data?.items ?? [];
+  if (!items.length) return null;
+  const open = (i: ListItem) => ['reported', 'case_number_received', 'in_progress', 'reopened', 'mgmt_closed'].includes(i.status);
+  const days = (i: ListItem) => Math.max(0, Math.round((Date.now() - Date.parse(i.reported_at)) / 86_400_000));
+  const mine = items.filter((i) => i.is_mine);
+  const joined = items.filter((i) => i.i_affect && !i.is_mine);
+  const openItems = items.filter(open);
+  const noCase = openItems.filter((i) => !i.mgmt_case_number);
+  const fixed = items.filter((i) => i.status === 'resolved_ok');
+  const oldest = openItems.length ? Math.max(...openItems.map(days)) : null;
+  const homes = mine.reduce((n, i) => n + i.affects_count, 0);
+  return (
+    <section className="my-stats" aria-label="Your reports at a glance">
+      <div><b>{mine.length}</b><span>reported by you</span></div>
+      <div><b>{joined.length}</b><span>you joined</span></div>
+      <div><b>{openItems.length}</b><span>still open</span></div>
+      <div><b>{fixed.length}</b><span>fixed</span></div>
+      <div><b>{noCase.length}</b><span>no case number yet</span></div>
+      <div><b>{homes}</b><span>neighbours joined yours</span></div>
+      {oldest != null && <p className="muted small">Your oldest open report is {oldest} {oldest === 1 ? 'day' : 'days'} old.</p>}
+    </section>
+  );
+}
+
 export function Feed() {
   const { me } = useAuth();
   const [scope, setScope] = useState<'community' | 'mine'>('community');
@@ -138,6 +164,7 @@ export function Feed() {
       </div>
 
       <ErrorNote error={list.error} />
+      {scope === 'mine' ? <MyStats /> : null}
       {list.loading && !list.data ? (
         <Spinner />
       ) : list.data?.items.length ? (

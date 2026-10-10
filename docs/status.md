@@ -15,6 +15,9 @@
 - Nothing has been reviewed by a lawyer.
 
 ## Open items before real residents use it
+- Insights panel, richer scorecard and My reports strip are new and untested on real data.
+- Decide whether to offer a logged-out public scorecard (needs legal review).
+- Report form offers only Maintenance / Security for now (detailed categories kept in the data model for later).
 - Lawyer review of the new Terms of use (/terms) and name the operating entity in it.
 1. Set the real management company email (currently placeholder `management@example.com`; use your own address while testing).
 2. Lawyer review: privacy notice text, scorecard wording (defamation risk), consent flow, cross-border points (see docs/privacy-pdpl.md).

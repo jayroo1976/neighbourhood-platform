@@ -151,6 +151,7 @@ export interface IncidentDetail {
 
 // ---------- display helpers ----------
 export const CATEGORY_LABELS: Record<string, string> = {
+  maintenance: 'Maintenance',
   plumbing_leak: 'Plumbing / leak',
   electrical: 'Electrical',
   lift: 'Lift',

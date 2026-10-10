@@ -16,6 +16,8 @@ import {
   getIncidentRow,
   setCaseNumber,
   setMyCaseNumber,
+  residentEmailDraft,
+  confirmResidentEmail,
 } from '../services/incidents';
 import { shareUrl, signedPath } from '../services/fileLinks';
 import { affectsCounts, incidentDetail, listItems } from '../services/serializers';
@@ -190,7 +192,8 @@ export function incidentsRouter(): Router {
     wrap(async (req, res) => {
       const body = parse(createSchema, req.body);
       const inc = await createIncident(req.db, req.user!, { ...body, category: body.category as Category });
-      res.status(201).json({ id: inc.id, ref: inc.ref, share_url: inc.visibility === 'community' ? shareUrl(inc.id) : null });
+      const community = await req.db('communities').where({ id: req.user!.community_id }).first();
+      res.status(201).json({ id: inc.id, ref: inc.ref, email_mode: mergeSettings(community.settings).email_mode, share_url: inc.visibility === 'community' ? shareUrl(inc.id) : null });
     }),
   );
 
@@ -211,6 +214,21 @@ export function incidentsRouter(): Router {
       const body = parse(z.object({ upload_id: z.string().uuid().nullish(), case_number: z.string().max(60).nullish() }), req.body ?? {});
       await addAffect(req.db, req.user!, req.params.id, body.upload_id, { caseNumber: body.case_number });
       res.status(201).json({ ok: true });
+    }),
+  );
+
+  r.get(
+    '/:id/email-draft',
+    wrap(async (req, res) => {
+      res.json(await residentEmailDraft(req.db, req.user!, req.params.id));
+    }),
+  );
+
+  r.post(
+    '/:id/email-sent',
+    wrap(async (req, res) => {
+      await confirmResidentEmail(req.db, req.user!, req.params.id);
+      res.json({ ok: true });
     }),
   );
 

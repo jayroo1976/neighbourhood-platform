@@ -33,19 +33,30 @@ export function authRouter(): Router {
           unit: z.string().trim().min(1).max(20),
           phone: z.string().trim().max(30).optional(),
           invite_code: z.string().max(100).optional(),
+          ref: z.string().max(40).optional(),
           community: z.string().max(60).optional(),
           consent: z.literal(true, { errorMap: () => ({ message: 'You must accept the privacy notice to register.' }) }),
+          terms: z.literal(true, { errorMap: () => ({ message: 'You must accept the terms of use to register.' }) }),
         }),
         req.body,
       );
       const community = await req.db('communities').where({ slug: body.community ?? config.defaults.communitySlug }).first();
       if (!community) throw new HttpError(404, 'Community not found.');
       if (!mergeSettings(community.settings).registration_open) throw new HttpError(403, 'Registration is currently closed.');
-      if (config.registrationCode) {
-        const a = Buffer.from(body.invite_code ?? '');
+      const settings = mergeSettings(community.settings);
+      const given = body.invite_code?.trim() ?? '';
+      let codeValid = false;
+      if (config.registrationCode && given) {
+        const a = Buffer.from(given);
         const b = Buffer.from(config.registrationCode);
-        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new HttpError(403, 'That invite code is not valid.', 'bad_invite');
+        codeValid = a.length === b.length && crypto.timingSafeEqual(a, b);
       }
+      if (config.registrationCode && !codeValid) {
+        // With approval on, the code is optional (it only skips the wait); a wrong code is still an error.
+        if (!settings.require_approval || given) throw new HttpError(403, 'That invite code is not valid.', 'bad_invite');
+      }
+      const inviter = body.ref ? await req.db('users').where({ invite_token: body.ref, community_id: community.id, active: 1 }).whereNull('deleted_at').first() : null;
+      const approved = !settings.require_approval || codeValid || (!!inviter && settings.trust_resident_invites);
       const problem = passwordProblem(body.password, body.email);
       if (problem) throw new HttpError(400, problem, 'weak_password');
       if (await req.db('users').where({ email: body.email }).first()) {
@@ -63,11 +74,29 @@ export function authRouter(): Router {
         tower: body.tower,
         unit: body.unit,
         role: 'resident',
+        approval_status: approved ? 'approved' : 'pending',
+        invited_by: inviter?.id ?? null,
         consent_at: now,
         consent_version: config.privacyNoticeVersion,
+        terms_at: now,
+        terms_version: config.termsVersion,
         created_at: now,
       });
-      await audit(req.db, { actorId: id, actorRole: 'resident', action: 'register', targetType: 'user', targetId: id, ip: clientIp(req) });
+      await audit(req.db, { actorId: id, actorRole: 'resident', action: approved ? 'register' : 'register_request', targetType: 'user', targetId: id, ip: clientIp(req) });
+      if (!approved) {
+        const admins = await req.db('users').where({ community_id: community.id, active: 1 }).whereIn('role', ['admin', 'super_admin']).whereNull('deleted_at').select('email');
+        for (const a of admins) {
+          await queueEmail(req.db, {
+            kind: 'signup_request',
+            communityId: community.id,
+            to: a.email,
+            subject: 'New sign-up request waiting for approval',
+            text: `${body.name} (${body.tower}, ${body.unit}) asked to join ${community.name}${inviter ? `, invited by ${inviter.name}` : ''}.\nReview it under Admin > People: ${config.appBaseUrl}/admin/users`,
+          });
+        }
+        res.status(202).json({ ok: true, pending: true });
+        return;
+      }
       issueSession(res, { id, token_version: 0 }, { mfaOk: false });
       res.status(201).json({ ok: true });
     }),
@@ -85,6 +114,12 @@ export function authRouter(): Router {
       const locked = u?.locked_until && Date.parse(u.locked_until) > now;
       const passwordOk = await verifyPassword(body.password, u?.password_hash ?? DUMMY_HASH);
 
+      if (u && passwordOk && !locked && !u.deleted_at && u.approval_status === 'pending') {
+        throw new HttpError(403, 'Your request to join is waiting for approval. We will email you as soon as a moderator has reviewed it.', 'pending_approval');
+      }
+      if (u && passwordOk && !locked && !u.deleted_at && u.approval_status === 'rejected') {
+        throw new HttpError(403, 'Your request to join was not approved. Please contact your community moderators.', 'not_approved');
+      }
       if (!u || !u.active || u.deleted_at || locked || !passwordOk) {
         if (u && !locked && !passwordOk) {
           const fails = u.failed_logins + 1;
@@ -133,7 +168,11 @@ export function authRouter(): Router {
   r.get(
     '/me',
     wrap(async (req, res) => {
-      if (!req.user) return res.json({ user: null, config: publicConfig() });
+      if (!req.user) {
+        const c = await req.db('communities').where({ slug: config.defaults.communitySlug }).first();
+        const st = c ? mergeSettings(c.settings) : null;
+        return res.json({ user: null, config: { ...publicConfig(), approval_required: !!st?.require_approval, registration_open: st?.registration_open ?? true } });
+      }
       const community = await req.db('communities').where({ id: req.user.community_id }).first();
       const s = mergeSettings(community.settings);
       res.json({
@@ -252,5 +291,5 @@ export function authRouter(): Router {
 }
 
 function publicConfig() {
-  return { privacy_notice_version: config.privacyNoticeVersion, invite_required: !!config.registrationCode };
+  return { privacy_notice_version: config.privacyNoticeVersion, terms_version: config.termsVersion, invite_required: !!config.registrationCode };
 }
