@@ -43,7 +43,7 @@ Default: after reporting, the resident's own email app opens with the email writ
 
 ## Adding people
 - **Add directly:** Admin > People > + Add a person. They are emailed a set-password link (7 days); the link is also shown so you can send it yourself.
-- **Let people request access:** Settings > turn on *Approve new sign-ups*. Requests appear at the top of People with Approve / Decline; you also get an email and a number on the People tab. An invite code (env `REGISTRATION_CODE`) skips the wait.
+- **Let people request access:** Settings > turn on *Approve new sign-ups*. Requests appear at the top of People with Approve / Decline; you also get an email and a number on the People tab. There is no invite code: every request is approved one by one (Approve new sign-ups is on by default).
 - **Resident invites:** each resident has a personal link under Profile > Invite neighbours. With *Trust residents' invite links* on, people who use it are approved at once; otherwise they wait for you and you see who invited them.
 - Roles: only a super admin can add or promote admins. Declined people cannot sign in.
 

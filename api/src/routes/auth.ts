@@ -32,7 +32,6 @@ export function authRouter(): Router {
           tower: z.string().trim().min(1).max(40),
           unit: z.string().trim().min(1).max(20),
           phone: z.string().trim().max(30).optional(),
-          invite_code: z.string().max(100).optional(),
           ref: z.string().max(40).optional(),
           community: z.string().max(60).optional(),
           consent: z.literal(true, { errorMap: () => ({ message: 'You must accept the privacy notice to register.' }) }),
@@ -44,19 +43,8 @@ export function authRouter(): Router {
       if (!community) throw new HttpError(404, 'Community not found.');
       if (!mergeSettings(community.settings).registration_open) throw new HttpError(403, 'Registration is currently closed.');
       const settings = mergeSettings(community.settings);
-      const given = body.invite_code?.trim() ?? '';
-      let codeValid = false;
-      if (config.registrationCode && given) {
-        const a = Buffer.from(given);
-        const b = Buffer.from(config.registrationCode);
-        codeValid = a.length === b.length && crypto.timingSafeEqual(a, b);
-      }
-      if (config.registrationCode && !codeValid) {
-        // With approval on, the code is optional (it only skips the wait); a wrong code is still an error.
-        if (!settings.require_approval || given) throw new HttpError(403, 'That invite code is not valid.', 'bad_invite');
-      }
       const inviter = body.ref ? await req.db('users').where({ invite_token: body.ref, community_id: community.id, active: 1 }).whereNull('deleted_at').first() : null;
-      const approved = !settings.require_approval || codeValid || (!!inviter && settings.trust_resident_invites);
+      const approved = !settings.require_approval || (!!inviter && settings.trust_resident_invites);
       const problem = passwordProblem(body.password, body.email);
       if (problem) throw new HttpError(400, problem, 'weak_password');
       if (await req.db('users').where({ email: body.email }).first()) {
@@ -291,5 +279,5 @@ export function authRouter(): Router {
 }
 
 function publicConfig() {
-  return { privacy_notice_version: config.privacyNoticeVersion, terms_version: config.termsVersion, invite_required: !!config.registrationCode };
+  return { privacy_notice_version: config.privacyNoticeVersion, terms_version: config.termsVersion };
 }

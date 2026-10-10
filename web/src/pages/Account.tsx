@@ -1,3 +1,4 @@
+import { InstallPanel } from '../InstallPrompt';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, ago } from '../api';
@@ -209,6 +210,7 @@ export function Profile() {
       )}
 
       <InvitePanel />
+      <InstallPanel />
 
       <form className="panel stack" onSubmit={changePassword}>
         <h2>Change password</h2>

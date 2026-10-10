@@ -212,7 +212,7 @@ describe('affects me', () => {
 });
 
 describe('adding people', () => {
-  const setSettings = (o: Record<string, unknown>) => ctx.db('communities').where({ id: ctx.communityId }).update({ settings: JSON.stringify({ email_mode: 'platform', require_photo_for_affects: true, ...o }) });
+  const setSettings = (o: Record<string, unknown>) => ctx.db('communities').where({ id: ctx.communityId }).update({ settings: JSON.stringify({ email_mode: 'platform', require_photo_for_affects: true, require_approval: false, ...o }) });
   const signup = (email: string, extra: Record<string, unknown> = {}) =>
     request(ctx.app).post('/api/auth/register').set(H).send({ name: 'New Person', email, password: PASSWORD, tower: 'MR 2', unit: '77', consent: true, terms: true, ...extra });
 
@@ -272,7 +272,7 @@ describe('adding people', () => {
 
 describe('resident sends the email from their own mail app', () => {
   it('saves the report without a server email, gives a draft, and records the confirmation', async () => {
-    await ctx.db('communities').where({ id: ctx.communityId }).update({ settings: JSON.stringify({ email_mode: 'resident', require_photo_for_affects: false }) });
+    await ctx.db('communities').where({ id: ctx.communityId }).update({ settings: JSON.stringify({ email_mode: 'resident', require_photo_for_affects: false, require_approval: false }) });
     try {
       const a = await register(ctx.app, { tower: 'MR 3', unit: '1004' });
       const b = await register(ctx.app, { tower: 'MR 3', unit: '1005' });
@@ -304,7 +304,7 @@ describe('resident sends the email from their own mail app', () => {
       const stranger = await register(ctx.app);
       expect((await stranger.agent.get(`/api/incidents/${created.id}/email-draft`)).status).toBe(403);
     } finally {
-      await ctx.db('communities').where({ id: ctx.communityId }).update({ settings: JSON.stringify({ email_mode: 'platform', require_photo_for_affects: true }) });
+      await ctx.db('communities').where({ id: ctx.communityId }).update({ settings: JSON.stringify({ email_mode: 'platform', require_photo_for_affects: true, require_approval: false }) });
     }
   });
 });
@@ -498,5 +498,17 @@ describe('version and system log', () => {
     expect(res.body.events.map((e: { kind: string }) => e.kind)).toEqual(expect.arrayContaining(['start', 'watchtower']));
     const r = await register(app);
     expect((await r.agent.get('/api/admin/system')).status).toBe(403);
+  });
+});
+
+describe('no invite code', () => {
+  it('holds every self sign-up for admin approval by default and ignores any invite code', async () => {
+    const { mergeSettings } = await import('../src/domain');
+    expect(mergeSettings('{}').require_approval).toBe(true);
+    const c = await setup();
+    await c.db('communities').where({ id: c.communityId }).update({ settings: JSON.stringify({ email_mode: 'platform' }) });
+    const r = await request(c.app).post('/api/auth/register').set(H).send({ name: 'X Y', email: 'nocode@example.test', password: PASSWORD, tower: 'MR 1', unit: '5', consent: true, terms: true, invite_code: 'anything' });
+    expect(r.status).toBe(202);
+    expect(r.body.pending).toBe(true);
   });
 });

@@ -193,3 +193,4 @@ details summary{cursor:pointer;font-weight:600}
 .sys-ev.k-update{border-left-color:var(--ok)}.sys-ev.k-start{border-left-color:var(--info)}.sys-ev.k-watchtower{border-left-color:var(--amber)}
 .sys-ev time{color:var(--muted);font-size:.8rem}
 .sys-ev pre{margin:.35rem 0 0;white-space:pre-wrap;word-break:break-word;font:.78rem/1.4 ui-monospace,Menlo,monospace;color:var(--ink)}
+.install-steps ol{padding-left:1.2rem;margin:.5rem 0}.install-steps li{margin:.35rem 0}

@@ -83,7 +83,7 @@ export const DEFAULT_SETTINGS: CommunitySettings = {
   registration_open: true,
   whatsapp_group_url: '',
   email_mode: 'resident',
-  require_approval: false,
+  require_approval: true,
   trust_resident_invites: false,
 };
 

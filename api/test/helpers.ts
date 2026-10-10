@@ -16,7 +16,7 @@ export async function setup() {
   await migrate(db);
   const communityId = await ensureCommunity(db);
   // Existing tests exercise the server-sent email path and the photo requirement; resident-mode tests flip these.
-  await db('communities').where({ id: communityId }).update({ settings: JSON.stringify({ email_mode: 'platform', require_photo_for_affects: true }) });
+  await db('communities').where({ id: communityId }).update({ settings: JSON.stringify({ email_mode: 'platform', require_photo_for_affects: true, require_approval: false }) });
   const mail = new ConsoleProvider();
   setMailProviderForTests(mail);
   setStorageForTests(new MemoryStorage());

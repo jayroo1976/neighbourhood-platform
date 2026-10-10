@@ -10,6 +10,7 @@ import { IncidentPage } from './pages/Incident';
 import { Scorecard } from './pages/Scorecard';
 import { Notifications, Profile } from './pages/Account';
 import { VersionBar } from './VersionBar';
+import { InstallPrompt } from './InstallPrompt';
 import { AdminSystem } from './pages/AdminSystem';
 import { AdminData, AdminIncident, AdminIncidents, AdminSettings, AdminUsers } from './pages/Admin';
 
@@ -88,6 +89,7 @@ function Protected({ admin }: { admin?: boolean }) {
         <ConsentGate>
           <Outlet />
         </ConsentGate>
+        <InstallPrompt />
       </main>
       <nav className="bottomnav" aria-label="Main">
         <NavLink to="/" end>Community</NavLink>

@@ -30,11 +30,9 @@ export const config = {
   cookieSecure: env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : isProd,
   requireAdminMfa: env.REQUIRE_ADMIN_MFA ? env.REQUIRE_ADMIN_MFA === 'true' : isProd,
 
-  // Pilot gate: when set, registration requires this invite code.
   // Shared secret Watchtower uses when it posts update notices to /api/inbound/watchtower
   watchtowerSecret: env.WATCHTOWER_SECRET ?? '',
 
-  registrationCode: env.REGISTRATION_CODE ?? '',
 
   storage: {
     provider: (env.STORAGE_PROVIDER ?? 'local') as 'local' | 'azure',

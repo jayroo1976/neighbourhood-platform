@@ -205,6 +205,7 @@ export function IncidentPage() {
   const [search] = useSearchParams();
   const [sheet, setSheet] = useState<null | 'ok' | 'poor' | 'affects'>(search.get('affects') === '1' ? 'affects' : null);
   const [myCase, setMyCase] = useState('');
+  const [justAdded, setJustAdded] = useState(false);
   const [caseNo, setCaseNo] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState<unknown>(null);
@@ -256,7 +257,7 @@ export function IncidentPage() {
 
       {p.needs_my_email && (
         <section className="panel">
-          <EmailPanel incidentId={d.id} onConfirmed={() => q.reload()} />
+          <EmailPanel incidentId={d.id} autoOpen={justAdded} onConfirmed={() => q.reload()} />
         </section>
       )}
 
@@ -437,6 +438,7 @@ export function IncidentPage() {
           onSubmit={async (upload, _note, caseNo) => {
             await api.post(`/incidents/${d.id}/affects`, { upload_id: upload, case_number: caseNo.trim() || undefined });
             setSheet(null);
+            setJustAdded(true);
             q.reload();
           }}
         />

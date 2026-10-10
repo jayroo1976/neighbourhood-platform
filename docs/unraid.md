@@ -20,7 +20,6 @@ MFA_ENCRYPTION_KEY=<openssl rand -base64 48>
 NP_IMAGE=ghcr.io/<your-github-user>/neighbourhood-platform:latest
 APP_BASE_URL=https://np.yourdomain.com
 MGMT_EMAIL=your-own-address@...      # NOT the management company while testing
-REGISTRATION_CODE=choose-an-invite-code
 ```
 ## 2. Start it
 Install the **Docker Compose Manager** plugin (Community Apps), add a stack pointing at `docker-compose.unraid.yml`, "Compose Up". Or in a terminal: `docker compose -f docker-compose.unraid.yml up -d`.
@@ -28,7 +27,7 @@ Install the **Docker Compose Manager** plugin (Community Apps), add a stack poin
 ## 3. Create your admin
 `docker exec -it neighbourhood-app-1 node api/dist/scripts/create-admin.js you@example.com "Your Name"` (prints a temporary password once; you must enrol an authenticator app at first sign-in; container name may differ, check `docker ps`)
 
-Residents sign up on the site with the invite code (`REGISTRATION_CODE` in `.env`); the admin above is created by this command, not by sign-up.
+Residents ask to join on the site and you approve each one under Admin > People (there is no invite code). The admin above is created by this command, not by sign-up.
 
 ## 4. HTTPS (required)
 **Symptom if missing:** you sign in, the page returns to the login screen (the browser discards the secure cookie over plain http). For LAN-only testing you can set `COOKIE_SECURE=false` in `.env`, then Compose Down/Up. Remove it once HTTPS works.

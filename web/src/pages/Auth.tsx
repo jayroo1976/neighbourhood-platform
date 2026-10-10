@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { api, ApiError } from '../api';
 import { useAuth } from '../auth';
 import { Banner, ErrorNote, Field } from '../ui';
+import { InstallSteps } from '../InstallPrompt';
 
 function Shell({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
   return (
@@ -98,7 +99,7 @@ export function Register() {
   const [search] = useSearchParams();
   const ref = search.get('ref') || undefined;
   const [requested, setRequested] = useState(false);
-  const [f, setF] = useState({ name: '', email: '', password: '', tower: '', unit: '', invite_code: '', consent: false, terms: false });
+  const [f, setF] = useState({ name: '', email: '', password: '', tower: '', unit: '', consent: false, terms: false });
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const approval = !!me?.config.approval_required;
@@ -110,7 +111,7 @@ export function Register() {
     setBusy(true);
     setError(null);
     try {
-      const r = await api.post<{ pending?: boolean }>('/auth/register', { ...f, invite_code: f.invite_code || undefined, ref });
+      const r = await api.post<{ pending?: boolean }>('/auth/register', { ...f, ref });
       if (r.pending) {
         setRequested(true);
         return;
@@ -128,6 +129,8 @@ export function Register() {
     return (
       <Shell title="Request sent" sub="A moderator will review it.">
         <Banner tone="ok">Thank you. We will email you at {f.email} as soon as your request has been approved, then you can sign in.</Banner>
+        <h2>While you wait: add it to your home screen</h2>
+        <InstallSteps />
         <p className="center">
           <Link to="/login">Back to sign in</Link>
         </p>
@@ -164,11 +167,6 @@ export function Register() {
         <Field label="Password" hint="At least 12 characters. A short phrase of unrelated words works well.">
           <input type="password" value={f.password} onChange={set('password')} autoComplete="new-password" required minLength={12} />
         </Field>
-        {me?.config.invite_required && (
-          <Field label={approval ? 'Invite code (optional)' : 'Invite code'} hint={approval ? 'Have a code? Enter it to be approved straight away. Otherwise leave it empty and we will review your request.' : 'Ask the person who invited you to the pilot.'}>
-            <input value={f.invite_code} onChange={set('invite_code')} required={!approval} />
-          </Field>
-        )}
         <div className="data-notice">
           <strong>What we store about you</strong>
           <ul>

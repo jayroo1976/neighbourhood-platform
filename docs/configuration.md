@@ -13,7 +13,6 @@ Set in `.env` (Unraid) or the host's settings. Production (`NODE_ENV=production`
 | `SESSION_HOURS` | 12 | Session lifetime |
 | `COOKIE_SECURE` | true in prod | Override only for plain-HTTP LAN testing (passed through by the Unraid compose file) |
 | `REQUIRE_ADMIN_MFA` | true in prod | Admins must enrol TOTP |
-| `REGISTRATION_CODE` | blank | Invite code for sign-up (blank = open) |
 | `DEFAULT_COMMUNITY_NAME` / `DEFAULT_COMMUNITY_SLUG` | Pilot Community / pilot | Created on first start |
 | `MGMT_EMAIL` | placeholder `management@example.com` | Management company inbox. **Use your own address while testing** |
 | `EMAIL_PROVIDER` | console | `console` (log only), `smtp`, `acs` |

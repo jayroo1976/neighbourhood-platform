@@ -293,6 +293,23 @@ const migrations: Migration[] = [
       });
     },
   },
+  {
+    name: '007_approval_default_on',
+    up: async (db) => {
+      // Sign-ups are now approved one by one by default (no invite code). Turn it on for existing communities.
+      const rows = (await db('communities').select('id', 'settings')) as { id: string; settings: string }[];
+      for (const c of rows) {
+        let st: Record<string, unknown> = {};
+        try {
+          st = JSON.parse(c.settings || '{}');
+        } catch {
+          st = {};
+        }
+        st.require_approval = true;
+        await db('communities').where({ id: c.id }).update({ settings: JSON.stringify(st) });
+      }
+    },
+  },
 ];
 
 export async function migrate(db: Db): Promise<void> {

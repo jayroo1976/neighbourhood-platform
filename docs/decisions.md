@@ -40,6 +40,12 @@ Decision: two separate required tick boxes (privacy/data sharing, terms) with a 
 ## Two report types for now (2026-10-10)
 Decision: the report form offers Maintenance (default) or Security only. Reason: fewer taps and no wrong-category guesses in the first pilot. The 15 detailed categories stay valid in the API and data so reports can be re-categorised by moderators and the form can offer them again later.
 
+## No invite code; approve one by one (2026-10-10)
+The pilot is small, so an admin checks each person (tower, apartment, email) rather than sharing a code that can leak. Approval defaults on. Resident invite links stay as an optional shortcut (off by default).
+
+## Add to home screen is a prompt, not an install (2026-10-10)
+Browsers will not add a shortcut without the person's tap, and iPhone has no install API. We show platform-specific steps once after first sign-in, and a one-tap button where the browser provides one (Chrome family).
+
 ## Version strip and Watchtower feed (2026-10-10)
 Version is shown to everyone (not secret, useful to residents reporting a bug); update history is staff-only. The app is not given Docker socket access (too much power); instead Watchtower pushes its notices to the app through a secret-protected webhook.
 
