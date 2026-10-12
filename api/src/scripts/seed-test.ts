@@ -14,7 +14,10 @@ import { getStorage } from '../services/storage';
  * Loads a small set of clearly-labelled TEST incidents (with real photos from a folder) into the
  * database, without emailing anyone.
  *
- *   npm run seed:test -w api -- "<photo folder>" [manifest.json]
+ *   npm run seed:test -w api -- "<photo folder>" [manifest.json]      (dev)
+ *   node api/dist/scripts/seed-test.js /data/files/_testdata            (inside the app container; needs FORCE_SEED=true)
+ *
+ * The manifest is test-data-incidents.json in the photo folder if present, else the copy in the repo.
  *
  * - Every report is flagged source='demo', so Admin > Data > "Remove demo data" (super admin) removes it.
  * - References look like TEST-0001 and management case numbers like TEST-SR-2001.
@@ -58,11 +61,13 @@ async function storePhoto(db: Db, userId: string, communityId: string, file: str
 
 async function main() {
   const folder = process.argv[2];
-  const manifestPath = process.argv[3] ?? path.join(__dirname, 'test-data', 'incidents.json');
   if (!folder || !fs.existsSync(folder)) {
     console.error('Usage: npm run seed:test -w api -- "<folder with the photos>" [manifest.json]');
     process.exit(1);
   }
+  // Manifest: explicit argument, else test-data-incidents.json beside the photos, else the copy in the source tree.
+  const beside = path.join(folder, 'test-data-incidents.json');
+  const manifestPath = process.argv[3] ?? (fs.existsSync(beside) ? beside : path.join(__dirname, 'test-data', 'incidents.json'));
   if (config.isProd && process.env.FORCE_SEED !== 'true') {
     console.error('Refusing to load test data in production. Set FORCE_SEED=true if you really mean it.');
     process.exit(1);
