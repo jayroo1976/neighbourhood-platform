@@ -56,11 +56,3 @@ Bicep in `infra/main.bicep` (UAE North: Container Apps scale-to-zero, PostgreSQL
 | [docs/backup-restore.md](docs/backup-restore.md) | Backups and restore (Azure design; Unraid notes in unraid.md) |
 | [docs/roadmap.md](docs/roadmap.md) | Pilot enhancements and later ideas |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in each build |
-
-## Pictures and extras
-
-| File | What it is |
-|---|---|
-| [docs/screenshots/](docs/screenshots/README.md) | Screenshots of every main screen (sample data) |
-| [docs/briefing/](docs/briefing/README.md) | 6-page PDF briefing for the community |
-| [docs/branding/](docs/branding/README.md) | Full icon set (app and category icons) |

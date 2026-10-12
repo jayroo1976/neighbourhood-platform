@@ -1,7 +1,7 @@
 # Changelog (newest first)
 
-## 2026-10-11 - Screenshots, briefing PDF and icon set added to the repo
-- `docs/screenshots/` (13 screenshots of the main screens, sample data only), `docs/briefing/Issue-Tracker-Briefing.pdf`, and `docs/branding/marina-residence-icons/` (full icon set including category icons, not yet used in the app). README index updated. No code change, so no new image build is needed.
+## 2026-10-12 - v0.3.1: removed the floating orange Report button from the bottom bar
+- The orange "+ Report" button in the middle of the bottom navigation is gone (the big orange "Report an issue" button at the top of the home screen stays). Bottom bar is now Community, Alerts, Scores, Me/Admin. Also used as the test of the GitHub to Watchtower auto-update: the version strip should change to v0.3.1 and a new build number.
 
 ## 2026-10-10 - No invite code (admins approve one by one), add-to-home-screen prompt, email on "affects me too"
 - **Invite code removed.** `REGISTRATION_CODE` and the invite-code box are gone (it was mandatory when approval was off, which blocked sign-up). Every self sign-up now waits for an admin to approve it under Admin > People. "Approve new sign-ups" now defaults to **on**, and migration `007_approval_default_on` turns it on for existing communities. An old `REGISTRATION_CODE` line in `.env` is simply ignored. Personal resident invite links still exist but only skip approval if "Trust residents' invite links" is switched on (default off). **Admin-added people and the admin you create from the command line are unaffected.**

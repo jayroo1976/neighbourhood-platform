@@ -93,7 +93,6 @@ function Protected({ admin }: { admin?: boolean }) {
       </main>
       <nav className="bottomnav" aria-label="Main">
         <NavLink to="/" end>Community</NavLink>
-        <NavLink to="/report" className="fab"><span aria-hidden>+</span> Report</NavLink>
         <NavLink to="/alerts">Alerts{unread > 0 && <span className="badge">{unread}</span>}</NavLink>
         <NavLink to="/scorecard">Scores</NavLink>
         <NavLink to={staff ? '/admin/incidents' : '/profile'}>{staff ? 'Admin' : 'Me'}{staff && pendingUsers > 0 && <span className="badge">{pendingUsers}</span>}</NavLink>
