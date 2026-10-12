@@ -1,0 +1,324 @@
+{
+  "tower": "MR Test",
+  "unit": "Test01",
+  "incidents": [
+    {
+      "ref": "TEST-0001",
+      "title": "TEST - Stained and dull paving at the base of the walls",
+      "description": "Octagonal paving near the stair and wall bases is stained and discoloured, with marks that look like spilled liquid. Looks like it has not been cleaned for some time.",
+      "category": "cleaning",
+      "severity": "low",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 21,
+      "outcome": "resolved_ok",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.04 AM.jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.12 AM (6).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.12 AM (7).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.16 AM (5).jpeg"
+      ],
+      "caseNumber": "TEST-SR-2001",
+      "caseAfterHours": 10,
+      "closedAfterDays": 6
+    },
+    {
+      "ref": "TEST-0002",
+      "title": "TEST - Drain cover plates displaced beside the pillars",
+      "description": "Several decorative drain cover plates beside the pillars have shifted and sit at different heights, and the timber strip next to one pillar has a gap. Trip hazard for anyone walking along the water edge.",
+      "category": "common_area",
+      "severity": "high",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 24,
+      "outcome": "resolved_poor",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.07 AM.jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.07 AM (1).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.07 AM (3).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.07 AM (4).jpeg"
+      ],
+      "caseNumber": "TEST-SR-2002",
+      "caseAfterHours": 5,
+      "closedAfterDays": 9
+    },
+    {
+      "ref": "TEST-0003",
+      "title": "TEST - Blue surface coating peeling and flaking",
+      "description": "The blue coated paving slabs are peeling in patches, exposing the bare concrete underneath. Flakes are loose on the surface and the damage is spreading at the edges.",
+      "category": "common_area",
+      "severity": "normal",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 19,
+      "outcome": "in_progress",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.07 AM (5).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.08 AM.jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.09 AM (6).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.11 AM.jpeg"
+      ],
+      "caseNumber": "TEST-SR-2003",
+      "caseAfterHours": 30
+    },
+    {
+      "ref": "TEST-0004",
+      "title": "TEST - Planter and bench wall caps chipped, render patched",
+      "description": "The stone caps on the planter and bench walls are chipped, and the render below has been patched with a mismatched colour. Paving at the base is stained.",
+      "category": "structural",
+      "severity": "low",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 17,
+      "outcome": "case_number_received",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.07 AM (2).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.13 AM (4).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.13 AM (5).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.13 AM (6).jpeg"
+      ],
+      "caseNumber": "TEST-SR-2004",
+      "caseAfterHours": 22
+    },
+    {
+      "ref": "TEST-0005",
+      "title": "TEST - Drain grates along the railing loose and uneven",
+      "description": "The run of drain grates beside the waterfront railing has uneven joints and gaps between the panels. Some panels rock when stepped on.",
+      "category": "common_area",
+      "severity": "normal",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 15,
+      "outcome": "mgmt_closed",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.08 AM (1).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.08 AM (2).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.09 AM.jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.09 AM (2).jpeg"
+      ],
+      "caseNumber": "TEST-SR-2005",
+      "caseAfterHours": 14,
+      "closedAfterDays": 4
+    },
+    {
+      "ref": "TEST-0006",
+      "title": "TEST - Damp staining and cracking at the base of the wall",
+      "description": "Brown damp staining and salt deposits at the base of the wall, flaking paint nearby, and a hairline crack running down the render higher up. Suggests water getting in behind the finish.",
+      "category": "structural",
+      "severity": "normal",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 14,
+      "outcome": "reopened",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.08 AM (3).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.08 AM (5).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.13 AM (2).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.15 AM.jpeg"
+      ],
+      "caseNumber": "TEST-SR-2006",
+      "caseAfterHours": 9,
+      "closedAfterDays": 3
+    },
+    {
+      "ref": "TEST-0007",
+      "title": "TEST - Drain grate panels lifting at the edges",
+      "description": "Grate panels in the walkway drain channel are lifting at the edges where they meet the brick paving. In places the gap is large enough to catch a shoe or a pushchair wheel.",
+      "category": "common_area",
+      "severity": "high",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 12,
+      "outcome": "in_progress",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.08 AM (4).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.08 AM (6).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.09 AM (1).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.09 AM (3).jpeg"
+      ],
+      "caseNumber": "TEST-SR-2007",
+      "caseAfterHours": 20
+    },
+    {
+      "ref": "TEST-0008",
+      "title": "TEST - Cracked and patched concrete floor",
+      "description": "Long cracks in the grey concrete floor, plus a few patched areas where the surface has broken away and been filled in. The patches are already coming loose.",
+      "category": "structural",
+      "severity": "normal",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 11,
+      "outcome": "reported",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.09 AM (4).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.09 AM (5).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.11 AM (1).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.11 AM (2).jpeg"
+      ]
+    },
+    {
+      "ref": "TEST-0009",
+      "title": "TEST - Cracks at the grate corner and an open joint along the step edge",
+      "description": "An open joint runs along the edge of the step where it meets the paving, and the grate at the nearby corner is cracked and bent where it turns around the pillar.",
+      "category": "structural",
+      "severity": "normal",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 10,
+      "outcome": "mgmt_closed",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.12 AM.jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.12 AM (1).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.12 AM (4).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.13 AM (3).jpeg"
+      ],
+      "caseNumber": "TEST-SR-2009",
+      "caseAfterHours": 7,
+      "closedAfterDays": 2
+    },
+    {
+      "ref": "TEST-0010",
+      "title": "TEST - Water stains and debris collecting beside the drain channel",
+      "description": "Wet patches and dark footprints on the blue surface next to the drain channel, with soil and debris packed into the grates. Water does not seem to be draining away properly.",
+      "category": "plumbing_leak",
+      "severity": "normal",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 9,
+      "outcome": "case_number_received",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.12 AM (2).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.12 AM (3).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.12 AM (5).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.13 AM.jpeg"
+      ],
+      "caseNumber": "TEST-SR-2010",
+      "caseAfterHours": 12
+    },
+    {
+      "ref": "TEST-0011",
+      "title": "TEST - Wall base paint peeling and patchy repairs",
+      "description": "The paint at the base of the walls is peeling and has been touched up in patches that do not match. The nosing on the steps next to it is worn and chipped.",
+      "category": "structural",
+      "severity": "low",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 8,
+      "outcome": "resolved_ok",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.13 AM (1).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.14 AM.jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.14 AM (1).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.14 AM (3).jpeg"
+      ],
+      "caseNumber": "TEST-SR-2011",
+      "caseAfterHours": 16,
+      "closedAfterDays": 3
+    },
+    {
+      "ref": "TEST-0012",
+      "title": "TEST - Uplifted block paving and a rusted cover plate",
+      "description": "Block paving next to the blue slab has lifted and the bricks are loose. A metal cover plate nearby has rust stains, and a drain grate further along is out of line.",
+      "category": "common_area",
+      "severity": "high",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 7,
+      "outcome": "reported",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.14 AM (2).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.14 AM (4).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.14 AM (5).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.14 AM (6).jpeg"
+      ]
+    },
+    {
+      "ref": "TEST-0013",
+      "title": "TEST - Exposed waterproofing strip and gap at the wall base",
+      "description": "The black waterproofing strip where the paving meets the wall is exposed and lifting, and there is a gap along the wall base beside the stair. Dirt and water can get in behind it.",
+      "category": "structural",
+      "severity": "normal",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 18,
+      "outcome": "resolved_poor",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.14 AM (7).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.15 AM (1).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.15 AM (2).jpeg"
+      ],
+      "caseNumber": "TEST-SR-2013",
+      "caseAfterHours": 6,
+      "closedAfterDays": 7
+    },
+    {
+      "ref": "TEST-0014",
+      "title": "TEST - Gravel beds dirty with dark growth",
+      "description": "The gravel beside the lawn and timber walkway has dark patches that look like algae or mould, plus some weeds coming through. The area looks neglected compared with the lawn.",
+      "category": "landscaping",
+      "severity": "low",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 6,
+      "outcome": "case_number_received",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.15 AM (3).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.15 AM (4).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.15 AM (5).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.15 AM (6).jpeg"
+      ],
+      "caseNumber": "TEST-SR-2014",
+      "caseAfterHours": 8
+    },
+    {
+      "ref": "TEST-0015",
+      "title": "TEST - Planter wall paint peeling beside the gravel beds",
+      "description": "The paint on the inside walls of the gravel beds is peeling and blistering in several places, with bare patches showing near the base.",
+      "category": "structural",
+      "severity": "low",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 5,
+      "outcome": "reported",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.15 AM (7).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.16 AM.jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.16 AM (1).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.16 AM (2).jpeg"
+      ]
+    },
+    {
+      "ref": "TEST-0016",
+      "title": "TEST - Stair handrail and timber steps worn",
+      "description": "The timber steps down to the waterfront look worn and the handrail finish is scuffed. Reported in case the surface becomes slippery when wet.",
+      "category": "common_area",
+      "severity": "normal",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 4,
+      "outcome": "withdrawn",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.16 AM (3).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.16 AM (4).jpeg"
+      ]
+    },
+    {
+      "ref": "TEST-0017",
+      "title": "TEST - Paving around the entrance bollard and barrier worn",
+      "description": "Paving near the entrance barrier and the red and white bollard is worn and uneven, with faded markings near the tactile strip.",
+      "category": "parking",
+      "severity": "normal",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 13,
+      "outcome": "reopened",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.16 AM (6).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.17 AM (1).jpeg"
+      ],
+      "caseNumber": "TEST-SR-2017",
+      "caseAfterHours": 11,
+      "closedAfterDays": 3
+    },
+    {
+      "ref": "TEST-0018",
+      "title": "TEST - Paving settling along the drop-off curve at the entrance",
+      "description": "The curved band of paving at the entrance drop-off has dipped slightly where vehicles turn, and the joints are opening up between the blocks.",
+      "category": "parking",
+      "severity": "low",
+      "location": "MR Test, waterfront walkway",
+      "daysAgo": 16,
+      "outcome": "mgmt_closed",
+      "photos": [
+        "WhatsApp Image 2026-10-09 at 9.14.16 AM (7).jpeg",
+        "WhatsApp Image 2026-10-09 at 9.14.17 AM.jpeg"
+      ],
+      "caseNumber": "TEST-SR-2018",
+      "caseAfterHours": 15,
+      "closedAfterDays": 5
+    }
+  ]
+}

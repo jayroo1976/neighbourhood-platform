@@ -1,5 +1,12 @@
 # Changelog (newest first)
 
+## 2026-10-12 - Test-data loader (18 TEST reports with photos, tower "MR Test", apartment Test01)
+- New script `api/src/scripts/seed-test.ts` (`npm run seed:test -w api -- "<photo folder>"`) with manifest `api/src/scripts/test-data/incidents.json`. Loads 18 clearly-labelled reports (titles start "TEST - ", references `TEST-0001`..`TEST-0018`, management case numbers `TEST-SR-20xx`) using 65 supplied photos (max 4 per report), spread over every status (reported, case number received, in progress, management closed, resolved OK, resolved poor, reopened, withdrawn).
+- Everything belongs to one test resident `test01@pilot.test` (tower **MR Test**, apartment **Test01**, flagged demo). "MR Test" is added to the community tower list.
+- Reports are flagged `source=demo`, send **no email**, and go through the normal photo pipeline (EXIF stripped, thumbnails) and the tamper-evident event chain. Remove them with Admin > Data > Remove demo data (super admin). Refuses to run twice, and refuses in production unless `FORCE_SEED=true`.
+- Needs an existing admin account (used as the actor for "in progress"). Photos are **not** stored in the repo.
+- Checked locally on SQLite: 18 reports, 65 photos stored, 50 events with unbroken hash chains, no unclaimed uploads; 24 tests pass. **Not run against the Unraid instance.**
+
 ## 2026-10-12 - v0.3.1: removed the floating orange Report button from the bottom bar
 - The orange "+ Report" button in the middle of the bottom navigation is gone (the big orange "Report an issue" button at the top of the home screen stays). Bottom bar is now Community, Alerts, Scores, Me/Admin. Also used as the test of the GitHub to Watchtower auto-update: the version strip should change to v0.3.1 and a new build number.
 

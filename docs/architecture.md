@@ -18,7 +18,7 @@ Monorepo (npm workspaces): `api/`, `web/`. `Dockerfile` builds web then api, run
 - `api/src/security/` scrypt/AES-GCM/signed links (`crypto.ts`), TOTP (`totp.ts`).
 - `api/src/services/` `incidents.ts` (core workflow), `events.ts` (hash chain), `kpi.ts`, `mailer.ts`, `scheduler.ts`, `serializers.ts` (role-based redaction), `similar.ts`, `images.ts` (sharp), `storage.ts`, `fileLinks.ts`, `ai.ts` (optional server AI, off), `support.ts` (audit/notify), `sleep.ts` (Azure DB wake).
 - `api/src/routes/` `auth`, `me`, `incidents`, `misc` (files, KPI, inbound email), `admin`. `app.ts` wires helmet/CSP, rate limits, CSRF, static web. `server.ts` starts the gate then the app.
-- `api/src/scripts/` `seed.ts` (demo data), `create-admin.ts`. `api/test/` vitest + supertest.
+- `api/src/scripts/` `seed.ts` (demo data), `seed-test.ts` + `test-data/incidents.json` (TEST reports with real photos), `create-admin.ts`. `api/test/` vitest + supertest.
 - `web/src/` `App.tsx` routes/layout, `api.ts` fetch wrapper + types, `auth.tsx`, `ui.tsx`, `ownAi.ts` (browser BYO AI), `styles.css`; `pages/` Auth, Feed, Report, Incident, Scorecard, Account, Admin.
 - `infra/main.bicep`, `.github/workflows/`, `backup/` (pg_dump job image), `docker-compose.unraid.yml`, `Dockerfile`.
 

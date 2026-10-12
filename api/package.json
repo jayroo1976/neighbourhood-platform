@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "seed": "tsx src/scripts/seed.ts",
+    "seed:test": "tsx src/scripts/seed-test.ts",
     "create-admin": "tsx src/scripts/create-admin.ts"
   },
   "dependencies": {

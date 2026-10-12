@@ -24,6 +24,9 @@ Admin > Data > Import (use **dry run** first). Columns (header row): `title` (re
 - `severity`: low, normal, high, urgent. `status` accepts words like open, in progress, closed, fixed, resolved, poorly resolved, reopened.
 - Imported rows are marked `source=import`, send no emails, and count in the scorecard.
 
+## Test data with photos (MR Test / Test01)
+`npm run seed:test -w api -- "<folder of photos>"` loads 18 labelled TEST reports (refs `TEST-0001`.., case numbers `TEST-SR-20xx`) for tower **MR Test**, apartment **Test01**, using the photo file names listed in `api/src/scripts/test-data/incidents.json`. It sends no email, flags everything as demo (remove with Admin > Data > Remove demo data), needs an existing admin, and will not run twice. On Unraid run it inside the app container with the photo folder mounted, e.g. `docker exec -it neighbourhood-app-1 ...` (container name may differ; check `docker ps`).
+
 ## Export
 Admin > Data > Export CSV (formula-injection safe).
 
