@@ -55,4 +55,6 @@ Bicep in `infra/main.bicep` (UAE North: Container Apps scale-to-zero, PostgreSQL
 | [docs/sleep-mode.md](docs/sleep-mode.md) | Azure cost saving: nightly stop, "Start the service" page |
 | [docs/backup-restore.md](docs/backup-restore.md) | Backups and restore (Azure design; Unraid notes in unraid.md) |
 | [docs/roadmap.md](docs/roadmap.md) | Pilot enhancements and later ideas |
+| [docs/email-templates.md](docs/email-templates.md) | Standard email, follow-up, tracking reference, mailbox routes and time rules |
+| [docs/review-sheet-notice-wording.md](docs/review-sheet-notice-wording.md) | Notice/legal wording held out of the app, for others to review |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in each build |

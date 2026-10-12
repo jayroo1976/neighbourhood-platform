@@ -34,11 +34,11 @@ Older images do not clear a lockout: run `docker exec neighbourhood-db-1 psql -U
 
 
 ## WhatsApp sharing
-Residents get a Share sheet with "Send on WhatsApp". To add a "Post in our WhatsApp group" button, paste the group's invite link (WhatsApp > group > Invite via link) in Settings. WhatsApp cannot pre-fill a post into a chosen group, so the message is copied and the group opens for pasting. Link previews with a photo only work when the app is on a public HTTPS address.
+Residents get a Share sheet with "Send on WhatsApp". To add a "Post in our WhatsApp group" button, paste the group's invite link (WhatsApp > group > Invite via link) in Settings. WhatsApp cannot pre-fill a post into a chosen group, so the message is copied and the group opens for pasting. Link previews are generic (nothing about the report), because every screen is behind sign-in.
 
 
 ## How reports reach management
-Default: after reporting, the resident's own email app opens with the email written; they press Send and confirm. Check Settings > "How reports reach management" to switch to server-sent email. Reports show "waiting for the reporter to send their email" until confirmed.
+Default: after reporting, the resident's own email app opens with the email written (reference in the subject and body, tracking mailbox on Cc); they press Send and, if the Cc copy has not already recorded it, confirm. Check Settings > "How reports reach management" to switch to server-sent email. Reports show "waiting for the reporter to send their email" until confirmed.
 
 
 ## Adding people
@@ -60,3 +60,12 @@ Admin > System shows the running version/build and a history of starts, updates 
 
 ## Insights panel
 Admin > Reports opens with Insights (last 90 days). Tiles with "Show these" filter the list below. Watch "Saved but not yet emailed": in the default mode the resident sends the email, so reports the resident never confirmed are not yet with management. "Waiting longest for a reply" is the list to chase.
+
+
+## Tracking mailbox and references (v0.4.0)
+1. Settings > Where reports go: set the **reference code** (2-5 letters, e.g. MRW), the **tracking mailbox** (a neutral address you control; management can see it, so do not name the platform), and **management sender domains** (one per line).
+2. Feed the mailbox to the app: a mailbox rule or Power Automate flow posts each incoming message to `POST /api/inbound/tracking` with header `x-inbound-secret: <INBOUND_EMAIL_SECRET>`. Send the raw message (`Content-Type: message/rfc822`) when you can, so the email's own dates and authentication results are used.
+3. Residents send the standard email from their own email app with the mailbox on Cc. The Cc copy links itself to the case by its reference and records when it was really sent. If management replies only to the resident, the resident forwards the reply (ideally as an attached .eml) to the mailbox.
+4. **Admin > Mail** lists anything that could not be matched safely (unknown reference, two references, sender not verified, sender not a member, quoted-text guess). Type the report's reference to link it, or dismiss it.
+5. Every time on a case that came from an email shows where it came from (the email's own date, the forwarded message, date forwarded, entered by resident, or date received) and when the tracker received it.
+6. A closure with no details shows "Closure details not provided" with a follow-up email button. Details can be added when the closure message did explain.

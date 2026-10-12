@@ -68,6 +68,20 @@ export interface CommunitySettings {
   require_approval: boolean;
   /** People who join through a resident's personal invite link are approved automatically */
   trust_resident_invites: boolean;
+  /** 2-5 letters/digits at the start of every tracking reference, e.g. MRW */
+  community_code: string;
+  /** Mailbox that receives the Cc of each email and forwarded replies. Give it a neutral name; it is visible to management. */
+  tracking_mailbox: string;
+  /** Put the tracking mailbox on Cc in the email drafts */
+  cc_tracking_mailbox: boolean;
+  /** Sender domains accepted as the management company (for replies sent to the tracking mailbox) */
+  management_domains: string[];
+  /** Short name used in the greeting, e.g. "Community Management" */
+  management_entity_short: string;
+  /** Optional line in the email giving the number of other residents who reported the same issue (count only) */
+  include_other_reports_line: boolean;
+  /** Optional line asking for cause, action taken and prevention in the reply */
+  include_closure_details_line: boolean;
 }
 
 export const DEFAULT_SETTINGS: CommunitySettings = {
@@ -85,6 +99,13 @@ export const DEFAULT_SETTINGS: CommunitySettings = {
   email_mode: 'resident',
   require_approval: true,
   trust_resident_invites: false,
+  community_code: '',
+  tracking_mailbox: '',
+  cc_tracking_mailbox: true,
+  management_domains: [],
+  management_entity_short: 'Community Management',
+  include_other_reports_line: false,
+  include_closure_details_line: false,
 };
 
 export function mergeSettings(raw: unknown): CommunitySettings {
@@ -146,5 +167,7 @@ export const EVENT_TYPES = [
   'edited',
   'reminder_sent',
   'mgmt_reply_received',
+  'email_linked',
+  'followup_drafted',
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];

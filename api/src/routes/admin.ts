@@ -25,6 +25,7 @@ import { adminListItem, affectsCounts, incidentDetail } from '../services/serial
 import { getStorage } from '../services/storage';
 import { publicVersion } from '../version';
 import { audit } from '../services/support';
+import { assignInbound, caseByRef } from '../services/inboundMail';
 
 const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
 
@@ -288,6 +289,13 @@ export function adminRouter(): Router {
               email_mode: z.enum(['resident', 'platform']),
               require_approval: z.boolean(),
               trust_resident_invites: z.boolean(),
+              community_code: z.string().trim().refine((v) => v === '' || /^[A-Za-z0-9]{2,5}$/.test(v), 'Use 2 to 5 letters or digits').transform((v) => v.toUpperCase()),
+              tracking_mailbox: z.string().trim().max(200).refine((v) => v === '' || z.string().email().safeParse(v).success, 'Enter an email address'),
+              cc_tracking_mailbox: z.boolean(),
+              management_domains: z.array(z.string().trim().toLowerCase().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, 'Enter domains like example.com')).max(20),
+              management_entity_short: z.string().trim().min(2).max(60),
+              include_other_reports_line: z.boolean(),
+              include_closure_details_line: z.boolean(),
               whatsapp_group_url: z.string().trim().max(200).refine((v) => v === '' || /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+/.test(v), 'Use a WhatsApp group invite link starting https://chat.whatsapp.com/'),
             })
             .partial()
@@ -545,6 +553,71 @@ export function adminRouter(): Router {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="incidents.csv"');
       res.send(lines.join('\n'));
+    }),
+  );
+
+  // ---------------- tracking mailbox: emails that need a person to match them ----------------
+  r.get(
+    '/inbound',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const status = req.query.status === 'all' ? null : 'review';
+      const rows = await req
+        .db('inbound_emails')
+        .where({ community_id: req.user!.community_id })
+        .modify((q) => {
+          if (status) q.where({ status });
+        })
+        .orderBy('received_at', 'desc')
+        .limit(200);
+      res.json({
+        items: rows.map((x: any) => ({
+          id: x.id,
+          status: x.status,
+          route: x.route,
+          from: x.from_addr,
+          subject: x.subject,
+          snippet: x.snippet,
+          reason: x.review_reason,
+          candidate_refs: x.candidate_refs ? JSON.parse(x.candidate_refs) : [],
+          auth_result: x.auth_result,
+          received_at: x.received_at,
+          event_at: x.event_at,
+          event_at_source: x.event_at_source,
+          event_at_offset: x.event_at_offset,
+          skew: !!x.skew_flag,
+          incident_id: x.incident_id,
+        })),
+      });
+    }),
+  );
+
+  r.post(
+    '/inbound/:id/assign',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const body = parse(z.object({ incident_id: z.string().min(10).max(60).optional(), reference: z.string().trim().max(40).optional() }), req.body);
+      let incidentId = body.incident_id;
+      if (!incidentId && body.reference) {
+        const hit = await caseByRef(req.db, req.user!.community_id, body.reference.toUpperCase());
+        if (!hit) throw new HttpError(404, 'No report found with that reference.');
+        incidentId = hit.incident.id as string;
+      }
+      if (!incidentId) throw new HttpError(400, 'Give a reference or a report.');
+      await assignInbound(req.db, req.user!, req.params.id, incidentId);
+      await audit(req.db, { actorId: req.user!.id, actorRole: req.user!.role, action: 'inbound_assign', ip: clientIp(req), detail: { inbound: req.params.id, incident: incidentId } });
+      res.json({ ok: true });
+    }),
+  );
+
+  r.post(
+    '/inbound/:id/dismiss',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const n = await req.db('inbound_emails').where({ id: req.params.id, community_id: req.user!.community_id, status: 'review' }).update({ status: 'dismissed' });
+      if (!n) throw new HttpError(404, 'Email not found in the review list');
+      await audit(req.db, { actorId: req.user!.id, actorRole: req.user!.role, action: 'inbound_dismiss', ip: clientIp(req), detail: { inbound: req.params.id } });
+      res.json({ ok: true });
     }),
   );
 

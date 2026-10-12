@@ -132,6 +132,9 @@ export interface IncidentDetail {
   mgmt_case_number: string | null;
   case_number_at: string | null;
   mgmt_closed_at: string | null;
+  closure_details?: string | null;
+  closure_details_missing?: boolean;
+  my_ref?: string | null;
   resolved_at: string | null;
   resolution: 'ok' | 'poor' | null;
   reopen_count: number;
@@ -205,3 +208,12 @@ export function duration(hours: number | null | undefined): string {
 }
 
 export const pct = (v: number | null | undefined) => (v == null ? '-' : `${Math.round(v * 100)}%`);
+
+/** Where a time on the timeline came from. Times from emails come from the email itself, not from when we received it. */
+export const TIME_SOURCE_LABELS: Record<string, string> = {
+  original_header: "from the email's own date",
+  forwarded_text: 'from the forwarded message',
+  forward_header: 'date forwarded',
+  declared: 'entered by resident',
+  system: 'date received',
+};

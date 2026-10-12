@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import knex, { Knex } from 'knex';
 import { config } from './config';
+import { makeTrackingRef, normaliseCommunityCode } from './services/trackingRef';
 
 export type Db = Knex;
 
@@ -308,6 +309,73 @@ const migrations: Migration[] = [
         st.require_approval = true;
         await db('communities').where({ id: c.id }).update({ settings: JSON.stringify(st) });
       }
+    },
+  },
+  {
+    name: '008_tracking_refs_and_inbound_email',
+    up: async (db) => {
+      await db.schema.alterTable('communities', (t) => {
+        t.integer('ref_seq').notNullable().defaultTo(0);
+      });
+      await db.schema.alterTable('incidents', (t) => {
+        t.text('legacy_ref');
+        t.text('closure_details');
+      });
+      await db.schema.alterTable('affects', (t) => {
+        t.integer('seq');
+        t.text('ref');
+      });
+      await db.schema.createTable('inbound_emails', (t) => {
+        t.text('id').primary();
+        t.text('community_id').notNullable().references('communities.id');
+        t.text('incident_id');
+        t.text('affect_id');
+        t.text('status').notNullable(); // linked | review | dismissed
+        t.text('route').notNullable(); // cc | forward | management_reply
+        t.text('match_method'); // reference | ticket | headers | quoted_text | manual
+        t.text('review_reason');
+        t.text('candidate_refs'); // JSON array
+        t.text('from_addr');
+        t.text('from_domain');
+        t.text('from_user_id');
+        t.text('subject');
+        t.text('snippet');
+        t.text('message_id');
+        t.text('in_reply_to');
+        t.text('refs_header');
+        t.text('auth_result'); // pass | fail | unknown
+        t.text('received_at').notNullable(); // when the tracking mailbox got it (immutable)
+        t.text('event_at').notNullable(); // time taken from the email itself where possible
+        t.text('event_at_source').notNullable(); // original_header | forwarded_text | forward_header | declared | system
+        t.text('event_at_offset'); // original offset, e.g. +04:00
+        t.integer('skew_flag').notNullable().defaultTo(0);
+        t.text('created_at').notNullable();
+        t.index(['community_id', 'status']);
+        t.index(['message_id']);
+      });
+      // Re-reference existing reports in the new format and keep the old reference for look-ups.
+      const comms = (await db('communities').select('id', 'slug', 'settings')) as { id: string; slug: string; settings: string }[];
+      for (const c of comms) {
+        let st: Record<string, unknown> = {};
+        try {
+          st = JSON.parse(c.settings || '{}');
+        } catch {
+          st = {};
+        }
+        const code = normaliseCommunityCode(st.community_code as string | undefined, c.slug);
+        st.community_code = code;
+        await db('communities').where({ id: c.id }).update({ settings: JSON.stringify(st) });
+        let max = 0;
+        const rows = (await db('incidents').where({ community_id: c.id }).select('id', 'seq', 'ref', 'reported_at')) as { id: string; seq: number; ref: string; reported_at: string }[];
+        for (const r of rows) {
+          max = Math.max(max, r.seq);
+          await db('incidents').where({ id: r.id }).update({ legacy_ref: r.ref, ref: makeTrackingRef(code, r.reported_at, r.seq) });
+        }
+        await db('communities').where({ id: c.id }).update({ ref_seq: max });
+      }
+      await db.schema.alterTable('affects', (t) => {
+        t.index(['ref']);
+      });
     },
   },
 ];

@@ -6,6 +6,7 @@ import { deliverOutbox } from '../src/services/scheduler';
 import { signFileLink, verifyFileLink, canonicalJson, passwordProblem } from '../src/security/crypto';
 import { totpAt, verifyTotp } from '../src/security/totp';
 import { extractCaseNumber } from '../src/services/incidents';
+import { isValidTrackingRef } from '../src/services/trackingRef';
 import { H, PASSWORD, createReport, makeStaff, register, setup, uploadPhoto } from './helpers';
 
 let ctx: Awaited<ReturnType<typeof setup>>;
@@ -82,14 +83,17 @@ describe('incident workflow', () => {
   it('captures a report, emails management, tracks case number and resolution with a verifiable history', async () => {
     const { agent } = await register(ctx.app, { tower: 'MR 2', unit: '903' });
     const created = await createReport(agent);
-    expect(created.ref).toMatch(/^INC-\d{4}$/);
+    expect(created.ref).toMatch(/^[A-Z0-9]{2,5}-\d{4}-\d{4}-[0-9A-Z]$/);
+    expect(isValidTrackingRef(created.ref)).toBe(true);
 
     // email is queued, then delivered to management with signed photo links and a reply-to token
     const before = ctx.mail.sent.length;
     await deliverOutbox(ctx.db);
     const sent = ctx.mail.sent.slice(before).find((m) => m.subject.includes(created.ref))!;
     expect(sent.to).toBe('community-support@mgmt.test');
-    expect(sent.text).toContain('MR 2, Unit 903');
+    expect(sent.text).toContain('Unit 903');
+    expect(sent.text).toContain('This report is being tracked.');
+    expect(sent.text).not.toContain('Neighbourhood Reports');
     expect(sent.text).toMatch(/https:\/\/app\.test\/api\/files\/.+sig=/);
     expect(sent.replyTo).toMatch(/^inc\+[a-f0-9]{16}@reply\.test$/);
 
@@ -286,7 +290,8 @@ describe('resident sends the email from their own mail app', () => {
       expect(draft.kind).toBe('new');
       expect(draft.to).toBeTruthy();
       expect(draft.body).toContain('Ladder left in stairwell');
-      expect(draft.body).toContain('I am a resident');
+      expect(draft.body).toContain('I am reporting the following issue');
+      expect(draft.body).toContain(`Reference: ${draft.ref}`);
       expect((await a.agent.post(`/api/incidents/${created.id}/email-sent`).set(H)).status).toBe(200);
       detail = (await a.agent.get(`/api/incidents/${created.id}`)).body;
       expect(detail.emailed_at).toBeTruthy();
@@ -298,7 +303,9 @@ describe('resident sends the email from their own mail app', () => {
       expect(Number((await ctx.db('email_outbox').count({ c: '*' }).first())!.c)).toBe(Number(before));
       const d2 = (await b.agent.get(`/api/incidents/${created.id}/email-draft`)).body;
       expect(d2.kind).toBe('affects');
-      expect(d2.body).toContain('ALSO affected');
+      expect(d2.body).toContain('I am reporting the following issue');
+      expect(d2.ref).not.toBe(draft.ref);
+      expect(d2.body).toContain(`Reference: ${d2.ref}`);
       expect((await b.agent.post(`/api/incidents/${created.id}/email-sent`).set(H)).status).toBe(200);
       expect((await b.agent.get(`/api/incidents/${created.id}`)).body.permissions.needs_my_email).toBe(false);
       const stranger = await register(ctx.app);
@@ -310,20 +317,18 @@ describe('resident sends the email from their own mail app', () => {
 });
 
 describe('share link preview', () => {
-  it('shows title and photo only with a valid share token, never the apartment number', async () => {
+  it('is always generic: nothing about a report is shown to people who are not signed in', async () => {
     const a = await register(ctx.app, { tower: 'MR 1', unit: '9876' });
     const created = await createReport(a.agent, { title: 'Broken gate at the car park' });
     const detail = (await a.agent.get(`/api/incidents/${created.id}`)).body;
-    expect(detail.share_url).toContain(`/incident/${created.id}?affects=1&s=`);
     const token = new URL(detail.share_url).searchParams.get('s');
     const html = '<html><head></head><body></body></html>';
-    const good = await withPreview(ctx.db, html, `/incident/${created.id}`, created.id, token);
-    expect(good).toContain('Broken gate at the car park');
-    expect(good).toContain('og:image');
-    expect(good).not.toContain('9876');
-    const bad = await withPreview(ctx.db, html, `/incident/${created.id}`, created.id, 'x'.repeat(24));
-    expect(bad).not.toContain('Broken gate');
-    expect(bad).toContain('Neighbourhood Reports');
+    const out = await withPreview(ctx.db, html, `/incident/${created.id}?affects=1&s=${token}`, created.id, token);
+    expect(out).toContain('Neighbourhood Reports');
+    expect(out).not.toContain('Broken gate');
+    expect(out).not.toContain('9876');
+    expect(out).not.toContain(created.ref);
+    expect(out).not.toContain(String(token));
   });
 });
 

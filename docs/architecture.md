@@ -26,7 +26,7 @@ Monorepo (npm workspaces): `api/`, `web/`. `Dockerfile` builds web then api, run
 resident (own reports + community), committee (read-only, blurred GPS, no internal events), admin, super_admin (also demo wipe). Admins must enrol TOTP MFA when `REQUIRE_ADMIN_MFA` (default on in production).
 
 ## Data model (tables)
-`communities` (settings JSON, towers, management email) · `users` · `password_resets` · `incidents` (status, case number, mgmt_closed_count, reopen_count, linked_to, visibility, timestamps, source) · `incident_events` (hash-chained: prev_hash + canonical JSON) · `uploads` (photos, kinds) · `affects` · `email_outbox` · `notifications` · `audit_log` · `_migrations`. Timestamps are ISO strings, JSON as text (SQLite/Postgres portable). Migrations in `db.ts`: `001_initial`; `002_affects_case_number_and_mr_towers` (adds `affects.mgmt_case_number`, renames Tower A/B/C to MR 1/MR 2/MR 3 in communities, users, incidents, affects).
+`communities` (settings JSON, towers, management email) · `users` · `password_resets` · `incidents` (status, case number, mgmt_closed_count, reopen_count, linked_to, visibility, timestamps, source) · `incident_events` (hash-chained: prev_hash + canonical JSON) · `uploads` (photos, kinds) · `affects` · `email_outbox` · `notifications` · `audit_log` · `_migrations`. Timestamps are ISO strings, JSON as text (SQLite/Postgres portable). Migrations in `db.ts`: `001_initial`; `008_tracking_refs_and_inbound_email` (see below); `002_affects_case_number_and_mr_towers` (adds `affects.mgmt_case_number`, renames Tower A/B/C to MR 1/MR 2/MR 3 in communities, users, incidents, affects).
 
 ## Workflow (statuses)
 `reported` -> `case_number_received` -> `in_progress` -> `mgmt_closed` (management says closed, **unverified**) -> `resolved_ok` (resident photo) | `resolved_poor` (photo) -> `reopened` -> ...; `withdrawn`. Resolutions need a photo unless an admin overrides with a note. Every transition writes a timestamped event.
@@ -45,12 +45,22 @@ Case-number reminder ladder (after N hours, 3N hours, 7 days), verify-closed nud
 ## KPIs
 Defined in `services/kpi.ts` (`KPI_DEFINITIONS`, served at `/api/kpi/summary`): acknowledgement SLA, resolution SLA by severity, disputed closure rate, verified fix rate, backlog ageing, repeat/affects, by category and tower, 12-week trend, score 0-100 (weights 25/25/30/20) with low-sample confidence flag.
 
+## Tracking references and the tracking mailbox (v0.4.0)
+- Reference `{community_code}-{YYMM}-{seq}-{check}` built in `services/trackingRef.ts` (Luhn mod 36). `incidents.ref` holds it; old `INC-` refs are in `incidents.legacy_ref`. `communities.ref_seq` is the single counter shared by reports and each resident's own `affects` case (`affects.seq`, `affects.ref`). YYMM is Dubai time.
+- Table `inbound_emails` (migration 008): status `linked|review|dismissed`, route `cc|forward|management_reply`, match method, sender, `message_id`, `in_reply_to`, `refs_header`, `auth_result`, `received_at` (immutable receipt time), `event_at` + `event_at_source` (`original_header|forwarded_text|forward_header|declared|system`) + `event_at_offset`, `skew_flag`.
+- `services/inboundMail.ts`: RFC822 parser, date resolution, matching (reference > ticket > headers > quoted text which only goes to review), trust rules (management replies only from `management_domains`, sender must pass SPF/DKIM/DMARC, must match an existing case; resident mail must come from a member on that case), `applyLinkedEmail` (writes the `email_linked` event at the email's own time, sets `emailed_at`/`email_confirmed_at`/`mgmt_first_reply_at`, records ticket numbers) and `assignInbound` (admin matching).
+- Routes: `POST /api/inbound/tracking` (secret `x-inbound-secret`; JSON or `message/rfc822`), admin `GET /api/admin/inbound`, `POST /api/admin/inbound/:id/assign` (`reference` or `incident_id`), `POST /api/admin/inbound/:id/dismiss`; residents `GET /api/incidents/:id/followup-draft`, `POST /api/incidents/:id/closure-details`. `email-draft` now returns `cc` and `ref`.
+- Event types added: `email_linked`, `followup_drafted`. Timeline shows each email time's source and receipt time. Resident email text is not shown to neighbours; management message text is.
+- `incidents.closure_details` is set from the note when a report is marked closed by management; empty means the UI shows "Closure details not provided".
+- Settings added to `CommunitySettings`: `community_code`, `tracking_mailbox`, `cc_tracking_mailbox`, `management_domains`, `management_entity_short`, `include_other_reports_line`, `include_closure_details_line`.
+- Link previews (`services/sharePreview.ts`) are always generic.
+
 ## Email design
-New report and each "affects me" produce an independent email to the management company with expiring signed photo links (never attachments) and a per-incident reply-to `inc+<id>@REPLY_DOMAIN`. Replies can be fed back to the inbound webhook, which extracts case numbers by regex and records a `mgmt_reply_received` event.
+New report and each "affects me" produce an independent email to the management company (each with its own tracking reference) with expiring signed photo links (never attachments) and, in platform mode, a per-incident reply-to `inc+<id>@REPLY_DOMAIN`. Standard wording: docs/email-templates.md. Replies can be fed back to the inbound webhook, which extracts case numbers by regex and records a `mgmt_reply_received` event.
 
 
 ## Share links and previews
-`GET /incident/:id` (web route, served by `app.ts`) injects Open Graph tags via `services/sharePreview.ts`. The share URL is `APP_BASE_URL/incident/<id>?affects=1&s=<token>`; the token is an HMAC of the incident id using `FILE_SIGNING_SECRET` (`services/fileLinks.ts`). A valid token shows the report title, category, building, resident count and a 30-day signed link to the first photo. Without it the card is generic. `share_url` is returned by `POST /incidents` and `GET /incidents/:id` (null for private or withdrawn reports). Setting `whatsapp_group_url` is exposed in `/api/me` config.
+`GET /incident/:id` (web route, served by `app.ts`) injects Open Graph tags via `services/sharePreview.ts`. Since v0.4.0 the preview is **always generic** (platform name only) because every screen is behind sign-in. The share URL `APP_BASE_URL/incident/<id>?affects=1&s=<token>` still works as a link (token is an HMAC of the incident id using `FILE_SIGNING_SECRET`) but reveals nothing without signing in. `share_url` is returned by `POST /incidents` and `GET /incidents/:id` (null for private or withdrawn reports). Setting `whatsapp_group_url` is exposed in `/api/me` config.
 
 
 ## Resident-sent email (default)

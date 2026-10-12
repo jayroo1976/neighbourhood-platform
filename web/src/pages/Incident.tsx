@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { CATEGORY_LABELS, OPEN_STATUSES, STATUS_LABELS, api, dateTime, duration, type IncidentDetail, type IncidentEvent, type Status } from '../api';
+import { CATEGORY_LABELS, OPEN_STATUSES, STATUS_LABELS, TIME_SOURCE_LABELS, api, dateTime, duration, type IncidentDetail, type IncidentEvent, type Status } from '../api';
 import { useAuth } from '../auth';
-import { EmailPanel } from '../EmailPanel';
+import { EmailPanel, FollowUpPanel } from '../EmailPanel';
 import { Banner, ErrorNote, Field, PhotoButton, Sheet, Spinner, ShareButton, Stamp, shrinkImage, useAsync } from '../ui';
 
 export function eventText(e: IncidentEvent): string {
@@ -44,6 +44,12 @@ export function eventText(e: IncidentEvent): string {
       return `Details edited by ${e.actor}.`;
     case 'mgmt_reply_received':
       return `Management replied${p.case_number_found ? ` (case ${p.case_number_found})` : ''}${p.snippet ? `: "${String(p.snippet).slice(0, 220)}"` : '.'}`;
+    case 'email_linked':
+      return p.direction === 'resident_sent'
+        ? `The resident's email to management reached the tracker${p.own_ref ? ` (reference ${p.own_ref})` : ''}.`
+        : `Email from management${p.case_number_found ? ` (ticket ${p.case_number_found})` : ''}${p.snippet ? `: "${String(p.snippet).slice(0, 220)}"` : '.'}`;
+    case 'followup_drafted':
+      return 'Follow-up email drafted.';
     case 'reminder_sent':
       return 'Reminder sent.';
     default:
@@ -58,9 +64,51 @@ export function Timeline({ events }: { events: IncidentEvent[] }) {
         <li key={e.n} className={e.internal ? 'internal' : ''}>
           <time dateTime={e.at}>{dateTime(e.at)}</time>
           <span>{eventText(e)}</span>
+          {e.type === 'email_linked' && e.payload.event_at_source && (
+            <small className="muted">
+              {' '}
+              Time {TIME_SOURCE_LABELS[e.payload.event_at_source as string] ?? e.payload.event_at_source}
+              {e.payload.received_at ? `; received ${dateTime(e.payload.received_at as string)}` : ''}
+              {e.payload.skew ? '; the email date is later than the time it was received' : ''}.
+            </small>
+          )}
         </li>
       ))}
     </ol>
+  );
+}
+
+/** Records what the closure message did say (cause, action taken, prevention), if anything. */
+function ClosureDetailsForm({ incidentId, onSaved }: { incidentId: string; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [error, setError] = useState<unknown>(null);
+  if (!open) {
+    return (
+      <button className="btn ghost small" onClick={() => setOpen(true)}>
+        They did tell me - add what they said
+      </button>
+    );
+  }
+  return (
+    <div className="stack">
+      <textarea rows={3} maxLength={1500} value={text} onChange={(e) => setText(e.target.value)} placeholder="What the closure message said about cause, work done or prevention" />
+      <ErrorNote error={error} />
+      <button
+        className="btn small"
+        disabled={!text.trim()}
+        onClick={async () => {
+          try {
+            await api.post(`/incidents/${incidentId}/closure-details`, { text });
+            onSaved();
+          } catch (e) {
+            setError(e);
+          }
+        }}
+      >
+        Save
+      </button>
+    </div>
   );
 }
 
@@ -241,7 +289,7 @@ export function IncidentPage() {
       </button>
       <header className="page-head">
         <div className="card-top">
-          <span className="ref">{d.ref}</span>
+          <span className="ref">{d.my_ref ?? d.ref}</span>
           <Stamp status={d.status} />
         </div>
         <h1>{d.title}</h1>
@@ -271,6 +319,22 @@ export function IncidentPage() {
         <Banner tone="warn" title="Management says this is closed">
           Is it really fixed? Your photo is the evidence that counts on the scorecard.
         </Banner>
+      )}
+      {d.closure_details_missing && (
+        <Banner tone="warn" title="Closure details not provided">
+          The closure message did not say the cause, the work done or how it will be prevented.
+          {p.can_act && (
+            <div className="stack">
+              <FollowUpPanel incidentId={d.id} />
+              <ClosureDetailsForm incidentId={d.id} onSaved={() => q.reload()} />
+            </div>
+          )}
+        </Banner>
+      )}
+      {d.closure_details && (
+        <p className="muted small">
+          <strong>Closure details recorded:</strong> {d.closure_details}
+        </p>
       )}
       {d.status === 'resolved_poor' && <Banner tone="danger">Residents report this was closed but not fixed properly.</Banner>}
 

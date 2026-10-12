@@ -39,3 +39,7 @@ A request stores name, email, tower, apartment and who invited the person. Decli
 
 ## Metrics visibility
 Residents see community-level metrics only (counts, rates, ages, tower and priority breakdowns, and report titles with tower). Staff-only insights add lists of reports and counts of residents, but no extra personal data. Neither view shows names or apartment numbers to residents.
+
+
+## Tracking mailbox (v0.4.0)
+`inbound_emails` stores the sender address, subject, a short text excerpt (up to 2,000 characters, quoted replies cut off), message ids and authentication result for emails sent to the tracking mailbox. It is included in a resident's data export and cleared when they delete their account. The Cc address is visible to the management company's staff. Counsel to confirm the Cc raises no data-protection issue and that "This report is being tracked" is accurate. Resident text from these emails is not shown to neighbours; management's own message text is.

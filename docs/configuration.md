@@ -21,7 +21,7 @@ Set in `.env` (Unraid) or the host's settings. Production (`NODE_ENV=production`
 | `EMAIL_LINK_TTL_DAYS` | 30 | Lifetime of photo links in emails to management |
 | `WATCHTOWER_SECRET` | - | Unraid compose only: shared secret Watchtower sends with update notices to `/api/inbound/watchtower` (shown on Admin > System). Empty = endpoint refuses |
 | `APP_VERSION`, `BUILD_NUMBER`, `BUILD_SHA`, `BUILD_DATE` | package.json / dev | Stamped into the image by the GitHub workflow; shown in the version strip and `/api/system/version` |
-| `REPLY_DOMAIN`, `INBOUND_EMAIL_SECRET` | - | Per-incident reply address domain; shared secret for the inbound webhook |
+| `REPLY_DOMAIN`, `INBOUND_EMAIL_SECRET` | - | Per-incident reply address domain (platform-sent email); shared secret (`x-inbound-secret`) for the inbound webhooks `/api/inbound/email` and `/api/inbound/tracking` |
 | `STORAGE_PROVIDER` | local | `local` or `azure` |
 | `STORAGE_LOCAL_DIR` | ./data/files | Photo folder (a mounted volume on Unraid) |
 | `AZURE_STORAGE_ACCOUNT`, `AZURE_STORAGE_CONTAINER`, `AZURE_STORAGE_CONNECTION_STRING` | - / incident-photos / - | Azure Blob |
@@ -32,3 +32,7 @@ Set in `.env` (Unraid) or the host's settings. Production (`NODE_ENV=production`
 Docker Compose variables for Unraid (`PG_PASSWORD`, `NP_IMAGE`, `APPDATA`, `COMMUNITY_NAME`) are documented in docs/unraid.md.
 
 Per-community settings (Admin > Settings, stored in the database): require photo for affects-me, affects/day cap, reports/day cap, case-number reminder hours, verify reminder days, acknowledgement SLA hours, resolution SLA days by severity, CC reporter on emails, registration open, AI suggest.
+
+
+## Tracking mailbox settings (v0.4.0)
+These are community settings (Admin > Settings), not environment variables: reference code, greeting name, tracking mailbox address, Cc on/off, management sender domains, and the two optional email lines. The only environment variable involved is `INBOUND_EMAIL_SECRET`, which must be set for `POST /api/inbound/tracking` to accept anything.

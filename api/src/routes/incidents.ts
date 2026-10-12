@@ -17,6 +17,8 @@ import {
   setCaseNumber,
   setMyCaseNumber,
   residentEmailDraft,
+  composeFollowUp,
+  setClosureDetails,
   confirmResidentEmail,
 } from '../services/incidents';
 import { shareUrl, signedPath } from '../services/fileLinks';
@@ -221,6 +223,22 @@ export function incidentsRouter(): Router {
     '/:id/email-draft',
     wrap(async (req, res) => {
       res.json(await residentEmailDraft(req.db, req.user!, req.params.id));
+    }),
+  );
+
+  r.get(
+    '/:id/followup-draft',
+    wrap(async (req, res) => {
+      res.json(await composeFollowUp(req.db, req.user!, req.params.id));
+    }),
+  );
+
+  r.post(
+    '/:id/closure-details',
+    wrap(async (req, res) => {
+      const body = parse(z.object({ text: z.string().max(1500) }), req.body);
+      await setClosureDetails(req.db, req.user!, req.params.id, body.text);
+      res.json({ ok: true });
     }),
   );
 

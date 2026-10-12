@@ -16,6 +16,7 @@ import { addEvent } from './events';
 import { queueEmail, esc } from './mailer';
 import { signedAbsolute } from './fileLinks';
 import { dubaiTime, notify } from './support';
+import { makeTrackingRef, normaliseCommunityCode } from './trackingRef';
 
 export class HttpError extends Error {
   constructor(
@@ -61,9 +62,20 @@ export async function getCommunity(db: Db, id: string) {
   return { ...c, settings: mergeSettings(c.settings) as CommunitySettings, towers: JSON.parse(c.towers) as string[] };
 }
 
-async function nextSeq(db: Db, communityId: string): Promise<number> {
-  const r = await db('incidents').where({ community_id: communityId }).max({ m: 'seq' }).first();
-  return Number(r?.m ?? 0) + 1;
+export function communityCode(c: { slug: string; settings: CommunitySettings }): string {
+  return normaliseCommunityCode(c.settings.community_code, c.slug);
+}
+
+/**
+ * Hands out the next number from the community's single counter, shared by reports and by each
+ * resident's own "affects me" case, and returns the tracking reference built from it.
+ * Must run inside the transaction that saves the record.
+ */
+export async function allocateRef(db: Db, community: { id: string; slug: string; settings: CommunitySettings }, iso: string): Promise<{ seq: number; ref: string }> {
+  await db('communities').where({ id: community.id }).increment('ref_seq', 1);
+  const row = await db('communities').where({ id: community.id }).first('ref_seq');
+  const seq = Number(row.ref_seq);
+  return { seq, ref: makeTrackingRef(communityCode(community), iso, seq) };
 }
 
 async function claimUploads(db: Db, ids: string[], userId: string, incidentId: string, kind: string) {
@@ -98,12 +110,12 @@ export async function createIncident(
   for (let attempt = 0; ; attempt++) {
     try {
       await db.transaction(async (trx) => {
-        const seq = await nextSeq(trx, community.id);
+        const { seq, ref } = await allocateRef(trx, community, now);
         await trx('incidents').insert({
           id,
           community_id: community.id,
           seq,
-          ref: `INC-${String(seq).padStart(4, '0')}`,
+          ref,
           reporter_id: opts.reporterId !== undefined ? opts.reporterId : actor.id,
           tower,
           unit,
@@ -164,6 +176,7 @@ export async function composeMgmtEmail(
   const resident = !!extra.resident;
   const inc = await getIncidentRow(db, incidentId);
   const community = await getCommunity(db, inc.community_id);
+  const st = community.settings;
   const reporter = inc.reporter_id ? await db('users').where({ id: inc.reporter_id }).first('name', 'email') : null;
 
   const uploadRows = await db('uploads')
@@ -177,48 +190,51 @@ export async function composeMgmtEmail(
   const photoLinks = uploadRows.map((u: { key: string }) => signedAbsolute(u.key));
   const affectsCount = Number((await db('affects').where({ incident_id: incidentId }).count({ c: '*' }).first())?.c ?? 0);
 
-  const affector = kind === 'affects' ? actor : null;
-  const unitLine = kind === 'affects' ? `${affector?.tower ?? ''}, Unit ${affector?.unit ?? ''}` : `${inc.tower ?? ''}, Unit ${inc.unit ?? ''}`;
-  const fullName = (kind === 'affects' ? affector?.name : reporter?.name) ?? 'A resident';
-  const firstName = resident ? fullName : fullName.split(' ')[0];
-  const loc = [inc.location_text, inc.lat != null ? `https://www.google.com/maps?q=${inc.lat},${inc.lng}` : null].filter(Boolean).join(' | ');
+  // Each resident's report is their own case with their own reference.
+  const affectRow = kind === 'affects' ? await db('affects').where({ incident_id: incidentId, user_id: actor.id }).first() : null;
+  const ref: string = (affectRow?.ref as string | null) ?? inc.ref;
+  const caseNo = kind === 'affects' ? (extra.caseNumber ?? affectRow?.mgmt_case_number ?? null) : inc.mgmt_case_number;
+
+  const sender = kind === 'affects' ? actor : null;
+  const tower = kind === 'affects' ? sender?.tower : inc.tower;
+  const unit = kind === 'affects' ? sender?.unit : inc.unit;
+  const fullName = (kind === 'affects' ? sender?.name : reporter?.name) ?? 'A resident';
+  const signName = resident ? fullName : fullName.split(' ')[0];
   const catLabel = CATEGORY_LABELS[inc.category as Category] ?? inc.category;
+  const maps = inc.lat != null ? `https://www.google.com/maps?q=${inc.lat},${inc.lng}` : null;
+  const locShort = (inc.location_text?.trim() || tower || '').slice(0, 60);
+  const loc = [inc.location_text, maps].filter(Boolean).join(' | ');
+  const urgency = inc.severity === 'urgent' ? 'Urgent (safety or water damage)' : inc.severity === 'high' ? 'High' : inc.severity === 'low' ? 'Low' : 'Standard';
   const replyTo = config.email.replyDomain ? `inc+${inc.reply_token}@${config.email.replyDomain}` : null;
+  const trackingMailbox = st.cc_tracking_mailbox && st.tracking_mailbox ? st.tracking_mailbox : null;
+  const entity = st.management_entity_short || 'Community Management';
 
   const lines: string[] = [
-    'Dear Management Team,',
+    `Dear ${entity},`,
     '',
-    kind === 'affects'
-      ? resident
-        ? `I am ALSO affected by the issue below, which a neighbour has already reported (${affectsCount} additional resident${affectsCount === 1 ? '' : 's'} so far). Please link my report to the existing case.`
-        : `Another resident has confirmed they are ALSO affected by the issue below (${affectsCount} additional resident${affectsCount === 1 ? '' : 's'} so far). Please link this to the existing case.`
-      : kind === 'resend'
-        ? 'This is a re-send of an earlier report; we have not yet received a case number.'
-        : resident
-          ? 'I am a resident and I am reporting the following issue.'
-          : 'A resident has reported the following issue.',
+    kind === 'resend' ? 'This is a reminder of my earlier report, for which I have not yet received a ticket number.' : null,
+    kind === 'resend' ? '' : null,
+    `I am reporting the following issue in ${tower || community.name}:`,
     '',
-    `Reference:     ${inc.ref}`,
-    inc.mgmt_case_number ? `Your case no.:  ${inc.mgmt_case_number}` : null,
-    `First reported: ${dubaiTime(inc.reported_at)}`,
-    `Category:      ${catLabel}`,
-    `Priority:      ${inc.severity}`,
-    `Location:      ${loc || 'Not specified'}`,
-    `Resident unit: ${unitLine} (${firstName})`,
-    kind === 'affects' && extra.caseNumber ? `Resident's own case no.: ${extra.caseNumber}` : null,
+    `- Reference: ${ref}`,
+    caseNo ? `- Your ticket no.: ${caseNo}` : null,
+    `- Location: ${loc || 'Not specified'}`,
+    `- Category: ${catLabel}`,
+    `- Description: ${inc.title}${inc.description ? `. ${inc.description}` : ''}`,
+    `- Urgency: ${urgency}`,
+    photoLinks.length ? `- Photos (${photoLinks.length}): secure links, valid ${config.email.linkTtlDays} days` : null,
+    ...photoLinks.map((l: string) => `    ${l}`),
+    `- First noticed: ${dubaiTime(inc.reported_at)}`,
     '',
-    `Title: ${inc.title}`,
-    inc.description ? `Details: ${inc.description}` : null,
+    'Please acknowledge with a ticket number and an expected resolution date.',
+    st.include_closure_details_line ? 'It would also be helpful if your reply could note the cause, the action taken, and any steps to help prevent it recurring.' : null,
+    st.include_other_reports_line && affectsCount > 0 ? `Other residents have also reported this issue: ${affectsCount}.` : null,
     '',
-    photoLinks.length ? `Photos (secure links, valid ${config.email.linkTtlDays} days):` : null,
-    ...photoLinks.map((l: string) => `  ${l}`),
-    photoLinks.length ? '' : null,
-    'Please reply to this email with your case / ticket number and the expected resolution date.',
-    !resident && replyTo ? 'Your reply is recorded automatically against this report.' : null,
+    'This report is being tracked. Please quote the reference above in any reply so it can be matched to this report.',
     '',
-    resident
-      ? `Logged on Neighbourhood Reports (reference ${inc.ref}), an independent resident-run platform that is not operated by your management company.`
-      : 'Sent by Neighbourhood Reports, an independent resident-run platform (not operated by your management company).',
+    'Regards,',
+    signName,
+    `${unit ? `Unit ${unit}, ` : ''}${community.name}`,
   ].filter((l): l is string => l !== null);
 
   const text = lines.join('\n');
@@ -226,11 +242,52 @@ export async function composeMgmtEmail(
     .map((l: string) => (l === '' ? '<br>' : `<div>${esc(l).replace(/(https?:\/\/[^\s|]+)/g, '<a href="$1">$1</a>')}</div>`))
     .join('')}</div>`;
 
-  const subjectPrefix = kind === 'affects' ? 'Additional resident affected' : kind === 'resend' ? 'Reminder' : 'New report';
-  const subject = `[${inc.ref}${inc.mgmt_case_number ? ` / ${inc.mgmt_case_number}` : ''}] ${subjectPrefix}: ${catLabel} - ${inc.title} - ${inc.tower ?? ''}`.slice(0, 200);
+  const day = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(inc.reported_at));
+  const subject = `${community.name} – ${catLabel} – ${locShort} – ${day} – Ref ${ref}`.slice(0, 200);
 
-  const cc = community.settings.cc_reporter && reporter?.email && kind === 'new' ? reporter.email : null;
-  return { community, to: community.mgmt_email as string, cc, replyTo, subject, text, html };
+  // The reporter copy (platform mode) and the tracking mailbox both go on Cc.
+  const ccList = [community.settings.cc_reporter && reporter?.email && kind === 'new' ? reporter.email : null, trackingMailbox].filter((x): x is string => !!x);
+  const cc = ccList.length ? ccList.join(', ') : null;
+  return { community, to: community.mgmt_email as string, cc, replyTo, subject, text, html, ref, tracking_mailbox: trackingMailbox };
+}
+
+/** Follow-up for a ticket that was closed without saying the cause, the action taken or how recurrence is prevented. */
+export async function composeFollowUp(db: Db, actor: Actor, incidentId: string) {
+  const inc = await getIncidentRow(db, incidentId);
+  if (inc.community_id !== actor.community_id) throw new HttpError(404, 'Incident not found');
+  const affectRow = await db('affects').where({ incident_id: incidentId, user_id: actor.id }).first();
+  const mine = inc.reporter_id === actor.id;
+  if (!mine && !affectRow) throw new HttpError(403, 'Only the reporter or an affected resident can send a follow-up.');
+  const community = await getCommunity(db, inc.community_id);
+  const st = community.settings;
+  const ref: string = mine ? inc.ref : (affectRow.ref as string) ?? inc.ref;
+  const ticket: string | null = mine ? inc.mgmt_case_number : (affectRow.mgmt_case_number as string | null) ?? inc.mgmt_case_number;
+  const catLabel = CATEGORY_LABELS[inc.category as Category] ?? inc.category;
+  const locShort = (inc.location_text?.trim() || inc.tower || '').slice(0, 60);
+  const closure = inc.mgmt_closed_at ? dubaiTime(inc.mgmt_closed_at) : null;
+  const entity = st.management_entity_short || 'Community Management';
+  const body = [
+    `Dear ${entity},`,
+    '',
+    closure && ticket ? `Thank you for your message of ${closure} confirming that ticket ${ticket} is now closed.` : ticket ? `Thank you for your message confirming that ticket ${ticket} is now closed.` : 'Thank you for your message confirming that this report is now closed.',
+    '',
+    'For my records, could you please let me know:',
+    '1. the cause of the issue,',
+    '2. the work or action carried out, and',
+    '3. any steps planned to help prevent it recurring.',
+    '',
+    `If the issue is still present, please treat this message as a request to reopen the ticket. Original report: ${dubaiTime(inc.reported_at)}, Ref ${ref}.`,
+    '',
+    'This report is being tracked. Please quote the reference above in any reply.',
+    '',
+    'Regards,',
+    actor.name,
+    `${actor.unit ? `Unit ${actor.unit}, ` : ''}${community.name}`,
+  ].join('\n');
+  const subject = `Follow-up – ${community.name} – ${catLabel} – ${locShort} – Ref ${ref}${ticket ? ` – Management ticket ${ticket}` : ''}`.slice(0, 200);
+  const trackingMailbox = st.cc_tracking_mailbox && st.tracking_mailbox ? st.tracking_mailbox : null;
+  await addEvent(db, { incidentId, type: 'followup_drafted', actorId: actor.id, actorRole: actor.role, isPublic: false, payload: { ref } });
+  return { kind: 'followup' as const, to: community.mgmt_email as string, cc: trackingMailbox, subject, body, ref };
 }
 
 export async function queueMgmtEmail(
@@ -291,8 +348,11 @@ export async function addAffect(db: Db, actor: Actor, incidentId: string, upload
   const now = opts.at ?? new Date().toISOString();
   await db.transaction(async (trx) => {
     if (uploadId) await claimUploads(trx, [uploadId], actor.id, incidentId, 'affects');
+    const own = await allocateRef(trx, community, now);
     await trx('affects').insert({
       id: crypto.randomUUID(),
+      seq: own.seq,
+      ref: own.ref,
       incident_id: incidentId,
       user_id: actor.id,
       tower: actor.tower,
@@ -302,7 +362,7 @@ export async function addAffect(db: Db, actor: Actor, incidentId: string, upload
       created_at: now,
     });
     const count = Number((await trx('affects').where({ incident_id: incidentId }).count({ c: '*' }).first())?.c ?? 0);
-    await addEvent(trx, { incidentId, type: 'affects_added', actorId: actor.id, actorRole: actor.role, at: now, payload: { affects_count: count, upload_id: uploadId ?? null } });
+    await addEvent(trx, { incidentId, type: 'affects_added', actorId: actor.id, actorRole: actor.role, at: now, payload: { affects_count: count, upload_id: uploadId ?? null, own_ref: own.ref } });
     await trx('incidents').where({ id: incidentId }).update({ last_activity_at: now, updated_at: now });
     if (!opts.skipEmail && community.settings.email_mode === 'platform') await queueMgmtEmail(trx, incidentId, 'affects', actor, { uploadId, caseNumber: ownCase });
     if (inc.reporter_id) {
@@ -319,12 +379,12 @@ export async function residentEmailDraft(db: Db, actor: Actor, incidentId: strin
   if (inc.community_id !== actor.community_id) throw new HttpError(404, 'Incident not found');
   if (inc.reporter_id === actor.id) {
     const d = await composeMgmtEmail(db, incidentId, 'new', actor, { resident: true });
-    return { kind: 'new' as const, to: d.to, subject: d.subject, body: d.text, confirmed_at: inc.emailed_at as string | null };
+    return { kind: 'new' as const, to: d.to, cc: d.tracking_mailbox, ref: d.ref, subject: d.subject, body: d.text, confirmed_at: inc.emailed_at as string | null };
   }
   const mine = await db('affects').where({ incident_id: incidentId, user_id: actor.id }).first();
   if (!mine) throw new HttpError(403, 'Only the reporter or an affected resident can email management.');
   const d = await composeMgmtEmail(db, incidentId, 'affects', actor, { uploadId: mine.upload_id, caseNumber: mine.mgmt_case_number, resident: true });
-  return { kind: 'affects' as const, to: d.to, subject: d.subject, body: d.text, confirmed_at: (mine.email_confirmed_at as string | null) ?? null };
+  return { kind: 'affects' as const, to: d.to, cc: d.tracking_mailbox, ref: d.ref, subject: d.subject, body: d.text, confirmed_at: (mine.email_confirmed_at as string | null) ?? null };
 }
 
 /** The resident confirms they pressed send in their own email app. Recorded with a timestamp. */
@@ -439,6 +499,8 @@ export async function changeStatus(
     if (to === 'mgmt_closed') {
       patch.mgmt_closed_at = now;
       patch.mgmt_closed_count = Number(inc.mgmt_closed_count ?? 0) + 1;
+      // Whatever the closure message said about cause, action and prevention. Empty = "Closure details not provided".
+      patch.closure_details = opts.note?.trim().slice(0, 1500) || null;
       patch.verify_reminders_sent = 0;
     }
     if (resolving) {
@@ -472,6 +534,19 @@ export async function changeStatus(
     await notifyParticipants(trx, inc, actor.id, 'status', msg[to]);
   });
   return getIncidentRow(db, incidentId);
+}
+
+/** Record what the management closure message said about cause, action taken and prevention. */
+export async function setClosureDetails(db: Db, actor: Actor, incidentId: string, text: string) {
+  const inc = await getIncidentRow(db, incidentId);
+  if (!(await canActOn(db, actor, inc))) throw new HttpError(403, 'You cannot update this report.');
+  const clean = text.trim().slice(0, 1500);
+  if (!clean) throw new HttpError(400, 'Please enter what the closure message said.');
+  const now = new Date().toISOString();
+  await db.transaction(async (trx) => {
+    await trx('incidents').where({ id: incidentId }).update({ closure_details: clean, last_activity_at: now, updated_at: now });
+    await addEvent(trx, { incidentId, type: 'note_added', actorId: actor.id, actorRole: actor.role, payload: { text: `Closure details recorded: ${clean}` } });
+  });
 }
 
 export async function addNote(db: Db, actor: Actor, incidentId: string, text: string, internal = false) {

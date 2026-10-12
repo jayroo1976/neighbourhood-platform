@@ -1,7 +1,5 @@
 import type { Db } from '../db';
 import { config } from '../config';
-import { signedAbsolute, verifyShareToken } from './fileLinks';
-import { CATEGORY_LABELS, type Category } from '../domain';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -20,30 +18,15 @@ function metaTags(o: { title: string; description: string; image: string; url: s
 }
 
 /**
- * Adds Open Graph tags so WhatsApp (and similar) show a title and photo card for a shared link.
- * Details only appear when the link carries a valid share token; otherwise the card is generic.
- * Never includes names, apartment numbers or location text.
+ * Link previews are always generic. Every screen of the platform requires sign-in, so a shared link must not
+ * reveal anything about a report (no title, category, building, count or photo) to people who are not signed in.
  */
-export async function withPreview(db: Db, html: string, path: string, incidentId: string | null, token: unknown): Promise<string> {
-  const generic = {
+export async function withPreview(_db: Db, html: string, path: string, _incidentId: string | null, _token: unknown): Promise<string> {
+  const tags = {
     title: 'Neighbourhood Reports',
-    description: 'Report community issues in seconds and track how they get fixed.',
+    description: 'Private community tracking for residents. Sign in to view.',
     image: `${config.appBaseUrl}/icons/any/app-512.png`,
-    url: `${config.appBaseUrl}${path}`,
+    url: `${config.appBaseUrl}${path.split('?')[0]}`,
   };
-  let tags = generic;
-  if (incidentId && verifyShareToken(incidentId, token)) {
-    const inc = await db('incidents').where({ id: incidentId }).first();
-    if (inc && inc.visibility === 'community' && inc.status !== 'withdrawn') {
-      const n = Number((await db('affects').where({ incident_id: inc.id }).count({ c: '*' }).first())?.c ?? 0) + 1;
-      const photo = await db('uploads').where({ incident_id: inc.id, kind: 'report' }).whereNull('deleted_at').orderBy('created_at').first();
-      tags = {
-        title: `${inc.ref}: ${inc.title}`,
-        description: `${CATEGORY_LABELS[inc.category as Category] ?? 'Issue'} · ${inc.tower ?? ''} · ${n} resident${n === 1 ? '' : 's'} reported. Same problem? Tap to add yourself.`,
-        image: photo ? signedAbsolute(photo.key, 30) : generic.image,
-        url: `${config.appBaseUrl}/incident/${inc.id}?affects=1&s=${token}`,
-      };
-    }
-  }
   return html.replace('</head>', `    ${metaTags(tags)}\n  </head>`);
 }

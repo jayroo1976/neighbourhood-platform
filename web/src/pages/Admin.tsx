@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CATEGORY_LABELS, OPEN_STATUSES, STATUS_LABELS, api, dateTime, qs, type IncidentDetail, type Role, type Status } from '../api';
+import { CATEGORY_LABELS, OPEN_STATUSES, STATUS_LABELS, TIME_SOURCE_LABELS, api, dateTime, qs, type IncidentDetail, type Role, type Status } from '../api';
 import { useAuth } from '../auth';
 import { Banner, ErrorNote, Field, Sheet, Spinner, Stamp, Toggle, copyText, useAsync } from '../ui';
 import { KpiStrip, PhotoStrip, Timeline } from './Incident';
@@ -769,6 +769,13 @@ interface SettingsResp {
     email_mode: 'resident' | 'platform';
     require_approval: boolean;
     trust_resident_invites: boolean;
+    community_code: string;
+    tracking_mailbox: string;
+    cc_tracking_mailbox: boolean;
+    management_domains: string[];
+    management_entity_short: string;
+    include_other_reports_line: boolean;
+    include_closure_details_line: boolean;
   };
   ai_available: boolean;
 }
@@ -823,6 +830,21 @@ export function AdminSettings() {
               <option value="platform">Platform sends the email</option>
             </select>
           </Field>
+          <Field label="Reference code" hint="2 to 5 letters or digits at the start of every tracking reference, for example MRW gives MRW-2610-0042-K. Changing it only affects new reports.">
+            <input value={s.settings.community_code ?? ''} onChange={(e) => set('community_code', e.target.value.toUpperCase())} maxLength={5} placeholder="e.g. MRW" />
+          </Field>
+          <Field label="Greeting name for management" hint="Used as 'Dear ...,' at the top of the email.">
+            <input value={s.settings.management_entity_short ?? ''} onChange={(e) => set('management_entity_short', e.target.value)} maxLength={60} />
+          </Field>
+          <Field label="Tracking mailbox" hint="Goes on Cc of each email. Replies and forwards sent here are matched to the report. Management can see this address, so give it a neutral name that does not name this platform.">
+            <input type="email" value={s.settings.tracking_mailbox ?? ''} onChange={(e) => set('tracking_mailbox', e.target.value)} placeholder="e.g. mrw@yourdomain.com" />
+          </Field>
+          <Toggle checked={s.settings.cc_tracking_mailbox} onChange={(v) => set('cc_tracking_mailbox', v)} label="Put the tracking mailbox on Cc" hint="Recommended. The Cc copy records when the email was really sent." />
+          <Field label="Management sender domains (one per line)" hint="Replies are accepted as coming from management only from these domains, and only when the sender passes email authentication and the reply matches an existing report.">
+            <textarea rows={3} value={(s.settings.management_domains ?? []).join('\n')} onChange={(e) => set('management_domains', e.target.value.split('\n').map((x) => x.trim().toLowerCase()).filter(Boolean))} />
+          </Field>
+          <Toggle checked={s.settings.include_other_reports_line} onChange={(v) => set('include_other_reports_line', v)} label="Add 'Other residents have also reported this issue: N'" hint="Count only, no names. Management has no way to add up separate reports, so a count can help prioritisation." />
+          <Toggle checked={s.settings.include_closure_details_line} onChange={(v) => set('include_closure_details_line', v)} label="Ask for cause, action taken and prevention in the reply" />
           <Toggle checked={s.settings.cc_reporter} onChange={(v) => set('cc_reporter', v)} label="Copy the reporter on the email" hint="Shares the resident's email address with management." />
           <Field label="Towers (one per line)">
             <textarea rows={4} value={towers} onChange={(e) => setTowers(e.target.value)} />
@@ -983,6 +1005,94 @@ export function AdminData() {
           <Spinner />
         )}
       </section>
+    </div>
+  );
+}
+
+
+interface InboundItem {
+  id: string;
+  status: string;
+  route: string;
+  from: string | null;
+  subject: string | null;
+  snippet: string | null;
+  reason: string | null;
+  candidate_refs: string[];
+  auth_result: string | null;
+  received_at: string;
+  event_at: string;
+  event_at_source: string;
+  skew: boolean;
+}
+
+const REASONS: Record<string, string> = {
+  no_match: 'No report could be matched',
+  more_than_one_reference: 'Mentions more than one reference',
+  ticket_matches_more_than_one_case: 'The ticket number matches more than one report',
+  possible_match_from_quoted_text: 'Possible match from quoted text, please confirm',
+  sender_not_verified: 'Sender did not pass email checks (SPF/DKIM/DMARC)',
+  sender_not_a_member: 'Sender is not a member or a configured management domain',
+  sender_not_on_this_case: 'Sender is not on the matched report',
+};
+
+/** Emails sent to the tracking mailbox that could not be matched safely. A person decides where they belong. */
+export function AdminInbound() {
+  const q = useAsync(() => api.get<{ items: InboundItem[] }>('/admin/inbound'), []);
+  const [refTo, setRefTo] = useState<Record<string, string>>({});
+  const [error, setError] = useState<unknown>(null);
+  const items = q.data?.items ?? [];
+
+  async function assign(item: InboundItem) {
+    setError(null);
+    try {
+      const ref = (refTo[item.id] ?? item.candidate_refs[0] ?? '').trim().toUpperCase();
+      if (!ref) throw new Error('Enter the reference of the report.');
+      await api.post(`/admin/inbound/${item.id}/assign`, { reference: ref });
+      q.reload();
+    } catch (e) {
+      setError(e);
+    }
+  }
+  async function dismiss(item: InboundItem) {
+    try {
+      await api.post(`/admin/inbound/${item.id}/dismiss`);
+      q.reload();
+    } catch (e) {
+      setError(e);
+    }
+  }
+
+  return (
+    <div className="page">
+      <header className="page-head">
+        <h1>Mail to review</h1>
+        <p className="muted small">Emails sent to the tracking mailbox that could not be matched safely. Times shown come from the email itself where possible.</p>
+      </header>
+      <ErrorNote error={error ?? q.error} />
+      {q.loading && !q.data && <Spinner />}
+      {q.data && items.length === 0 && <p className="muted">Nothing to review.</p>}
+      <div className="stack">
+        {items.map((i) => (
+          <section key={i.id} className="panel stack">
+            <strong>{i.subject || '(no subject)'}</strong>
+            <p className="muted small">
+              From {i.from ?? 'unknown'} · {REASONS[i.reason ?? ''] ?? i.reason} · sender checks: {i.auth_result ?? 'unknown'}
+            </p>
+            <p className="muted small">
+              Email time {dateTime(i.event_at)} ({TIME_SOURCE_LABELS[i.event_at_source] ?? i.event_at_source}) · received {dateTime(i.received_at)}
+              {i.skew ? ' · email date is later than the time it was received' : ''}
+            </p>
+            {i.snippet && <p className="desc">{i.snippet.slice(0, 500)}</p>}
+            {i.candidate_refs.length > 0 && <p className="small">Possible: {i.candidate_refs.join(', ')}</p>}
+            <div className="row">
+              <input placeholder="Reference to link to" value={refTo[i.id] ?? ''} onChange={(e) => setRefTo({ ...refTo, [i.id]: e.target.value })} />
+              <button className="btn small" onClick={() => assign(i)}>Link to report</button>
+              <button className="btn ghost small" onClick={() => dismiss(i)}>Dismiss</button>
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

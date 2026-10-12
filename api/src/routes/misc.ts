@@ -6,6 +6,7 @@ import { mergeSettings } from '../domain';
 import { parse, requireAuth, wrap } from '../http';
 import { verifyFileLink } from '../security/crypto';
 import { HttpError, recordMgmtReply } from '../services/incidents';
+import { ingestTrackedEmail, inputFromRaw, type InboundInput } from '../services/inboundMail';
 import { KPI_DEFINITIONS, communityKpis } from '../services/kpi';
 import { getStorage } from '../services/storage';
 import { addSystemEvent, summariseWatchtower } from '../services/system';
@@ -76,6 +77,47 @@ export function inboundRouter(): Router {
       const s = summariseWatchtower(body);
       await addSystemEvent(req.db, { kind: 'watchtower', title: s.title, message: s.message });
       res.json({ ok: true });
+    }),
+  );
+  /**
+   * Tracking mailbox feed. Accepts either the raw message (Content-Type: message/rfc822, headers included, so the
+   * email's own dates and authentication results are used) or JSON with the fields below.
+   */
+  r.post(
+    '/tracking',
+    express.text({ type: ['message/rfc822', 'text/plain'], limit: '8mb' }),
+    wrap(async (req, res) => {
+      const secret = req.get('x-inbound-secret') ?? '';
+      const a = Buffer.from(secret);
+      const b = Buffer.from(config.email.inboundSecret);
+      if (!config.email.inboundSecret || a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new HttpError(401, 'Unauthorized');
+      let input: InboundInput;
+      if (typeof req.body === 'string') {
+        input = inputFromRaw(req.body);
+      } else {
+        const body = parse(
+          z.object({
+            raw: z.string().max(8_000_000).optional(),
+            from: z.string().max(300).optional(),
+            subject: z.string().max(300).optional(),
+            date: z.string().max(100).optional(),
+            message_id: z.string().max(400).optional(),
+            in_reply_to: z.string().max(1000).optional(),
+            references: z.string().max(4000).optional(),
+            text: z.string().max(100_000).optional(),
+            declared_at: z.string().max(100).optional(),
+            auth: z.object({ spf: z.string().max(20).optional(), dkim: z.string().max(20).optional(), dmarc: z.string().max(20).optional() }).optional(),
+            original: z.object({ date: z.string().max(100).optional(), from: z.string().max(300).optional(), subject: z.string().max(300).optional(), text: z.string().max(100_000).optional(), message_id: z.string().max(400).optional() }).optional(),
+          }),
+          req.body,
+        );
+        input = body.raw ? inputFromRaw(body.raw) : { ...body, text: body.text ?? '' };
+        if (body.declared_at) input.declared_at = body.declared_at;
+      }
+      const community = await req.db('communities').orderBy('created_at').first('id');
+      if (!community) throw new HttpError(404, 'No community');
+      const result = await ingestTrackedEmail(req.db, community.id, input);
+      res.json({ ok: true, ...result });
     }),
   );
   r.post(

@@ -51,3 +51,15 @@ Version is shown to everyone (not secret, useful to residents reporting a bug); 
 
 ## Metrics: resident-safe vs staff-only (2026-10-10)
 Decision: everything computed from reports (rates, ages, response times, top-affected) is shown to all signed-in residents on the scorecard; operational chase lists (not yet emailed, people counts) are staff-only. Reason: transparency is the point, but operational lists add little for residents. A logged-out public page is deferred until the wording is legally reviewed.
+
+
+## 2026-10-12: Private tracking tool, login-only, neutral wording (v0.4.0)
+- The platform is a private tracking tool for residents, **not** a tool to expose or complain about the management company. Nothing is public: every screen needs sign-in, there are no public KPIs, scores or issues, and link previews are generic. Reason: owner's positioning; avoids reputational and legal exposure.
+- The standard email is a plain, courteous issue report with a reference, no disclaimers and no tool name; it says only "This report is being tracked...". Notice and legal wording is **not** in the app; it sits on a review sheet (docs/review-sheet-notice-wording.md) for others to comment on.
+- Tracking reference with a Luhn mod 36 check character. Reason: lets replies and forwards be matched to a case and catches typing errors; it is guessable by design so it never grants access.
+- Tracking mailbox on Cc by default (setting). Reason: the Cc copy reaches the tracker at the moment of sending and gives a real sent time. Trade-off: management staff see the address, so it needs a neutral name.
+- Event times come from the email (original header > forwarded text > forward header > resident-entered > receipt); receipt time is always kept separately and immutable; each time shows its source. Reason: the email's own timestamp is the more faithful record; a sender controls the header, so it is a record of what the email says, not proof.
+- Management replies are accepted only from configured sender domains, only when SPF/DKIM/DMARC passes and only when they match an existing case; everything uncertain (including quoted-text guesses and two references in one message) goes to a person (Admin > Mail). Reason: a reference is guessable, so it must not let outsiders write to a case.
+- Each resident's report is its own case: "This affects me too" now creates the resident's own reference and email; the backend links and counts them. Reason: management cannot aggregate separate complaints, so quantity is needed for action. Implemented on the `affects` row (not as separate incidents) to keep the existing link/count model.
+- Photos: signed expiring links in the email remain the one exception to "nothing is public" (mailto cannot attach files). **Open:** attach redacted photos in a native app, or accept links.
+- Closure quality: a closure with no cause/action/prevention is labelled "Closure details not provided" (factual, no judgement) and offers a polite follow-up email.

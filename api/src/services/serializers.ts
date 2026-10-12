@@ -82,6 +82,7 @@ const PUBLIC_PAYLOAD_KEYS: Record<string, string[]> = {
   unlinked: [],
   edited: ['fields'],
   mgmt_reply_received: ['snippet', 'case_number_found', 'suggests_closed'],
+  email_linked: ['direction', 'route', 'event_at_source', 'event_at_offset', 'received_at', 'skew', 'case_number_found', 'suggests_closed'],
 };
 
 export async function incidentDetail(db: Db, row: any, viewer: Viewer, opts: { forAdmin?: boolean } = {}) {
@@ -97,7 +98,9 @@ export async function incidentDetail(db: Db, row: any, viewer: Viewer, opts: { f
   const events = (await eventsQ).map((e) => {
     const payload = JSON.parse(e.payload) as Record<string, unknown>;
     const allowed = PUBLIC_PAYLOAD_KEYS[e.type];
-    const shown = admin ? payload : Object.fromEntries(Object.entries(payload).filter(([k]) => allowed?.includes(k)));
+    // A resident's own email text stays private; a management message's text is shown like any other reply.
+    const keys = e.type === 'email_linked' && payload.direction === 'management_message' ? [...(allowed ?? []), 'snippet'] : allowed;
+    const shown = admin ? payload : Object.fromEntries(Object.entries(payload).filter(([k]) => keys?.includes(k)));
     return { n: e.n, type: e.type, at: e.created_at, actor: actorLabel(e, row, viewer), internal: !e.is_public, payload: shown };
   });
 
@@ -142,6 +145,9 @@ export async function incidentDetail(db: Db, row: any, viewer: Viewer, opts: { f
     mgmt_case_number: row.mgmt_case_number,
     case_number_at: row.case_number_at,
     mgmt_closed_at: row.mgmt_closed_at,
+    closure_details: row.closure_details ?? null,
+    closure_details_missing: !!row.mgmt_closed_at && !row.closure_details,
+    my_ref: affectRow?.ref ?? null,
     resolved_at: row.resolved_at,
     resolution: row.resolution,
     reopen_count: row.reopen_count,

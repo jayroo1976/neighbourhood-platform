@@ -82,6 +82,7 @@ export function meRouter(): Router {
         affects: await req.db('affects').where({ user_id: id }),
         photos: await req.db('uploads').where({ user_id: id }).select('id', 'incident_id', 'kind', 'created_at', 'bytes'),
         notifications: await req.db('notifications').where({ user_id: id }),
+        tracked_emails: await req.db('inbound_emails').where({ from_user_id: id }).select('route', 'subject', 'snippet', 'received_at', 'event_at', 'event_at_source', 'status'),
         emails_to_you: await req.db('email_outbox').where({ to_addr: u.email }).select('kind', 'subject', 'status', 'created_at'),
       };
       await audit(req.db, { actorId: id, action: 'data_export', ip: clientIp(req) });
@@ -116,6 +117,7 @@ export function meRouter(): Router {
         await trx('incidents').where({ reporter_id: u.id }).update({ unit: null });
         await trx('affects').where({ user_id: u.id }).update({ unit: null });
         await trx('notifications').where({ user_id: u.id }).delete();
+        await trx('inbound_emails').where({ from_user_id: u.id }).update({ from_addr: null, snippet: null, subject: null, from_user_id: null });
         await trx('users').where({ id: u.id }).update({
           email: `deleted+${u.id}@invalid.local`,
           name: 'Deleted resident',

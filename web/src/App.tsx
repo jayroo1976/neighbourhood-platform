@@ -12,7 +12,7 @@ import { Notifications, Profile } from './pages/Account';
 import { VersionBar } from './VersionBar';
 import { InstallPrompt } from './InstallPrompt';
 import { AdminSystem } from './pages/AdminSystem';
-import { AdminData, AdminIncident, AdminIncidents, AdminSettings, AdminUsers } from './pages/Admin';
+import { AdminData, AdminInbound, AdminIncident, AdminIncidents, AdminSettings, AdminUsers } from './pages/Admin';
 
 function ConsentGate({ children }: { children: ReactNode }) {
   const { me, refresh } = useAuth();
@@ -79,6 +79,7 @@ function Protected({ admin }: { admin?: boolean }) {
       {inAdmin && (
         <nav className="subnav" aria-label="Admin">
           <NavLink to="/admin/incidents">Reports</NavLink>
+          <NavLink to="/admin/inbound">Mail</NavLink>
           <NavLink to="/admin/users">People{pendingUsers > 0 && <span className="badge">{pendingUsers}</span>}</NavLink>
           <NavLink to="/admin/settings">Settings</NavLink>
           <NavLink to="/admin/data">Data</NavLink>
@@ -124,6 +125,7 @@ export function App() {
       <Route element={<Protected admin />}>
         <Route path="/admin/incidents" element={<AdminIncidents />} />
         <Route path="/admin/incidents/:id" element={<AdminIncident />} />
+        <Route path="/admin/inbound" element={<AdminInbound />} />
         <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/admin/data" element={<AdminData />} />
