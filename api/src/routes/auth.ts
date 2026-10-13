@@ -42,6 +42,8 @@ export function authRouter(): Router {
       const community = await req.db('communities').where({ slug: body.community ?? config.defaults.communitySlug }).first();
       if (!community) throw new HttpError(404, 'Community not found.');
       if (!mergeSettings(community.settings).registration_open) throw new HttpError(403, 'Registration is currently closed.');
+      const towerList: string[] = JSON.parse(community.towers);
+      if (!towerList.includes(body.tower)) throw new HttpError(400, 'Please choose your tower from the list.');
       const settings = mergeSettings(community.settings);
       const inviter = body.ref ? await req.db('users').where({ invite_token: body.ref, community_id: community.id, active: 1 }).whereNull('deleted_at').first() : null;
       const approved = !settings.require_approval || (!!inviter && settings.trust_resident_invites);
@@ -159,7 +161,11 @@ export function authRouter(): Router {
       if (!req.user) {
         const c = await req.db('communities').where({ slug: config.defaults.communitySlug }).first();
         const st = c ? mergeSettings(c.settings) : null;
-        return res.json({ user: null, config: { ...publicConfig(), approval_required: !!st?.require_approval, registration_open: st?.registration_open ?? true } });
+        return res.json({
+          user: null,
+          community: c ? { name: c.name, towers: JSON.parse(c.towers) } : undefined,
+          config: { ...publicConfig(), approval_required: !!st?.require_approval, registration_open: st?.registration_open ?? true },
+        });
       }
       const community = await req.db('communities').where({ id: req.user.community_id }).first();
       const s = mergeSettings(community.settings);
@@ -279,5 +285,5 @@ export function authRouter(): Router {
 }
 
 function publicConfig() {
-  return { privacy_notice_version: config.privacyNoticeVersion, terms_version: config.termsVersion };
+  return { privacy_notice_version: config.privacyNoticeVersion, terms_version: config.termsVersion, operator_name: config.operator.name, operator_contact: config.operator.contact };
 }

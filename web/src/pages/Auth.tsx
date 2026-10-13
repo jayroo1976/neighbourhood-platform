@@ -149,16 +149,12 @@ export function Register() {
         </Field>
         <div className="row">
           <Field label="Tower / building">
-            {towers.length ? (
-              <select value={f.tower} onChange={set('tower')} required>
-                <option value="">Select...</option>
-                {towers.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            ) : (
-              <input value={f.tower} onChange={set('tower')} required />
-            )}
+            <select value={f.tower} onChange={set('tower')} required>
+              <option value="">Select your tower...</option>
+              {towers.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
           </Field>
           <Field label="Apartment no.">
             <input value={f.unit} onChange={set('unit')} required inputMode="text" />
@@ -335,33 +331,58 @@ export function MfaSetup() {
   );
 }
 
+function Operator() {
+  const { me } = useAuth();
+  const name = (me?.config as { operator_name?: string } | undefined)?.operator_name;
+  const contact = (me?.config as { operator_contact?: string } | undefined)?.operator_contact;
+  return name ? (
+    <p>
+      <strong>Who runs it.</strong> {name}{contact ? <>. Contact: {contact}</> : null}. This is the party responsible for your personal data (the "controller" under the UAE Personal Data Protection Law).
+    </p>
+  ) : (
+    <Banner tone="warn" title="Operator not yet named">
+      The legal entity that runs this service, and its contact details, must be shown here before real residents use it.
+    </Banner>
+  );
+}
+
 export function Privacy() {
   return (
     <Shell title="Privacy notice">
       <div className="prose">
         <p>
-          <strong>Who we are.</strong> Neighbourhood Reports is an independent, resident-run service. It is not operated by your management company. This is a pilot notice; the final text will be reviewed before wider launch.
+          <em>Pilot notice, version 2026-10-v2. A lawyer will review this before a wider launch.</em>
+        </p>
+        <Operator />
+        <p>
+          <strong>What this service is.</strong> Neighbourhood Reports is a private tracking tool for residents of a community. It helps you keep a record of issues and the responses to them. It is independent: it is not operated by your management company, developer or any government body.
         </p>
         <p>
-          <strong>What we collect.</strong> Your name, email, tower and apartment number, the photos and text you submit, the location you choose to share with a report, and the actions you take on reports.
+          <strong>What we collect.</strong> Your name, email, tower and apartment number (which you declare yourself), optionally a phone number, the photos and text you submit, the location you choose to share with a report, the actions you take on reports, and basic security logs such as sign-in times.
         </p>
         <p>
-          <strong>Why.</strong> To send your report to the management company, show progress to you and your neighbours, and measure how quickly issues are acknowledged and fixed.
+          <strong>Why.</strong> To record your report, help you send it to the management company, show progress to you and your neighbours, and calculate response-time figures from what residents record. Our basis is your consent, which you give when you register and can withdraw by deleting your account.
         </p>
         <p>
-          <strong>Who sees it.</strong> The management company receives your report by email, including your tower, apartment number, first name, location and secure photo links. Neighbours see the report, tower and photos but never your name or apartment number, and location is shown only approximately. Moderators of this service can see everything on a report.
+          <strong>Who sees it.</strong> The management company receives your report, and therefore knows who sent it: by default you send the email from your own email account, and it includes your tower, apartment number, first name, location and secure photo links. Your reports are <strong>not anonymous to the management company</strong>. Neighbours see the report, tower and photos but never your name or apartment number, and location is shown only approximately. Reports marked "Keep private" are not shown to neighbours. Moderators of this service can see everything on a report. Nothing on this service is public: every page needs a sign-in.
         </p>
         <p>
-          <strong>Photos.</strong> Please do not photograph people, faces or number plates. Photo metadata (including location) is removed on upload.
+          <strong>Photos.</strong> Please do not photograph people, faces or number plates. Photo metadata (including location) is removed on upload. Residents are responsible for what they photograph.
         </p>
         <p>
-          <strong>Where it is stored.</strong> In Microsoft Azure in the UAE (UAE North). Data is encrypted in transit and at rest.
+          <strong>Where it is stored and who handles it.</strong> During the pilot the service runs on a dedicated server controlled by the operator. Access from the internet goes through Cloudflare, which carries your traffic and photos in transit and may handle it outside the UAE. Encrypted backups are kept in Microsoft Azure in the UAE. If you turn on the optional AI helper with your own key, your photo and note are sent from your browser to that AI provider, which may be outside the UAE; it is off unless you enable it.
         </p>
         <p>
-          <strong>Your rights.</strong> You can download your data or delete your account from your profile at any time. Deleting removes your name, email, phone and apartment number; you can also withdraw your reports and photos.
+          <strong>How long we keep it.</strong> While your account is active. When you delete your account we remove your name, email, phone and apartment number, and you can also withdraw your reports and photos. Copies in backups age out within the backup retention period (about 30 days for daily copies and up to 12 months for monthly copies).
         </p>
         <p>
-          <strong>Emergencies.</strong> This service is not monitored. In an emergency call 999 or the building emergency number.
+          <strong>Your rights.</strong> You can download your data or delete your account from your profile at any time, and ask the operator to correct your details. If there is a data breach that affects you, the operator will tell you and the regulator as the law requires.
+        </p>
+        <p>
+          <strong>Children.</strong> The service is for people aged 18 or over.
+        </p>
+        <p>
+          <strong>Emergencies.</strong> This service is not monitored. In an emergency call <strong>999 (police), 998 (ambulance) or 997 (fire)</strong>, or the building emergency number.
         </p>
       </div>
       <p className="center">
@@ -376,40 +397,44 @@ export function Terms() {
     <Shell title="Terms of use">
       <div className="prose">
         <p>
-          <em>Pilot terms, version 2026-10-v1. A lawyer will review these before a wider launch.</em>
+          <em>Pilot terms, version 2026-10-v2. A lawyer will review these before a wider launch.</em>
+        </p>
+        <Operator />
+        <p>
+          <strong>1. What this service is.</strong> Neighbourhood Reports is an independent, resident-run, private tracking tool. It helps residents record issues in their community, see whether neighbours are affected, and keep a record of the responses. It is not operated by, or an official channel of, your management company, developer or any government body, and it is free to use.
         </p>
         <p>
-          <strong>1. What this service is.</strong> Neighbourhood Reports is an independent, resident-run service that helps residents report issues in their community, see whether neighbours are affected, and track whether issues are fixed. It is not operated by, or an official channel of, your management company, developer or any government body.
-        </p>
-        <p>
-          <strong>2. Who can join.</strong> You must be 18 or over and a genuine resident or authorised occupier of the community. Give accurate details. We may approve, decline or remove any account, for example if we cannot confirm you live there.
+          <strong>2. Who can join.</strong> You must be 18 or over and a genuine resident or authorised occupier of the community. You declare your tower and apartment yourself; a moderator may check them. Give accurate details and do not use someone else's identity. We may approve, decline or remove any account, for example if we cannot confirm you live there.
         </p>
         <p>
           <strong>3. Your account.</strong> Keep your password private and tell us if you think someone else has used your account. You are responsible for what is done through it.
         </p>
         <p>
-          <strong>4. What you post.</strong> Post only facts you believe to be true, about the building, services and common areas. Do not post anything false, abusive, defamatory, discriminatory or private about a named person, and do not photograph people, faces or number plates. Do not post anything that breaks UAE law, including laws on defamation, privacy and cybercrime. You keep ownership of what you post, and you give us permission to store it, show it to residents, moderators and the management company, and use it in anonymised statistics such as the scorecard.
+          <strong>4. What you post.</strong> Post only facts you believe to be true, about the building, services and common areas, in neutral language. Information on this service is supplied by residents and is not verified by us. Do not post anything false, abusive, defamatory, discriminatory or private about a named person, and do not photograph people, faces or number plates. Do not post anything that breaks UAE law, including laws on defamation, privacy and cybercrime. You are responsible for what you post. You keep ownership of it, and you give us permission to store it, show it to residents, moderators and the management company, and use it in statistics such as the scorecard.
         </p>
         <p>
-          <strong>5. Moderation.</strong> Moderators may edit, hide or remove posts that break these terms, and may suspend accounts that do so repeatedly.
+          <strong>5. Moderation and false reports.</strong> Moderators may edit, hide or remove posts that break these terms, and may suspend or remove accounts that post false or misleading reports, impersonate someone, or break these terms repeatedly.
         </p>
         <p>
-          <strong>6. Scorecard and statuses.</strong> Response times and "closed but not fixed" figures are calculated from the dates and evidence recorded on this service. They reflect what has been recorded here and are not a legal finding about anyone.
+          <strong>6. Emails to the management company.</strong> By default you send the email to the management company yourself, from your own email account, so it comes from you and the management company will know who you are. Keep it factual and polite. Sending large numbers of near-identical emails may be treated by others as harassment, so use "This affects me too" for the same problem rather than sending new reports.
         </p>
         <p>
-          <strong>7. Not for emergencies.</strong> This service is not monitored. In an emergency call 999 or the building emergency number. Do not rely on this service for urgent safety issues.
+          <strong>7. Response figures and statuses.</strong> Response times and "closed, disputed by residents" figures are calculated from the dates and evidence that residents record on this service. They reflect what has been recorded here, are not a finding or opinion about anyone, and are visible only to signed-in residents.
         </p>
         <p>
-          <strong>8. Your data.</strong> We handle personal data under the UAE Personal Data Protection Law (Federal Decree-Law No. 45 of 2021) and as set out in the <Link to="/privacy">privacy notice</Link>. You can download or delete your data from your profile.
+          <strong>8. Not for emergencies.</strong> This service is not monitored. In an emergency call 999 (police), 998 (ambulance) or 997 (fire), or the building emergency number. Do not rely on this service for urgent safety issues. Any suggested urgency or category is only a suggestion.
         </p>
         <p>
-          <strong>9. No guarantees.</strong> This is a pilot, provided as it is. We do not promise it will always be available or error free, and we cannot promise the management company will act on a report. To the extent UAE law allows, we are not liable for indirect losses arising from your use of it.
+          <strong>9. Your data.</strong> We handle personal data under the UAE Personal Data Protection Law (Federal Decree-Law No. 45 of 2021) and as set out in the <Link to="/privacy">privacy notice</Link>. You can download or delete your data from your profile.
         </p>
         <p>
-          <strong>10. Changes.</strong> We may update these terms. If the change is important we will ask you to accept the new version.
+          <strong>10. No guarantees, and limits on liability.</strong> This is a free pilot, provided as it is, with best-effort availability and no promise that it will always be available or error free. We cannot promise the management company will act on a report. To the extent UAE law allows, we are not liable for indirect or consequential losses arising from your use of it. Nothing in these terms excludes liability that the law does not allow to be excluded, including for intentional harm or gross negligence, or removes the duties we have under data protection law.
         </p>
         <p>
-          <strong>11. Law and courts.</strong> These terms are governed by the laws of the United Arab Emirates as applied in the Emirate of Dubai, and the courts of Dubai have jurisdiction, unless mandatory law says otherwise.
+          <strong>11. Changes.</strong> We may update these terms. If the change is important we will ask you to accept the new version.
+        </p>
+        <p>
+          <strong>12. Law and courts.</strong> These terms are governed by the laws of the United Arab Emirates as applied in the Emirate of Dubai, and the courts of Dubai have jurisdiction, unless mandatory law says otherwise.
         </p>
       </div>
       <p className="center">

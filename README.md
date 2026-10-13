@@ -2,7 +2,7 @@
 
 > **Current target: a test server on the owner's own hardware (Unraid, local drive), not Azure.** Azure files exist (`infra/`, `docs/sleep-mode.md`, `docs/backup-restore.md`) but are **untested and not in use yet**. Everything here is in a *test/pilot* state. See [docs/status.md](docs/status.md).
 
-Resident-run incident reporting and accountability for residential communities. Residents photograph an issue, the app emails the management company and records every step with a timestamp. Neighbours tick "affects me". A transparent scorecard shows how well the management company is performing, especially cases it marks **closed that are not actually fixed**.
+Resident-run, private incident tracking for residential communities. Residents photograph an issue, the app emails the management company and records every step with a timestamp. Neighbours tick "affects me". A response scorecard, visible to signed-in residents only, shows response times and the closures residents dispute (cases marked **closed that residents say are not fixed**), calculated from what residents record.
 
 **Owner:** James (Venture Foundry). **Repo is private**, on his personal GitHub. Unraid pulls the image automatically (see below).
 
@@ -50,6 +50,7 @@ Bicep in `infra/main.bicep` (UAE North: Container Apps scale-to-zero, PostgreSQL
 | [docs/configuration.md](docs/configuration.md) | Every environment variable |
 | [docs/admin-guide.md](docs/admin-guide.md) | Roles, daily admin tasks, settings, CSV import format |
 | [docs/unraid.md](docs/unraid.md) | Run and auto-update on Unraid via GitHub |
+| [docs/legal-review-status.md](docs/legal-review-status.md) | What the legal checklist items changed in the app, and what is still outstanding |
 | [docs/privacy-pdpl.md](docs/privacy-pdpl.md) | Data map, PDPL notes, open legal points |
 | [docs/security.md](docs/security.md) | Security controls and known gaps |
 | [docs/sleep-mode.md](docs/sleep-mode.md) | Azure cost saving: nightly stop, "Start the service" page |

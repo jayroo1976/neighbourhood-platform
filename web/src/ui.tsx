@@ -159,7 +159,7 @@ export async function copyText(text: string): Promise<boolean> {
 export function ShareButton({ shareUrl, refLabel, title, groupUrl }: { shareUrl: string; refLabel?: string; title: string; groupUrl?: string }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const message = `Same problem in our building? "${title}"${refLabel ? ` (${refLabel})` : ''}. Tap to add yourself in two taps:\n${shareUrl}`;
+  const message = `Same problem in our building? "${title}"${refLabel ? ` (${refLabel})` : ''}.\nReport it too in seconds: tap the link, sign in, and add yourself to this report in two taps. No forms, nothing to write.\n${shareUrl}`;
   const flash = (t: string) => {
     setNote(t);
     setTimeout(() => setNote(null), 3500);
@@ -176,7 +176,7 @@ export function ShareButton({ shareUrl, refLabel, title, groupUrl }: { shareUrl:
       {open && (
         <Sheet title="Share with neighbours" onClose={() => setOpen(false)}>
           <div className="stack">
-            <p className="muted small">Neighbours who open this sign in, then add themselves to your report with a photo. The preview shows your report's photo and title.</p>
+            <p className="muted small">Neighbours who open this link sign in and can report the same issue in seconds by adding themselves to your report (a photo is recommended). The preview shows your report's photo and title.</p>
             <a className="btn block whatsapp-btn" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer">
               Send on WhatsApp
             </a>

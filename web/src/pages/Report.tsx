@@ -212,7 +212,7 @@ export function Report() {
         <ul className="plain tight">
           <li>Reports are visible to your community (never your name or apartment number). Don't want neighbours to see it? Switch on "Keep private" below.</li>
           <li>Please don't photograph people, faces or car number plates.</li>
-          <li>Danger to life? Call 999 first. This app is not monitored for emergencies.</li>
+          <li>Danger to life? Call 999 (police), 998 (ambulance) or 997 (fire) first. This app is not monitored for emergencies.</li>
         </ul>
       </Banner>
 

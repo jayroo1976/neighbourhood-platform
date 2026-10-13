@@ -58,6 +58,10 @@ describe('auth', () => {
     expect(weak.status).toBe(400);
     const noTerms = await request(ctx.app).post('/api/auth/register').set(H).send({ email: 'nt@example.test', password: PASSWORD, name: 'No Terms', tower: 'MR 1', unit: '1', consent: true });
     expect(noTerms.status).toBe(400);
+    const badTower = await request(ctx.app).post('/api/auth/register').set(H).send({ email: 'bt@example.test', password: PASSWORD, name: 'Bad Tower', tower: 'Tower 99', unit: '1', consent: true, terms: true });
+    expect(badTower.status).toBe(400);
+    const anon = await request(ctx.app).get('/api/auth/me');
+    expect(anon.body.community.towers).toEqual(['MR 1', 'MR 2', 'MR 3']);
     const noConsent = await request(ctx.app).post('/api/auth/register').set(H).send({ email: 'nc@example.test', password: PASSWORD, name: 'No Consent', tower: 'MR 1', unit: '1', consent: false });
     expect(noConsent.status).toBe(400);
 

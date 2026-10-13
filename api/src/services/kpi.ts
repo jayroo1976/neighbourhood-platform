@@ -330,7 +330,7 @@ export async function communityKpis(
 export const KPI_DEFINITIONS = [
   { key: 'acknowledgement', title: 'Case number in time', text: 'Hours from our email to management until a case number or any reply is recorded. Reports with no response past the target count as misses.' },
   { key: 'timeliness', title: 'Resolved within target', text: 'Share of due reports (verified fixed, poorly fixed, or open past target) that were verified fixed within the target for their priority.' },
-  { key: 'closure', title: 'Closed but not fixed', text: 'Reports management marked closed that a resident then marked poorly fixed or reopened with photo evidence. Reports awaiting resident verification are shown separately, never counted as disputed.' },
+  { key: 'closure', title: 'Closures disputed by residents', text: 'Reports management marked closed that a resident then marked poorly fixed or reopened with photo evidence. Reports awaiting resident verification are shown separately, never counted as disputed.' },
   { key: 'fix_quality', title: 'Fixes that hold up', text: 'Verified fixed divided by verified fixed + poorly fixed + reopened-after-closure.' },
   { key: 'backlog', title: 'Backlog ageing', text: 'Age of open reports from the original report time. Overdue means older than the target for that priority.' },
   { key: 'score', title: 'Overall score', text: 'Weighted blend of the four components above (25/25/30/20). Components without data are left out and the rest re-weighted. Treat scores from fewer than 10 reports as indicative only.' },

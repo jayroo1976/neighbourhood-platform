@@ -126,9 +126,9 @@ export function Scorecard() {
   return (
     <div className="page wide">
       <header className="page-head">
-        <h1>Management scorecard</h1>
+        <h1>Response scorecard</h1>
         <p className="muted">
-          How quickly issues are acknowledged, and whether "closed" really means fixed. Based on resident reports and photo evidence.
+          How quickly issues are acknowledged, and whether residents confirm a "closed" issue is fixed. Based on resident reports and photo evidence.
         </p>
         <div className="chips noprint">
           {[
@@ -152,6 +152,9 @@ export function Scorecard() {
       ) : s ? (
         <>
           {s.demo_data_present && <Banner tone="warn" title="Demo data included">These figures include sample reports. A super admin can remove them in Admin &gt; Data.</Banner>}
+          <Banner tone="info" title="Resident-recorded information">
+            These figures are calculated from the dates and photo evidence recorded by residents on this service. They are not a finding or opinion about any person or company. Visible to signed-in residents only; please do not share outside the community.
+          </Banner>
           {s.confidence === 'low' && <Banner tone="info">Fewer than 10 reports in this period, so treat the score as indicative only.</Banner>}
 
           <section className="score-hero">
@@ -177,7 +180,7 @@ export function Scorecard() {
           <section className="tiles">
             <Tile label="Reports" value={String(s.counts.total)} sub={`${s.counts.open} open`} />
             <Tile label="Got a case number in time" value={pct(s.acknowledgement.within_sla_rate)} sub={`target ${s.acknowledgement.sla_hours}h · median ${s.acknowledgement.median_hours ?? '-'}h`} tone={toneRate(s.acknowledgement.within_sla_rate)} />
-            <Tile label="Closed, but not fixed" value={pct(s.closure_quality.disputed_rate)} sub={`${s.closure_quality.disputed} of ${s.closure_quality.management_closed_total} management closures disputed`} tone={s.closure_quality.disputed_rate == null ? undefined : s.closure_quality.disputed_rate > 0.3 ? 'bad' : s.closure_quality.disputed_rate > 0.1 ? 'mid' : 'ok'} />
+            <Tile label="Closures disputed by residents" value={pct(s.closure_quality.disputed_rate)} sub={`${s.closure_quality.disputed} of ${s.closure_quality.management_closed_total} management closures disputed by residents`} tone={s.closure_quality.disputed_rate == null ? undefined : s.closure_quality.disputed_rate > 0.3 ? 'bad' : s.closure_quality.disputed_rate > 0.1 ? 'mid' : 'ok'} />
             <Tile label="Awaiting verification" value={String(s.closure_quality.awaiting_verification)} sub={`${s.closure_quality.awaiting_verification_over_7d} for over 7 days`} />
             <Tile label="Median time to fix" value={s.resolution.median_days != null ? `${s.resolution.median_days} d` : '-'} sub={`${s.resolution.verified_fixed} verified fixed`} />
             <Tile label="Overdue open reports" value={String(s.backlog.overdue)} sub={`oldest ${s.backlog.oldest_days != null ? Math.round(s.backlog.oldest_days) : '-'} days`} tone={s.backlog.overdue_rate == null ? undefined : s.backlog.overdue_rate > 0.5 ? 'bad' : s.backlog.overdue_rate > 0.2 ? 'mid' : 'ok'} />

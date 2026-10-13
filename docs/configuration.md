@@ -21,6 +21,7 @@ Set in `.env` (Unraid) or the host's settings. Production (`NODE_ENV=production`
 | `EMAIL_LINK_TTL_DAYS` | 30 | Lifetime of photo links in emails to management |
 | `WATCHTOWER_SECRET` | - | Unraid compose only: shared secret Watchtower sends with update notices to `/api/inbound/watchtower` (shown on Admin > System). Empty = endpoint refuses |
 | `APP_VERSION`, `BUILD_NUMBER`, `BUILD_SHA`, `BUILD_DATE` | package.json / dev | Stamped into the image by the GitHub workflow; shown in the version strip and `/api/system/version` |
+| `OPERATOR_NAME`, `OPERATOR_CONTACT` | empty | Legal entity that runs the service and a contact address, shown in the privacy notice and terms. If empty, those pages show a visible "Operator not yet named" warning. Set before real residents use it |
 | `REPLY_DOMAIN`, `INBOUND_EMAIL_SECRET` | - | Per-incident reply address domain; shared secret for the inbound webhook |
 | `STORAGE_PROVIDER` | local | `local` or `azure` |
 | `STORAGE_LOCAL_DIR` | ./data/files | Photo folder (a mounted volume on Unraid) |

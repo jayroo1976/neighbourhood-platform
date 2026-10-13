@@ -8,6 +8,8 @@
 - Sleep-mode gate (start page, 503 "asleep", status/wake endpoints, normal startup) tested locally.
 
 ## Not verified (assume it needs testing)
+- Legal-review wording changes (2026-10-13): privacy notice and terms rewritten, scorecard renamed, notice version 2026-10-v2. Not reviewed by a lawyer. See docs/legal-review-status.md for what is fixed and what is outstanding. `OPERATOR_NAME` / `OPERATOR_CONTACT` must be set.
+- Share-with-neighbours message reworded (2026-10-13): check how it reads in WhatsApp on a real phone.
 - Test-data loader `npm run seed:test` (2026-10-12): verified on local SQLite only; not yet run on the Unraid instance. See docs/admin-guide.md > Test data.
 - v0.3.1 (bottom Report button removed) is the first change used to test GitHub > Watchtower auto-update; confirm the strip shows v0.3.1.
 - Add-to-home-screen prompt on real iPhone / Android / Huawei phones (new 2026-10-10). Sign-up with no invite code, approval for every request.

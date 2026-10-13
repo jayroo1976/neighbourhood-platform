@@ -44,6 +44,11 @@ export function meRouter(): Router {
         }),
         req.body,
       );
+      if (body.tower !== undefined) {
+        const c = await req.db('communities').where({ id: req.user!.community_id }).first();
+        const towerList: string[] = JSON.parse(c.towers);
+        if (!towerList.includes(body.tower)) throw new HttpError(400, 'Please choose your tower from the list.');
+      }
       const patch: Record<string, unknown> = { ...body };
       if (body.notify_email !== undefined) patch.notify_email = body.notify_email ? 1 : 0;
       if (Object.keys(patch).length) await req.db('users').where({ id: req.user!.id }).update(patch);

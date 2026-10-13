@@ -67,8 +67,9 @@ export const config = {
     mgmtEmail: env.MGMT_EMAIL ?? 'management@example.com',
   },
 
-  privacyNoticeVersion: '2026-10-v1',
-  termsVersion: '2026-10-v1',
+  privacyNoticeVersion: '2026-10-v2',
+  termsVersion: '2026-10-v2',
+  operator: { name: env.OPERATOR_NAME ?? '', contact: env.OPERATOR_CONTACT ?? '' },
   schedulerEnabled: env.SCHEDULER_ENABLED ? env.SCHEDULER_ENABLED === 'true' : !isTest,
 };
 

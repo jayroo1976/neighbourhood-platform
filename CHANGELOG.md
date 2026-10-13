@@ -1,5 +1,23 @@
 # Changelog (newest first)
 
+## 2026-10-13 - Legal-review fixes (privacy notice, terms, wording) - notice version 2026-10-v2
+Driven by `docs/legal-review-status.md` (from the project verification checklist). Wording and display only, no change to how reports, emails or scoring work.
+- **Privacy notice rewritten** to match reality: names the operator (new `OPERATOR_NAME` / `OPERATOR_CONTACT`; a visible warning shows until set), states that reports are **not anonymous to the management company**, says the pilot runs on a dedicated server behind Cloudflare with encrypted Azure UAE backups (replacing the old "stored in Azure UAE North" line), discloses that Cloudflare carries traffic and photos and may handle them outside the UAE, covers the optional AI helper, retention and backup ageing, breach notification, correction rights, age 18+, and that nothing is public.
+- **Terms rewritten**: private tracking tool, free/best-effort, declared (unverified) unit, resident-supplied information, false reports and impersonation lead to removal, neutral wording, guidance on volume of emails (use "affects me too"), emergency numbers, and a liability limit that no longer tries to exclude what the law does not allow (intentional harm, gross negligence, data protection duties).
+- **Emergency numbers** 999 police / 998 ambulance / 997 fire on the report form, terms and privacy notice.
+- **Scorecard wording**: "Management scorecard" -> "Response scorecard"; "Closed, but not fixed" -> "Closures disputed by residents"; status "Closed - poorly fixed" -> "Closed - disputed by resident"; a "Resident-recorded information, not a finding" banner on the scorecard (and so on the printout).
+- Privacy notice version bumped to 2026-10-v2, so every existing resident is asked to read and accept it on next sign-in.
+- Typechecked and tested. Wording is draft for a lawyer: nothing here has been legally reviewed.
+
+## 2026-10-13 - Tower is a drop-down only (request to join and profile)
+- The tower on **Request to join** and on **Me** is now always a drop-down of the community's towers (MR 1, MR 2, MR 3 by default). Cause of the bug: the signed-out `/api/auth/me` did not send the tower list, so the sign-up page fell back to a free-text box.
+- `/api/auth/me` now returns `community: { name, towers }` when signed out. `POST /api/auth/register` and `PATCH /api/me/profile` reject any tower not in the community list (400 "Please choose your tower from the list."). Apartment number stays free text.
+- New test checks the signed-out tower list and the rejection. Existing residents with a tower no longer in the list must pick one next time they edit their profile.
+
+## 2026-10-13 - WhatsApp share message: "report it too in seconds"
+- The message sent by **Share with neighbours** (WhatsApp, copy, group post, More apps) now says neighbours can report the same issue in seconds: tap the link, sign in, add yourself in two taps, nothing to write. The help text in the share sheet says the same. Wording only (`web/src/ui.tsx`); the link, preview and daily caps are unchanged.
+- Typechecked only; not yet tried on a phone or on the Unraid instance.
+
 ## 2026-10-12 - Test-data loader (18 TEST reports with photos, tower "MR Test", apartment Test01)
 - New script `api/src/scripts/seed-test.ts` (`npm run seed:test -w api -- "<photo folder>"`) with manifest `api/src/scripts/test-data/incidents.json`. Loads 18 clearly-labelled reports (titles start "TEST - ", references `TEST-0001`..`TEST-0018`, management case numbers `TEST-SR-20xx`) using 65 supplied photos (max 4 per report), spread over every status (reported, case number received, in progress, management closed, resolved OK, resolved poor, reopened, withdrawn).
 - Everything belongs to one test resident `test01@pilot.test` (tower **MR Test**, apartment **Test01**, flagged demo). "MR Test" is added to the community tower list.

@@ -182,16 +182,12 @@ export function Profile() {
         </Field>
         <div className="row">
           <Field label="Tower / building">
-            {towers.length ? (
-              <select value={f.tower} onChange={(e) => setF({ ...f, tower: e.target.value })} required>
-                <option value="">Select...</option>
-                {towers.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            ) : (
-              <input value={f.tower} onChange={(e) => setF({ ...f, tower: e.target.value })} required />
-            )}
+            <select value={f.tower} onChange={(e) => setF({ ...f, tower: e.target.value })} required>
+              <option value="">Select your tower...</option>
+              {towers.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
           </Field>
           <Field label="Apartment no.">
             <input value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} required />

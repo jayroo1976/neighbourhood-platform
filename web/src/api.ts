@@ -176,7 +176,7 @@ export const STATUS_LABELS: Record<Status, string> = {
   in_progress: 'In progress',
   mgmt_closed: 'Closed by mgmt - unverified',
   resolved_ok: 'Fixed',
-  resolved_poor: 'Closed - poorly fixed',
+  resolved_poor: 'Closed - disputed by resident',
   reopened: 'Reopened',
   withdrawn: 'Withdrawn',
 };

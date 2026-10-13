@@ -27,7 +27,7 @@ export function eventText(e: IncidentEvent): string {
     case 'resolved_ok':
       return `${e.actor} confirmed it is fixed${p.admin_override ? ' (moderator, no photo)' : ' with a photo'}.${p.note ? ` "${p.note}"` : ''}`;
     case 'resolved_poor':
-      return `${e.actor} reports it was closed but poorly fixed${p.admin_override ? '' : ', with a photo'}.${p.note ? ` "${p.note}"` : ''}`;
+      return `${e.actor} reports it was closed but not fixed properly${p.admin_override ? '' : ', with a photo'}.${p.note ? ` "${p.note}"` : ''}`;
     case 'reopened':
       return `${e.actor} reopened it - the problem is still there.${p.note ? ` "${p.note}"` : ''}`;
     case 'withdrawn':
