@@ -8,6 +8,7 @@ import { hashPassword } from '../security/crypto';
 import { processImage } from '../services/images';
 import { addAffect, changeStatus, createIncident, setCaseNumber, type Actor } from '../services/incidents';
 import { getStorage } from '../services/storage';
+import { createOdourReport } from '../services/odour';
 
 /**
  * Temporary demo data so the feed and scorecard have something to show while real
@@ -155,6 +156,31 @@ async function main() {
       }
     }
   }
+
+  // Demo smell reports: the same flat on several levels (a shared riser), several flats on one level, and a few scattered ones.
+  const smell = async (tower: string, level: number, flat: number, type: string, strength: number, daysAgo: number, hour: number, where = 'inside') => {
+    const inTower = residents.filter((r) => r.tower === tower);
+    const pool = inTower.length ? inTower : residents; // townhouses have no demo residents of their own
+    const who = pool[(level + flat) % pool.length];
+    const at = new Date(now - daysAgo * DAY);
+    at.setUTCHours(hour - 4, 0, 0, 0); // hour is Dubai time
+    await createOdourReport(
+      db,
+      who,
+      { building: tower, level, flat, smell_type: type as never, strength, frequency: strength >= 3 ? 'daily' : 'sometimes', where_noticed: where as never, observed_at: at.toISOString(), notes: '' },
+      { source: 'demo', skipCap: true },
+    );
+  };
+  for (const [i, lvl] of [3, 5, 7, 9, 11].entries()) await smell('MR 2', lvl, 4, 'sewage', 3, 2 + i * 2, 21);
+  for (const [i, lvl] of [2, 6, 8].entries()) await smell('MR 2', lvl, 8, 'cooking', 2, 3 + i * 3, 19);
+  for (const [i, f] of [2, 3, 4, 5].entries()) await smell('MR 1', 6, f, 'cooking', 2, 1 + i, 20, i % 2 ? 'corridor' : 'inside');
+  await smell('MR 3', 4, 9, 'smoke', 2, 4, 23, 'balcony');
+  await smell('MR 3', 12, 1, 'damp', 2, 6, 8);
+  await smell('MR 3', 8, 6, 'chemical', 3, 9, 14, 'corridor');
+  await smell('MR 3', 1, 7, 'rubbish', 2, 5, 7, 'lobby');
+  await smell('MR 3', 14, 2, 'smoke', 3, 3, 22, 'balcony');
+  await smell('Townhouse 2', 0, 3, 'sewage', 3, 2, 6);
+  await smell('Townhouse 2', 0, 4, 'sewage', 2, 4, 6);
 
   console.log(`\nSeeded ${SCENARIOS.length} demo reports. Sign-in details (shown once):\n`);
   console.log(creds.join('\n'));

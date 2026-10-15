@@ -1,14 +1,15 @@
 # Status (update every build)
 
-**Last updated:** 2026-10-15 (Air tab) · **Version:** 0.5.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
+**Last updated:** 2026-10-15 (Smells tab) · **Version:** 0.6.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
 
 ## Works and has been verified
-- API typechecks and builds; 30 automated tests pass (`npm test`): TOTP vector, signed links, tamper detection, auth/lockout/CSRF, full report lifecycle, inbound email webhook, affects-me rules and admin toggle, privacy/blurring/private reports, EXIF stripping, data export/erasure, admin link duplicates + roles, KPI maths, Air tab (fake Home Assistant: °F conversion, unavailable/old sensors, cache, unreachable, sign-in required, nothing sensitive in the response).
+- API typechecks and builds; 41 automated tests pass (`npm test`): Smells tab (floor-plan mapping, validation, daily limit, neighbour view hides flats and small counts, admin-only, CSV safety, switch off, export, erasure, demo wipe); TOTP vector, signed links, tamper detection, auth/lockout/CSRF, full report lifecycle, inbound email webhook, affects-me rules and admin toggle, privacy/blurring/private reports, EXIF stripping, data export/erasure, admin link duplicates + roles, KPI maths, Air tab (fake Home Assistant: °F conversion, unavailable/old sensors, cache, unreachable, sign-in required, nothing sensitive in the response).
 - Web app builds (`vite build`). Smoke-tested in a browser with demo data: login, community feed, report form, incident page, notifications, profile, scorecard, all admin pages. No console errors. Screenshots taken.
 - On-device photo check (2026-10-15), tested in headless Chromium against the running server: faces covered, manual boxes add/remove/undo, only the covered JPEG uploaded with no EXIF/XMP, unreadable file uploads nothing, missing detector files gives a warning but still allows manual covering, no outside requests. Scorecard page renders with the new panels and no console errors.
 - Sleep-mode gate (start page, 503 "asleep", status/wake endpoints, normal startup) tested locally.
 
 ## Not verified (assume it needs testing)
+- **Smells tab** (2026-10-15): checked on SQLite and in headless Chromium only. Not on real phones, not on Postgres (migration `008_odour_reports`). The flat layout (11 flats a level, 5 penthouses, 7 townhouses per block, blocks 1-3) is from James's plans and a guess for the townhouses: confirm. Wording not lawyer-reviewed.
 - **Air tab against the real Home Assistant** (2026-10-15): built and checked only against a fake HA. Needs the real URL, a non-admin token, the real entity ids, and a check that the Unraid app container can reach HA.
 - **Photo check on real phones** (iPhone Safari, Android Chrome, Huawei browser): speed of the 14 detection passes, memory on low-end phones, the ~7 MB first download on mobile data, drag-to-cover with a finger. **Face detection accuracy has not been measured** on realistic photos and there is no automatic number-plate detection. Needs a labelled test set and a recall target (checklist 5.12-5.15).
 - The 13 Oct patches and legal-wording changes in the owner's download folder were not in GitHub; confirm they are applied on the real copy (see CHANGELOG 2026-10-15).

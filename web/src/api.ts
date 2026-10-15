@@ -38,6 +38,7 @@ export const api = {
   get: <T>(p: string) => request<T>('GET', p),
   post: <T>(p: string, b?: unknown) => request<T>('POST', p, b ?? {}),
   patch: <T>(p: string, b: unknown) => request<T>('PATCH', p, b),
+  delete: <T>(p: string) => request<T>('DELETE', p),
   upload: <T>(p: string, f: FormData) => request<T>('POST', p, undefined, f),
 };
 
@@ -66,7 +67,7 @@ export interface Me {
     consent_current: boolean;
   };
   community?: { name: string; towers: string[] };
-  config: { privacy_notice_version: string; require_photo_for_affects?: boolean; ai_suggest?: boolean; air_enabled?: boolean; sla_case_hours?: number; whatsapp_group_url?: string; approval_required?: boolean; registration_open?: boolean };
+  config: { privacy_notice_version: string; require_photo_for_affects?: boolean; ai_suggest?: boolean; air_enabled?: boolean; odour_enabled?: boolean; sla_case_hours?: number; whatsapp_group_url?: string; approval_required?: boolean; registration_open?: boolean };
 }
 
 export interface ListItem {
