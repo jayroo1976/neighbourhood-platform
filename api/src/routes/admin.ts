@@ -25,6 +25,7 @@ import { adminListItem, affectsCounts, incidentDetail } from '../services/serial
 import { getStorage } from '../services/storage';
 import { publicVersion } from '../version';
 import { audit } from '../services/support';
+import { airEnabled } from '../services/air';
 import { odourAdminRouter } from './odour';
 
 const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
@@ -261,7 +262,7 @@ export function adminRouter(): Router {
     requireStaff,
     wrap(async (req, res) => {
       const c = await req.db('communities').where({ id: req.user!.community_id }).first();
-      res.json({ community: { name: c.name, mgmt_email: c.mgmt_email, towers: JSON.parse(c.towers) }, settings: mergeSettings(c.settings), ai_available: config.ai.enabled });
+      res.json({ community: { name: c.name, mgmt_email: c.mgmt_email, towers: JSON.parse(c.towers) }, settings: mergeSettings(c.settings), ai_available: config.ai.enabled, aircon_available: airEnabled() });
     }),
   );
 
@@ -289,6 +290,7 @@ export function adminRouter(): Router {
               email_mode: z.enum(['resident', 'platform']),
               require_approval: z.boolean(),
               trust_resident_invites: z.boolean(),
+              aircon_enabled: z.boolean(),
               odour_enabled: z.boolean(),
               odour_max_per_day: z.number().int().min(1).max(100),
               odour_townhouse_blocks: z.array(z.number().int().min(1).max(99)).max(20),

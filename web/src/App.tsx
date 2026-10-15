@@ -75,7 +75,7 @@ function Protected({ admin }: { admin?: boolean }) {
         <nav className="topnav" aria-label="Main">
           <NavLink to="/" end>Community</NavLink>
           <NavLink to="/scorecard">Scorecard</NavLink>
-          {me?.config?.air_enabled && <NavLink to="/air">Air</NavLink>}
+          {me?.config?.air_enabled && <NavLink to="/air">AirCon</NavLink>}
           {me?.config?.odour_enabled && <NavLink to="/smells">Smells</NavLink>}
           <NavLink to="/alerts">Alerts{unread > 0 && <span className="badge">{unread}</span>}</NavLink>
           <NavLink to="/profile">Profile</NavLink>
@@ -102,7 +102,7 @@ function Protected({ admin }: { admin?: boolean }) {
         <NavLink to="/" end>Community</NavLink>
         <NavLink to="/alerts">Alerts{unread > 0 && <span className="badge">{unread}</span>}</NavLink>
         <NavLink to="/scorecard">Scores</NavLink>
-        {me?.config?.air_enabled && <NavLink to="/air">Air</NavLink>}
+        {me?.config?.air_enabled && <NavLink to="/air">AirCon</NavLink>}
         {me?.config?.odour_enabled && <NavLink to="/smells">Smells</NavLink>}
         <NavLink to={staff ? '/admin/incidents' : '/profile'}>{staff ? 'Admin' : 'Me'}{staff && pendingUsers > 0 && <span className="badge">{pendingUsers}</span>}</NavLink>
       </nav>

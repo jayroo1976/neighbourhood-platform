@@ -68,6 +68,8 @@ export interface CommunitySettings {
   require_approval: boolean;
   /** People who join through a resident's personal invite link are approved automatically */
   trust_resident_invites: boolean;
+  /** AirCon tab (fresh-air temperature and humidity from Home Assistant) is shown to residents. Needs the HA_* settings too. */
+  aircon_enabled: boolean;
   /** Smell reports (odour map) are switched on for residents */
   odour_enabled: boolean;
   /** Smell reports one resident can log per day */
@@ -93,6 +95,7 @@ export const DEFAULT_SETTINGS: CommunitySettings = {
   email_mode: 'resident',
   require_approval: true,
   trust_resident_invites: false,
+  aircon_enabled: true,
   odour_enabled: true,
   odour_max_per_day: 10,
   odour_townhouse_blocks: [1, 2, 3],

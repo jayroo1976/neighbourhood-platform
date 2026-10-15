@@ -49,7 +49,7 @@ Bicep in `infra/main.bicep` (UAE North: Container Apps scale-to-zero, PostgreSQL
 | [docs/architecture.md](docs/architecture.md) | Stack, code layout, data model, workflow, API, background jobs |
 | [docs/decisions.md](docs/decisions.md) | Design decisions and the reasoning (read before changing behaviour) |
 | [docs/configuration.md](docs/configuration.md) | Every environment variable |
-| [docs/admin-guide.md](docs/admin-guide.md) | Roles, daily admin tasks, settings, CSV import format, Air tab setup, Smells tab |
+| [docs/admin-guide.md](docs/admin-guide.md) | Roles, daily admin tasks, settings, CSV import format, AirCon tab setup, Smells tab |
 | [docs/unraid.md](docs/unraid.md) | Run and auto-update on Unraid via GitHub |
 | [docs/privacy-pdpl.md](docs/privacy-pdpl.md) | Data map, PDPL notes, open legal points |
 | [docs/security.md](docs/security.md) | Security controls and known gaps |

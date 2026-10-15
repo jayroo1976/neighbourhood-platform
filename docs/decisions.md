@@ -15,6 +15,7 @@
 | Single container serving API + web | Simple to host anywhere |
 | Test deployment on Unraid via GitHub image + Watchtower; Azure later | Owner's cost and speed preference; Azure remains the intended UAE-resident production target |
 | Azure design: UAE North, stop DB nightly, app scales to zero with a "Start the service" page, second backup copy in UAE Central | Low cost while keeping data in-country |
+| AirCon (was Air) tab and Smells tab are switched on/off by an admin tick-box (per community setting), AirCon also needs HA configured | Residents should only see features the owner has chosen to run; hiding is reversible and deletes nothing. Imported statistics (`source:name`) are read over the HA WebSocket as hourly averages and labelled as such rather than shown as live |
 | Air tab reads Home Assistant from the server, read-only, with entity ids in configuration (not in the database or the browser) | The token must never reach a phone, the strict CSP stops the browser calling HA anyway, and one config line adds a tower. Readings are shown as recorded with their age; an old or missing sensor is shown as such, never filled in. Off unless fully configured |
 | Scorecard is transparent: definitions shown, low-sample warning, demo-data banner | Fairness and defensibility; legal review still pending |
 | Reporting is cheap: no email verification in v1; invite code gate | Pilot with a few people |

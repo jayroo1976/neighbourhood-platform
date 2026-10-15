@@ -18,8 +18,8 @@
 Anyone holding a share link can see the report's title, building, resident count and first photo in the link preview (like any shared link), and must sign in to see or do anything else. Private and withdrawn reports never produce previews. Rotating `FILE_SIGNING_SECRET` invalidates all share links and photo links.
 
 
-## Home Assistant (Air tab)
-The app only ever calls `GET /api/states/<entity>` on the configured `HA_URL`, from the server, with `HA_TOKEN`. The token, address and entity ids are never sent to browsers (a test checks this). Entity ids must match `domain.name`, so configuration cannot redirect the request path. A long-lived HA token carries its user's permissions and HA cannot limit a token to certain entities: create a **dedicated non-admin Home Assistant user** for it, keep the token only in the Unraid `.env`, and revoke it in HA if it leaks. Do not expose HA to the internet for this; the app container only needs to reach it on your LAN.
+## Home Assistant (AirCon tab)
+The app only ever calls `GET /api/states/<entity>` (and, for imported `source:name` ids, the read-only `recorder/*statistics*` WebSocket commands) on the configured `HA_URL`, from the server, with `HA_TOKEN`. The token, address and entity ids are never sent to browsers (a test checks this). Entity ids must match `domain.name`, so configuration cannot redirect the request path. A long-lived HA token carries its user's permissions and HA cannot limit a token to certain entities: create a **dedicated non-admin Home Assistant user** for it, keep the token only in the Unraid `.env`, and revoke it in HA if it leaks. Do not expose HA to the internet for this; the app container only needs to reach it on your LAN.
 
 ## Sign-up control
 Pending and declined accounts cannot sign in (checked after the password, so it does not reveal which emails exist to strangers). Admins are created or promoted only by super admins. Set-password links for added people expire after 7 days and are single use. Every approval, decline and creation is written to the audit log.

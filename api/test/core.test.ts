@@ -6,7 +6,7 @@ import { deliverOutbox } from '../src/services/scheduler';
 import { signFileLink, verifyFileLink, canonicalJson, passwordProblem } from '../src/security/crypto';
 import { totpAt, verifyTotp } from '../src/security/totp';
 import { extractCaseNumber } from '../src/services/incidents';
-import { clearAirCache, getAir, parseLayout } from '../src/services/air';
+import { clearAirCache, getAir, parseLayout, type WsCtor } from '../src/services/air';
 import { config } from '../src/config';
 import { H, PASSWORD, createReport, makeStaff, register, setup, uploadPhoto } from './helpers';
 
@@ -656,6 +656,86 @@ describe('air tab (Home Assistant)', () => {
     const first = await getAir(down);
     expect(first).toMatchObject({ enabled: true, unreachable: true });
     expect(first.towers![0].temperature.value).toBeNull();
+  });
+
+
+  /** Scripted stand-in for Home Assistant's WebSocket API (long-term statistics). */
+  function fakeWs(opts: { token?: string; stats: Record<string, { start: number; end: number; mean?: number | null; state?: number | null }[]>; units?: Record<string, string> }) {
+    const log: string[] = [];
+    class FakeWs {
+      onopen: (() => void) | null = null;
+      onmessage: ((ev: { data: unknown }) => void) | null = null;
+      onerror: ((ev: unknown) => void) | null = null;
+      onclose: (() => void) | null = null;
+      constructor(public url: string) {
+        log.push(url);
+        setTimeout(() => this.emit({ type: 'auth_required' }), 0);
+      }
+      emit(m: object) {
+        this.onmessage?.({ data: JSON.stringify(m) });
+      }
+      send(raw: string) {
+        const m = JSON.parse(raw);
+        log.push(m.type);
+        if (m.type === 'auth') setTimeout(() => this.emit({ type: m.access_token === (opts.token ?? 'tok') ? 'auth_ok' : 'auth_invalid' }), 0);
+        if (m.type === 'recorder/get_statistics_metadata') setTimeout(() => this.emit({ id: m.id, type: 'result', success: true, result: m.statistic_ids.map((id: string) => ({ statistic_id: id, unit_of_measurement: opts.units?.[id] ?? null })) }), 0);
+        if (m.type === 'recorder/statistics_during_period') setTimeout(() => this.emit({ id: m.id, type: 'result', success: true, result: opts.stats }), 0);
+      }
+      close() {
+        this.onclose = null;
+      }
+    }
+    return { Ctor: FakeWs as unknown as WsCtor, log };
+  }
+
+  it('reads imported hourly statistics (tower1:name) over the WebSocket API and labels them hourly', async () => {
+    const statLayout = JSON.stringify({ outside: { temperature: 'sensor.outside_temp' }, towers: [{ name: 'MR 1', temperature: 'tower1:fresh_air_temperature', humidity: 'tower1:fresh_air_humidity' }, { name: 'MR 3', temperature: 'sensor.mr1_air_temp', humidity: 'sensor.mr1_air_hum' }] });
+    set('https://ha.local:8123', 'tok', statLayout);
+    const hour = Math.floor(Date.now() / 3_600_000) * 3_600_000 - 3_600_000; // last completed hour
+    const { Ctor, log } = fakeWs({
+      stats: {
+        'tower1:fresh_air_temperature': [{ start: hour - 3_600_000, end: hour, mean: 24.0 }, { start: hour, end: hour + 3_600_000, mean: 25.46 }],
+        'tower1:fresh_air_humidity': [{ start: hour, end: hour + 3_600_000, mean: 47.2 }, { start: hour + 3_600_000, end: hour + 7_200_000, mean: null }],
+      },
+      units: { 'tower1:fresh_air_temperature': '°C', 'tower1:fresh_air_humidity': '%' },
+    });
+    const a = await getAir(fake, Ctor);
+    expect(a.towers![0].temperature).toMatchObject({ value: 25.5, unit: '°C', kind: 'hourly', stale: false, updated_at: new Date(hour).toISOString() });
+    expect(a.towers![0].humidity).toMatchObject({ value: 47.2, unit: '%', kind: 'hourly' }); // empty last hour is skipped
+    expect(a.towers![1].temperature).toMatchObject({ value: 24.5 }); // live sensors still read over REST
+    expect(a.towers![1].temperature.kind).toBeUndefined();
+    expect(log[0]).toBe('wss://ha.local:8123/api/websocket');
+    expect(log).toContain('recorder/statistics_during_period');
+    expect(seen.every((x) => !x.url.includes(':fresh_air'))).toBe(true); // statistics are never requested as REST entities
+  });
+
+  it('marks old imported statistics as old, and keeps live figures when the WebSocket fails', async () => {
+    const statLayout = JSON.stringify({ towers: [{ name: 'MR 1', temperature: 'tower1:fresh_air_temperature', humidity: 'sensor.mr1_air_hum' }] });
+    set('http://ha.local:8123', 'tok', statLayout);
+    const oldHour = Date.now() - 10 * 3_600_000;
+    const { Ctor } = fakeWs({ stats: { 'tower1:fresh_air_temperature': [{ start: oldHour, end: oldHour + 3_600_000, mean: 26 }] } });
+    const a = await getAir(fake, Ctor);
+    expect(a.towers![0].temperature).toMatchObject({ value: 26, stale: true, kind: 'hourly' });
+    clearAirCache();
+    const wrongToken = fakeWs({ token: 'other', stats: {} });
+    const b = await getAir(fake, wrongToken.Ctor);
+    expect(b.unreachable).toBe(true);
+    expect(b.towers![0].temperature).toMatchObject({ value: null, stale: true });
+    expect(b.towers![0].humidity).toMatchObject({ value: 48 }); // the live sensor is unaffected
+  });
+
+  it('can be switched off by an admin (nav flag false, endpoint reports switched off) and back on', async () => {
+    set('http://ha.local:8123', 'secret-token', layout);
+    const admin = await makeStaff(ctx.db, ctx.communityId, 'admin', ctx.app);
+    const { agent } = await register(ctx.app);
+    const patch = (v: boolean) => admin.agent.patch('/api/admin/settings').set(H).send({ settings: { aircon_enabled: v } });
+    expect((await patch(false)).status).toBe(200);
+    expect((await agent.get('/api/auth/me')).body.config.air_enabled).toBe(false);
+    expect((await agent.get('/api/air')).body).toMatchObject({ enabled: false, switched_off: true });
+    expect((await patch(true)).status).toBe(200);
+    expect((await agent.get('/api/auth/me')).body.config.air_enabled).toBe(true);
+    expect((await agent.get('/api/air')).body.enabled).toBe(true);
+    expect((await admin.agent.get('/api/admin/settings')).body.aircon_available).toBe(true);
   });
 
   it('requires sign-in and never exposes the token, address or entity ids', async () => {

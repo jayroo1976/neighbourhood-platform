@@ -769,12 +769,14 @@ interface SettingsResp {
     email_mode: 'resident' | 'platform';
     require_approval: boolean;
     trust_resident_invites: boolean;
+    aircon_enabled: boolean;
     odour_enabled: boolean;
     odour_max_per_day: number;
     odour_townhouse_blocks: number[];
     odour_townhouse_units: number;
   };
   ai_available: boolean;
+  aircon_available?: boolean;
 }
 
 export function AdminSettings() {
@@ -815,6 +817,13 @@ export function AdminSettings() {
         <h1>Settings</h1>
       </header>
       <form className="stack" onSubmit={save}>
+        <fieldset disabled={!writer} className="panel stack">
+          <h2>Resident tabs</h2>
+          <p className="muted">Choose which optional features residents can see. Turning one off hides its tab; nothing is deleted.</p>
+          <Toggle checked={s.settings.odour_enabled} onChange={(v) => set('odour_enabled', v)} label="Smells tab" hint="Smell reporting. Off hides the tab and stops new reports; existing reports stay visible to admins." />
+          <Toggle checked={s.settings.aircon_enabled} onChange={(v) => set('aircon_enabled', v)} label="AirCon tab" hint={s.aircon_available ? 'Fresh-air temperature and humidity per tower, plus outside conditions, from Home Assistant.' : 'Fresh-air temperature and humidity from Home Assistant. Home Assistant is not connected yet (see the setup guide), so the tab will stay hidden even when this is ticked.'} />
+        </fieldset>
+
         <fieldset disabled={!writer} className="panel stack">
           <h2>Where reports go</h2>
           <Field label="Community name" hint="Shown at the top of the dashboard.">
@@ -880,7 +889,6 @@ export function AdminSettings() {
 
         <fieldset disabled={!writer} className="panel stack">
           <h2>Smell reports</h2>
-          <Toggle checked={s.settings.odour_enabled} onChange={(v) => set('odour_enabled', v)} label="Smell reporting on" hint="Shows the Smells tab to residents. Off hides it and stops new reports; existing reports stay visible to admins." />
           <div className="row">
             <Field label="Reports per resident per day">
               <input type="number" min={1} max={100} value={s.settings.odour_max_per_day} onChange={(e) => set('odour_max_per_day', Number(e.target.value))} />

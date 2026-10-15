@@ -49,14 +49,19 @@ export function kpiRouter(): Router {
   return r;
 }
 
-/** Air tab: fresh-air temperature and humidity per tower plus outside temperature, read from Home Assistant. Sign-in required. */
+/** AirCon tab: fresh-air temperature and humidity per tower plus outside temperature, read from Home Assistant. Sign-in required. */
 export function airRouter(): Router {
   const r = Router();
   r.use(requireAuth);
   r.get(
     '/',
-    wrap(async (_req, res) => {
+    wrap(async (req, res) => {
       res.setHeader('Cache-Control', 'no-store');
+      const community = await req.db('communities').where({ id: req.user!.community_id }).first();
+      if (!mergeSettings(community.settings).aircon_enabled) {
+        res.json({ enabled: false, switched_off: true });
+        return;
+      }
       res.json(await getAir());
     }),
   );

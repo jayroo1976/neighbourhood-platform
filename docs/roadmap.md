@@ -14,5 +14,5 @@
 9. Azure Monitor alerts on errors and outbox failures.
 10. Public scorecard only after legal review.
 11. Arabic translation and right-to-left layout.
-8. Air tab history (charts and thresholds, from Home Assistant history) and extra sensors such as pool readings. The first version (2026-10-15) shows live values only.
+8. AirCon tab history (charts and thresholds, from Home Assistant history) and extra sensors such as pool readings. The first version (2026-10-15) shows live values only.
 12. Smells: tune the patterns after real data arrives (time-of-day and weather correlation, a heat-map overlay on the real tower drawings, export for the building manager, retention period, a way for the manager to log what they found and fixed). The first version (2026-10-15) is reports, plan view, simple patterns and CSV.
