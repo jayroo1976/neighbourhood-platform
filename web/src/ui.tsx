@@ -92,21 +92,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   );
 }
 
-/** Camera / gallery picker that shrinks the photo on the device before upload (saves mobile data). */
-export async function shrinkImage(file: File, maxEdge = 1600, quality = 0.82): Promise<Blob> {
-  try {
-    const bmp = await createImageBitmap(file);
-    const scale = Math.min(1, maxEdge / Math.max(bmp.width, bmp.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bmp.width * scale);
-    canvas.height = Math.round(bmp.height * scale);
-    canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', quality));
-    return blob ?? file;
-  } catch {
-    return file; // e.g. HEIC the browser cannot decode: server will try
-  }
-}
+/** Camera / gallery picker. Pages must pass the file through redactPhoto() (RedactSheet.tsx) before uploading it. */
 
 export function PhotoButton({ onFile, label = 'Take or choose photo', capture = true, busy }: { onFile: (f: File) => void; label?: string; capture?: boolean; busy?: boolean }) {
   return (

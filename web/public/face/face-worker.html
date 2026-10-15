@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Face check</title>
+  </head>
+  <body>
+    <!-- Isolated page: the on-device face detector (WebAssembly) lives here so the main app can keep a strict CSP.
+         It only ever receives pixel data from the app via postMessage and sends box coordinates back. See docs/security.md. -->
+    <script src="/mediapipe/face_detection/face_detection.js"></script>
+    <script src="/face/face-worker.js"></script>
+  </body>
+</html>

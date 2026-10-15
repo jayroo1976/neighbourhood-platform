@@ -11,6 +11,7 @@ import { Scorecard } from './pages/Scorecard';
 import { Notifications, Profile } from './pages/Account';
 import { VersionBar } from './VersionBar';
 import { InstallPrompt } from './InstallPrompt';
+import { RedactionHost } from './RedactSheet';
 import { AdminSystem } from './pages/AdminSystem';
 import { AdminData, AdminIncident, AdminIncidents, AdminSettings, AdminUsers } from './pages/Admin';
 
@@ -105,6 +106,7 @@ export function App() {
   return (
     <>
     <VersionBar />
+    <RedactionHost />
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />

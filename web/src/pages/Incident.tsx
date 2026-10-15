@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CATEGORY_LABELS, OPEN_STATUSES, STATUS_LABELS, api, dateTime, duration, type IncidentDetail, type IncidentEvent, type Status } from '../api';
 import { useAuth } from '../auth';
 import { EmailPanel } from '../EmailPanel';
-import { Banner, ErrorNote, Field, PhotoButton, Sheet, Spinner, ShareButton, Stamp, shrinkImage, useAsync } from '../ui';
+import { Banner, ErrorNote, Field, PhotoButton, Sheet, Spinner, ShareButton, Stamp, useAsync } from '../ui';
+import { RedactCancelled, redactPhoto } from '../RedactSheet';
 
 export function eventText(e: IncidentEvent): string {
   const p = e.payload;
@@ -142,12 +143,12 @@ export function EvidenceSheet({
     setError(null);
     try {
       const form = new FormData();
-      form.append('file', await shrinkImage(file), 'photo.jpg');
+      form.append('file', await redactPhoto(file), 'photo.jpg'); // covered on this device before upload
       form.append('kind', kind);
       const r = await api.upload<{ id: string; thumb_url: string }>('/uploads', form);
       setPhoto({ id: r.id, url: r.thumb_url });
     } catch (e) {
-      setError(e);
+      if (!(e instanceof RedactCancelled)) setError(e);
     } finally {
       setUploading(false);
     }

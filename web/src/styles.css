@@ -194,3 +194,12 @@ details summary{cursor:pointer;font-weight:600}
 .sys-ev time{color:var(--muted);font-size:.8rem}
 .sys-ev pre{margin:.35rem 0 0;white-space:pre-wrap;word-break:break-word;font:.78rem/1.4 ui-monospace,Menlo,monospace;color:var(--ink)}
 .install-steps ol{padding-left:1.2rem;margin:.5rem 0}.install-steps li{margin:.35rem 0}
+/* On-device photo check (faces and number plates) */
+.redact{position:fixed;inset:0;z-index:80;background:var(--sand);overflow:auto;padding:1rem 1rem calc(1rem + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
+.redact-head{display:flex;justify-content:space-between;align-items:center}.redact-head h2{margin:.2rem 0}
+.redact-status{font-weight:600;margin:.3rem 0}.redact-status.warn{color:var(--bad)}
+.redact-area{position:relative;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:10px;overflow:hidden;background:#222;min-height:120px;cursor:crosshair}
+.redact-canvas{display:block;width:100%;height:auto}
+.redact-box{position:absolute;box-sizing:border-box;border:2px dashed #fff;outline:2px solid rgba(0,0,0,.55);pointer-events:none}
+.redact-box.auto{border-color:var(--amber)}.redact-box.drawing{background:rgba(0,0,0,.35)}
+.redact-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:.6rem;margin:.8rem 0}

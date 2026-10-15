@@ -5,7 +5,8 @@
 - CSRF: state-changing calls require `X-Requested-With: neighbourhood`; CORS is same-origin only.
 - MFA: TOTP (RFC 6238) with one-time recovery codes; required for admins in production.
 - Headers: helmet with strict CSP; rate limits on auth, uploads and API.
-- Uploads: re-encoded with sharp (EXIF/GPS dropped), size-limited, stored private; served only via signed expiring links.
+- Uploads: covered and re-drawn on the phone first (faces pixelated, metadata removed), then re-encoded with sharp (EXIF/GPS dropped), size-limited, stored private; served only via signed expiring links.
+- CSP exception, isolated: the on-device face detector needs `unsafe-eval` for its WebAssembly glue. It runs only in the hidden same-origin page `/face/face-worker.html`, which has its own CSP (`default-src 'none'`, `connect-src 'self'`, framed only by our app, no inline scripts). The main app's CSP does not allow `unsafe-eval`. The page only receives pixel data and returns box coordinates over postMessage (same-origin checked).
 - Roles: resident, committee (read-only, blurred), admin, super_admin. Every admin action is audit-logged.
 - Tamper evidence: each incident's event log is hash-chained; admins can verify it.
 - Secrets: env/Container Apps secrets (32+ chars enforced in production). Move to Key Vault references when ready.

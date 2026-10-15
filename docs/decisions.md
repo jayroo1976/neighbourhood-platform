@@ -51,3 +51,16 @@ Version is shown to everyone (not secret, useful to residents reporting a bug); 
 
 ## Metrics: resident-safe vs staff-only (2026-10-10)
 Decision: everything computed from reports (rates, ages, response times, top-affected) is shown to all signed-in residents on the scorecard; operational chase lists (not yet emailed, people counts) are staff-only. Reason: transparency is the point, but operational lists add little for residents. A logged-out public page is deferred until the wording is legally reviewed.
+
+
+## Photos are checked and faces covered on the phone before upload (2026-10-15)
+Decision: every photo goes through a mandatory review screen on the device. Faces are covered automatically; the resident covers number plates and anything else by hand; only the covered image is uploaded and the original stays on the phone. Reasons: the privacy risk (faces, children, plates) is removed before the data reaches the server, Cloudflare or any backup; no hosted AI sees an unredacted photo; no per-image cost. Trade-off accepted: the platform keeps no unredacted original, so evidence value is lower and residents must keep their own originals for authorities. Faces are covered with heavy pixelation, not a light blur (a light blur can be partly reversed). Automatic number-plate detection is deferred: the popular detectors use copyleft licences that would affect resale, so a plate model needs its own licence check and testing. A second server-side detector pass (from the original design) is not built yet.
+
+## Detector runs in an isolated page with its own CSP (2026-10-15)
+The face detector's WebAssembly glue builds functions at run time, so it needs `unsafe-eval`. Adding that to the whole app would weaken the XSS defence everywhere. Decision: run the detector in a hidden same-origin page (`/face/face-worker.html`) whose CSP allows it but forbids everything else (no network except our origin, framed only by the app), and keep the main app's CSP unchanged. Detector files are self-hosted so no photo or request goes to Google.
+
+## If the face detector cannot run, the resident covers faces by hand (2026-10-15)
+Decision: show a clear warning and still allow the photo after manual review; never upload the original. A photo that cannot be decoded is blocked. Reason: a hard stop would stop reports on older phones; the review screen is the safeguard. Revisit once accuracy is measured (a stricter fail-closed rule is possible).
+
+## Scorecard additions use stored data only (2026-10-15)
+Added first-time fix, recurrence, hotspots, evidence completeness, time to management closure and reply time by priority because they come from fields we already hold. Hotspots use general area labels only, need at least 2 reports and leave out private reports, so no apartment or bay numbers appear. Recurrence only counts closures whose window has fully passed, so recent closures cannot flatter it. Wording follows the 13 Oct legal review ("Response scorecard", "Closures disputed by residents", "not a finding" banner); the 0-100 overall score is unchanged but a plain-figures-only scorecard is an open option for legal review.

@@ -5,7 +5,7 @@
 **Quick wins during the pilot**
 1. Web push notifications for case-number reminders and management replies.
 2. Offline draft queue so reports made in a basement car park send later.
-3. Automatic face and number-plate blurring before storage.
+3. Automatic face blurring is done (on the phone, v0.4.0). Still to do: automatic number-plate detection (licence check), a labelled test set with a recall target, and a server-side second pass.
 4. Email verification and phone OTP (or UAE Pass SSO) to stop fake accounts.
 5. Daily digest mode for "affects me" emails so management is not flooded.
 6. Auto-chase: scheduled escalation email when no case number or no update after N days.

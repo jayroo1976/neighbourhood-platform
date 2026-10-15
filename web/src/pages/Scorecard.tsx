@@ -26,12 +26,16 @@ export interface Summary {
   confidence: 'low' | 'fair' | 'good';
   counts: { total: number; open: number; awaiting_verification: number; resolved_ok: number; resolved_poor: number; reopened_now: number };
   acknowledgement: { sla_hours: number; with_case_number: number; case_number_rate: number | null; median_hours: number | null; within_sla_rate: number | null; overdue_unacknowledged: number };
-  resolution: { verified_fixed: number; median_days: number | null; within_sla_rate: number | null };
-  closure_quality: { management_closed_total: number; disputed: number; disputed_rate: number | null; awaiting_verification: number; awaiting_verification_over_7d: number; verified_fix_rate: number | null };
+  resolution: { verified_fixed: number; median_days: number | null; verified_share: number | null; within_sla_rate: number | null };
+  closure_quality: { management_closed_total: number; disputed: number; disputed_rate: number | null; awaiting_verification: number; awaiting_verification_over_7d: number; verified_fix_rate: number | null; median_days_to_management_close: number | null };
+  first_time_fix: { verified_fixed: number; never_reopened: number; rate: number | null };
+  recurrence: { window_days: number; eligible: number; repeated: number; rate: number | null }[];
+  hotspots: { tower: string; area: string; total: number; open: number }[];
+  evidence: { with_photo: number | null; with_case_number: number | null; with_management_reply: number | null; with_gps: number | null };
   backlog: { open: number; overdue: number; overdue_rate: number | null; median_age_days: number | null; oldest_days: number | null; ageing: { bucket: string; count: number }[] };
   repeat: { linked_reports: number; clusters: number; affects_total: number; avg_residents_per_report: number | null };
   response: { median_hours: number | null; distribution: { bucket: string; count: number }[] };
-  by_severity: { severity: string; target_days: number; total: number; open: number; overdue: number; median_fix_days: number | null }[];
+  by_severity: { severity: string; target_days: number; total: number; open: number; overdue: number; median_fix_days: number | null; median_ack_hours: number | null }[];
   week: { this: { reported: number; fixed: number }; last: { reported: number; fixed: number } };
   top_affected: { id: string; ref: string; title: string; tower: string | null; homes: number; age_days: number }[];
   reopen: { closed_total: number; reopened: number; rate: number | null };
@@ -126,7 +130,7 @@ export function Scorecard() {
   return (
     <div className="page wide">
       <header className="page-head">
-        <h1>Management scorecard</h1>
+        <h1>Response scorecard</h1>
         <p className="muted">
           How quickly issues are acknowledged, and whether "closed" really means fixed. Based on resident reports and photo evidence.
         </p>
@@ -151,6 +155,7 @@ export function Scorecard() {
         <Spinner />
       ) : s ? (
         <>
+          <Banner tone="info">Resident-recorded information, not a finding.</Banner>
           {s.demo_data_present && <Banner tone="warn" title="Demo data included">These figures include sample reports. A super admin can remove them in Admin &gt; Data.</Banner>}
           {s.confidence === 'low' && <Banner tone="info">Fewer than 10 reports in this period, so treat the score as indicative only.</Banner>}
 
@@ -177,9 +182,11 @@ export function Scorecard() {
           <section className="tiles">
             <Tile label="Reports" value={String(s.counts.total)} sub={`${s.counts.open} open`} />
             <Tile label="Got a case number in time" value={pct(s.acknowledgement.within_sla_rate)} sub={`target ${s.acknowledgement.sla_hours}h · median ${s.acknowledgement.median_hours ?? '-'}h`} tone={toneRate(s.acknowledgement.within_sla_rate)} />
-            <Tile label="Closed, but not fixed" value={pct(s.closure_quality.disputed_rate)} sub={`${s.closure_quality.disputed} of ${s.closure_quality.management_closed_total} management closures disputed`} tone={s.closure_quality.disputed_rate == null ? undefined : s.closure_quality.disputed_rate > 0.3 ? 'bad' : s.closure_quality.disputed_rate > 0.1 ? 'mid' : 'ok'} />
+            <Tile label="Closures disputed by residents" value={pct(s.closure_quality.disputed_rate)} sub={`${s.closure_quality.disputed} of ${s.closure_quality.management_closed_total} management closures disputed`} tone={s.closure_quality.disputed_rate == null ? undefined : s.closure_quality.disputed_rate > 0.3 ? 'bad' : s.closure_quality.disputed_rate > 0.1 ? 'mid' : 'ok'} />
             <Tile label="Awaiting verification" value={String(s.closure_quality.awaiting_verification)} sub={`${s.closure_quality.awaiting_verification_over_7d} for over 7 days`} />
+            <Tile label="Fixes that held first time" value={pct(s.first_time_fix.rate)} sub={`${s.first_time_fix.never_reopened} of ${s.first_time_fix.verified_fixed} verified fixes never reopened`} tone={toneRate(s.first_time_fix.rate)} />
             <Tile label="Median time to fix" value={s.resolution.median_days != null ? `${s.resolution.median_days} d` : '-'} sub={`${s.resolution.verified_fixed} verified fixed`} />
+            <Tile label="Time to management closure" value={s.closure_quality.median_days_to_management_close != null ? `${s.closure_quality.median_days_to_management_close} d` : '-'} sub="median, from our email to their closure" />
             <Tile label="Overdue open reports" value={String(s.backlog.overdue)} sub={`oldest ${s.backlog.oldest_days != null ? Math.round(s.backlog.oldest_days) : '-'} days`} tone={s.backlog.overdue_rate == null ? undefined : s.backlog.overdue_rate > 0.5 ? 'bad' : s.backlog.overdue_rate > 0.2 ? 'mid' : 'ok'} />
           </section>
 
@@ -226,7 +233,7 @@ export function Scorecard() {
 
           {s.disputed_closures.length > 0 && (
             <section className="panel">
-              <h2>Closed by management, not fixed (resident evidence)</h2>
+              <h2>Closures disputed by residents (resident evidence)</h2>
               <ul className="plain">
                 {s.disputed_closures.map((d) => (
                   <li key={d.id}>
@@ -279,17 +286,66 @@ export function Scorecard() {
             <h2>By priority</h2>
             <table className="table">
               <thead>
-                <tr><th>Priority</th><th>Target</th><th>Reports</th><th>Open</th><th>Overdue</th><th>Median fix</th></tr>
+                <tr><th>Priority</th><th>Target</th><th>Reports</th><th>Open</th><th>Overdue</th><th>Median reply</th><th>Median fix</th></tr>
               </thead>
               <tbody>
                 {s.by_severity.map((g) => (
                   <tr key={g.severity}>
                     <td>{g.severity === 'urgent' ? 'Safety risk' : g.severity[0].toUpperCase() + g.severity.slice(1)}</td>
-                    <td>{g.target_days} d</td><td>{g.total}</td><td>{g.open}</td><td>{g.overdue}</td><td>{g.median_fix_days != null ? `${g.median_fix_days} d` : '-'}</td>
+                    <td>{g.target_days} d</td><td>{g.total}</td><td>{g.open}</td><td>{g.overdue}</td><td>{g.median_ack_hours != null ? `${g.median_ack_hours} h` : '-'}</td><td>{g.median_fix_days != null ? `${g.median_fix_days} d` : '-'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </section>
+
+          <div className="grid-2">
+            <section className="panel">
+              <h2>Did the problem come back?</h2>
+              <table className="table">
+                <thead>
+                  <tr><th>Within</th><th>Closures checked</th><th>Came back</th><th>Share</th></tr>
+                </thead>
+                <tbody>
+                  {s.recurrence.map((r) => (
+                    <tr key={r.window_days}>
+                      <td>{r.window_days} days</td><td>{r.eligible}</td><td>{r.repeated}</td><td>{pct(r.rate)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="muted small">Counts a later report at the same tower, type and area, or in the same linked group. Only closures old enough to have passed the full window are included.</p>
+            </section>
+            <section className="panel">
+              <h2>Where reports cluster</h2>
+              {s.hotspots.length ? (
+                <table className="table">
+                  <thead>
+                    <tr><th>Area</th><th>Tower</th><th>Reports</th><th>Open</th></tr>
+                  </thead>
+                  <tbody>
+                    {s.hotspots.map((h) => (
+                      <tr key={`${h.tower}-${h.area}`}>
+                        <td>{h.area}</td><td>{h.tower}</td><td>{h.total}</td><td>{h.open}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="muted">No area has two or more reports yet.</p>
+              )}
+              <p className="muted small">General areas only. Private reports and exact places are not included.</p>
+            </section>
+          </div>
+
+          <section className="panel">
+            <h2>Evidence behind these figures</h2>
+            <div className="tiles">
+              <Tile label="With a photo" value={pct(s.evidence.with_photo)} />
+              <Tile label="With a case number" value={pct(s.evidence.with_case_number)} />
+              <Tile label="With a management reply" value={pct(s.evidence.with_management_reply)} />
+              <Tile label="With a GPS position" value={pct(s.evidence.with_gps)} />
+            </div>
           </section>
 
           <section className="panel">

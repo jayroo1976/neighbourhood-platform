@@ -482,6 +482,73 @@ describe('admin and KPIs', () => {
   });
 });
 
+describe('scorecard: first-time fix, recurrence, hotspots, evidence', () => {
+  it('works out the new resident-safe metrics from existing data', async () => {
+    const { communityKpis, areaOf } = await import('../src/services/kpi');
+    const { mergeSettings } = await import('../src/domain');
+    const { createIncident } = await import('../src/services/incidents');
+    const db = (await import('../src/db')).createDb('sqlite::memory:');
+    await (await import('../src/db')).migrate(db);
+    const cid = await (await import('../src/bootstrap')).ensureCommunity(db);
+    const user = { id: 'u1', role: 'resident' as const, name: 'K', tower: 'MR 1', unit: '1', community_id: cid };
+    await db('users').insert({ id: 'u1', community_id: cid, email: 'k@x.test', password_hash: 'x', name: 'K', role: 'resident', tower: 'MR 1', unit: '1', created_at: new Date().toISOString() });
+    const now = Date.parse('2026-10-01T08:00:00Z');
+    const DAY = 86_400_000;
+    const HOUR = 3_600_000;
+    const iso = (t: number) => new Date(t).toISOString();
+    const mk = async (daysAgo: number, patch: Record<string, unknown>, severity: 'normal' | 'urgent' = 'normal') => {
+      const t = now - daysAgo * DAY;
+      const inc = await createIncident(db, user, { title: `Issue ${daysAgo}`, description: '', category: 'lift', severity, visibility: 'community', upload_ids: [] }, { at: iso(t), source: 'demo', skipEmail: true });
+      await db('incidents').where({ id: inc.id }).update({ emailed_at: iso(t), ...patch });
+      return { id: inc.id, t };
+    };
+    // A: lift fault, closed by management after 4 days, verified fixed after 5, never reopened
+    const A = await mk(100, { tower: 'MR 1', category: 'lift', location_text: 'Lift 2', lat: 25.1, lng: 55.1 });
+    await db('incidents').where({ id: A.id }).update({ case_number_at: iso(A.t + 10 * HOUR), mgmt_first_reply_at: iso(A.t + 12 * HOUR), mgmt_closed_at: iso(A.t + 4 * DAY), mgmt_closed_count: 1, resolved_at: iso(A.t + 5 * DAY), resolution: 'ok', status: 'resolved_ok' });
+    // B: the same lift area again 25 days after A was fixed
+    const B = await mk(70, { tower: 'MR 1', category: 'lift', location_text: 'Lift 1', lat: 25.1, lng: 55.1, case_number_at: iso(now - 70 * DAY + 3 * HOUR) });
+    // C: different tower and type, verified fixed but reopened once, nothing came back
+    const C = await mk(40, { tower: 'MR 2', category: 'cleaning', location_text: 'Pool deck', mgmt_closed_at: iso(now - 40 * DAY + DAY), mgmt_closed_count: 1, resolved_at: iso(now - 40 * DAY + 2 * DAY), resolution: 'ok', status: 'resolved_ok', reopen_count: 1 });
+    // D: open safety report in the lift area, case number within 2 hours
+    const D = await mk(5, { tower: 'MR 1', category: 'lift', location_text: 'Lift lobby, bay 214', case_number_at: iso(now - 5 * DAY + 2 * HOUR) }, 'urgent');
+    // E: private report in the lift area must not feed the hotspot list
+    await mk(2, { tower: 'MR 1', category: 'lift', location_text: 'Lift 3', visibility: 'private' });
+    for (const [id, inc] of [['p1', A.id], ['p2', B.id]] as const) {
+      await db('uploads').insert({ id, user_id: 'u1', key: id, thumb_key: id, mime: 'image/jpeg', bytes: 1, kind: 'report', incident_id: inc, created_at: iso(now) });
+    }
+
+    const k = await communityKpis(db, cid, mergeSettings({}), {}, now);
+    expect(k.counts.total).toBe(5);
+    expect(k.resolution.verified_share).toBe(0.4);
+    // first-time fix: A never reopened, C reopened once => 1 of 2
+    expect(k.first_time_fix).toEqual({ verified_fixed: 2, never_reopened: 1, rate: 0.5 });
+    // management closure took 4 days (A) and 1 day (C): median 2.5
+    expect(k.closure_quality.median_days_to_management_close).toBe(2.5);
+    // recurrence: A closed 95 days ago and B followed within 30 days; C (closed 38 days ago) has no repeat; its 60 and 90 day windows are not complete yet
+    expect(k.recurrence).toEqual([
+      { window_days: 30, eligible: 2, repeated: 1, rate: 0.5 },
+      { window_days: 60, eligible: 1, repeated: 1, rate: 1 },
+      { window_days: 90, eligible: 1, repeated: 1, rate: 1 },
+    ]);
+    // hotspots: A, B and D share MR 1 / Lift (B and D are still open); the private report and the single pool report are left out
+    expect(k.hotspots).toEqual([{ tower: 'MR 1', area: 'Lift', total: 3, open: 2 }]);
+    expect(JSON.stringify(k.hotspots)).not.toContain('214');
+    // evidence: photo on A and B, case number on A, B, D, reply on A only, GPS on A and B
+    expect(k.evidence).toEqual({ with_photo: 0.4, with_case_number: 0.6, with_management_reply: 0.2, with_gps: 0.4 });
+    // safety-priority reply time
+    expect(k.by_severity.find((x) => x.severity === 'urgent')!.median_ack_hours).toBe(2);
+    expect(D.id).toBeTruthy();
+    expect(C.id).toBeTruthy();
+
+    // location text maps to general areas only
+    expect(areaOf('Car park B2, near bay 214')).toBe('Car park');
+    expect(areaOf('Waterfront walkway')).toBe('Waterfront / walkway');
+    expect(areaOf('Inside my kitchen')).toBeNull();
+    expect(areaOf(null)).toBeNull();
+    await db.destroy();
+  });
+});
+
 describe('version and system log', () => {
   it('serves the version publicly and keeps the watchtower endpoint locked', async () => {
     const { app, db, communityId } = await setup();

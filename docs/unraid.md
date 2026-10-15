@@ -46,3 +46,7 @@ Set `APP_BASE_URL` to the final https address.
 
 ## WhatsApp previews need a public address
 Share links built on `http://192.168.x.x` work for copying, but WhatsApp cannot fetch a preview photo from a private address. Put the app behind the Cloudflare Tunnel and set `APP_BASE_URL` to the public https address.
+
+
+## Photo check files
+From v0.4.0 the image includes the on-device face-detection files (about 13 MB, under `web/dist/mediapipe`). Nothing to configure. Phones download about 7 MB the first time someone adds a photo. If your Cloudflare tunnel or rules restrict `.wasm`, `.tflite` or `.binarypb` files, allow them or photos will fall back to manual covering with a warning.

@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, dateTime, qs } from '../api';
 import { useAuth } from '../auth';
 import { EmailPanel } from '../EmailPanel';
-import { Banner, ErrorNote, Field, PhotoButton, Toggle, ShareButton, shrinkImage } from '../ui';
+import { Banner, ErrorNote, Field, PhotoButton, Toggle, ShareButton } from '../ui';
+import { RedactCancelled, redactPhoto } from '../RedactSheet';
 import { draftWithOwnAi, loadOwnAi } from '../ownAi';
 
 interface Photo {
@@ -94,7 +95,7 @@ export function Report() {
     setUploading(true);
     setError(null);
     try {
-      const blob = await shrinkImage(file);
+      const blob = await redactPhoto(file); // faces covered and metadata removed on this device; the original never leaves it
       const form = new FormData();
       form.append('file', blob, 'photo.jpg');
       form.append('kind', 'report');
@@ -105,7 +106,7 @@ export function Report() {
         void runSuggest(r.id, note, blob);
       }
     } catch (e) {
-      setError(e);
+      if (!(e instanceof RedactCancelled)) setError(e);
     } finally {
       setUploading(false);
     }
@@ -211,7 +212,7 @@ export function Report() {
       <Banner tone="warn" title="Before you submit">
         <ul className="plain tight">
           <li>Reports are visible to your community (never your name or apartment number). Don't want neighbours to see it? Switch on "Keep private" below.</li>
-          <li>Please don't photograph people, faces or car number plates.</li>
+          <li>Please don't photograph people, faces or car number plates. Faces are covered automatically on your phone before upload; you check each photo and can cover number plates or anything else by hand.</li>
           <li>Danger to life? Call 999 first. This app is not monitored for emergencies.</li>
         </ul>
       </Banner>

@@ -36,6 +36,9 @@ interface Row {
   last_activity_at: string;
   reporter_id: string | null;
   source?: string;
+  visibility?: string;
+  location_text?: string | null;
+  lat?: number | null;
 }
 
 const baseTime = (r: Row) => ms(r.emailed_at ?? r.reported_at);
@@ -43,8 +46,39 @@ const ackTime = (r: Row) => {
   const t = [ms(r.case_number_at), ms(r.mgmt_first_reply_at)].filter((x) => !Number.isNaN(x));
   return t.length ? Math.min(...t) : NaN;
 };
+/** Hours from our email to the first case number or reply, for the reports that have one. */
+const ackHoursOf = (rs: Row[]) =>
+  rs
+    .map((r) => {
+      const t = ackTime(r);
+      return Number.isNaN(t) ? NaN : Math.max(0, (t - baseTime(r)) / HOUR);
+    })
+    .filter((h) => !Number.isNaN(h));
 const isOpenish = (r: Row) => (OPEN_STATUSES as string[]).includes(r.status) || r.status === 'mgmt_closed';
 const isDisputed = (r: Row) => r.mgmt_closed_count > 0 && (r.resolution === 'poor' || r.reopen_count > 0);
+
+/**
+ * Maps free-text locations to a generic area label so repeat places can be counted without exposing anything
+ * identifying (apartment numbers, bay numbers). Anything that does not match is left out of the hotspot list.
+ */
+const AREAS: [string, RegExp][] = [
+  ['Lift', /\blifts?\b|elevator/i], // before Lobby so "lift lobby" counts as Lift
+  ['Lobby', /lobby|reception/i],
+  ['Car park', /car ?park|parking|basement|\bbay\b/i],
+  ['Corridor', /corridor|hallway/i],
+  ['Stairwell', /stair/i],
+  ['Pool', /pool/i],
+  ['Gym', /\bgym\b/i],
+  ['Garden', /garden|landscap/i],
+  ['Bin room', /bin room|garbage|waste|chute/i],
+  ['Entrance gate', /\bgate\b|entrance/i],
+  ['Waterfront / walkway', /waterfront|walkway|promenade|boardwalk/i],
+  ['Roof / terrace', /roof|terrace/i],
+];
+export function areaOf(text: string | null | undefined): string | null {
+  if (!text) return null;
+  return AREAS.find(([, re]) => re.test(text))?.[0] ?? null;
+}
 
 /** Monday (Dubai time) of the week containing the timestamp, as YYYY-MM-DD. */
 export function weekKey(iso: string): string {
@@ -116,6 +150,17 @@ export async function communityKpis(
   const affectsBy = new Map<string, number>();
   for (const a of affectsRows as { incident_id: string }[]) affectsBy.set(a.incident_id, (affectsBy.get(a.incident_id) ?? 0) + 1);
   const demo = Number((await db('incidents').where({ community_id: communityId, source: 'demo' }).count({ c: '*' }).first())?.c ?? 0);
+
+  const withPhoto = new Set(
+    (
+      await db('uploads')
+        .join('incidents', 'uploads.incident_id', 'incidents.id')
+        .where('incidents.community_id', communityId)
+        .where('uploads.kind', 'report')
+        .whereNull('uploads.deleted_at')
+        .distinct('uploads.incident_id')
+    ).map((r: { incident_id: string }) => r.incident_id),
+  );
 
   const open = rows.filter(isOpenish);
   const resolvedOk = rows.filter((r) => r.resolution === 'ok');
@@ -225,6 +270,7 @@ export async function communityKpis(
       open: rs.filter(isOpenish).length,
       overdue: rs.filter((r) => isOpenish(r) && now - ms(r.reported_at) > targetDays * DAY).length,
       median_fix_days: round(median(rs.filter((r) => r.resolution === 'ok').map((r) => (ms(r.resolved_at) - ms(r.reported_at)) / DAY))),
+      median_ack_hours: round(median(ackHoursOf(rs))),
     };
   });
   const thisWeek = weekKey(new Date(now).toISOString());
@@ -241,6 +287,52 @@ export async function communityKpis(
   const reopenedEver = closed.filter((r) => r.reopen_count > 0).length;
   const reporters = new Set(rows.map((r) => r.reporter_id).filter(Boolean));
   const multiHome = rows.filter((r) => (affectsBy.get(r.id) ?? 0) > 0).length;
+
+  // --- first-time fix: verified fixed and never reopened ---
+  const neverReopened = resolvedOk.filter((r) => r.reopen_count === 0);
+
+  // --- time from our email to management's closure ---
+  const closeDays = closed.map((r) => (ms(r.mgmt_closed_at) - baseTime(r)) / DAY).filter((d) => Number.isFinite(d) && d >= 0);
+
+  // --- do problems come back? A repeat is a later report, after a closure, in the same cluster or at the same tower, type and area ---
+  const closedAt = (r: Row) => {
+    const t = ms(r.resolved_at ?? r.mgmt_closed_at);
+    return Number.isNaN(t) ? NaN : t;
+  };
+  const sameProblem = (a: Row, b: Row) =>
+    (a.cluster_id != null && (a.cluster_id === b.cluster_id || a.cluster_id === b.id)) ||
+    (b.cluster_id != null && b.cluster_id === a.id) ||
+    (a.tower != null && a.tower === b.tower && a.category === b.category && areaOf(a.location_text) != null && areaOf(a.location_text) === areaOf(b.location_text));
+  const recurrence = [30, 60, 90].map((windowDays) => {
+    // only closures whose whole window has already passed, so recent closures do not flatter the figure
+    const eligible = rows.filter((r) => !Number.isNaN(closedAt(r)) && closedAt(r) + windowDays * DAY <= now);
+    const repeated = eligible.filter((r) =>
+      rows.some((o) => o.id !== r.id && ms(o.reported_at) > closedAt(r) && ms(o.reported_at) <= closedAt(r) + windowDays * DAY && sameProblem(r, o)),
+    );
+    return { window_days: windowDays, eligible: eligible.length, repeated: repeated.length, rate: round(rate(repeated.length, eligible.length), 3) };
+  });
+
+  // --- where reports cluster (generic areas only, private reports left out, at least 2 reports) ---
+  const spots = new Map<string, { tower: string; area: string; total: number; open: number }>();
+  for (const r of rows) {
+    const area = areaOf(r.location_text);
+    if (!area || r.visibility === 'private') continue;
+    const key = `${r.tower ?? 'Unknown'}|${area}`;
+    const cur = spots.get(key) ?? { tower: r.tower ?? 'Unknown', area, total: 0, open: 0 };
+    cur.total++;
+    if (isOpenish(r)) cur.open++;
+    spots.set(key, cur);
+  }
+  const hotspots = [...spots.values()].filter((h) => h.total >= 2).sort((a, b) => b.total - a.total || b.open - a.open).slice(0, 6);
+
+  // --- how complete is the evidence behind the reports? ---
+  const share = (n: number) => round(rate(n, rows.length), 3);
+  const evidence = {
+    with_photo: share(rows.filter((r) => withPhoto.has(r.id)).length),
+    with_case_number: share(rows.filter((r) => r.case_number_at).length),
+    with_management_reply: share(rows.filter((r) => r.mgmt_first_reply_at).length),
+    with_gps: share(rows.filter((r) => r.lat != null).length),
+  };
 
   // --- transparent score ---
   const ackRate = rate(ackWithin, ackDenominator);
@@ -288,6 +380,7 @@ export async function communityKpis(
       verified_fixed: resolvedOk.length,
       median_days: round(median(resDays)),
       mean_days: round(mean(resDays)),
+      verified_share: round(rate(resolvedOk.length, rows.length), 3),
       within_sla_rate: round(resRate, 3),
       sla_days: settings.sla_resolve_days,
     },
@@ -298,7 +391,12 @@ export async function communityKpis(
       awaiting_verification: unverified.length,
       awaiting_verification_over_7d: unverifiedOld.length,
       verified_fix_rate: round(fixRate, 3),
+      median_days_to_management_close: round(median(closeDays)),
     },
+    first_time_fix: { verified_fixed: resolvedOk.length, never_reopened: neverReopened.length, rate: round(rate(neverReopened.length, resolvedOk.length), 3) },
+    recurrence,
+    hotspots,
+    evidence,
     backlog: {
       open: open.length,
       overdue: overdueOpen,
@@ -330,8 +428,13 @@ export async function communityKpis(
 export const KPI_DEFINITIONS = [
   { key: 'acknowledgement', title: 'Case number in time', text: 'Hours from our email to management until a case number or any reply is recorded. Reports with no response past the target count as misses.' },
   { key: 'timeliness', title: 'Resolved within target', text: 'Share of due reports (verified fixed, poorly fixed, or open past target) that were verified fixed within the target for their priority.' },
-  { key: 'closure', title: 'Closed but not fixed', text: 'Reports management marked closed that a resident then marked poorly fixed or reopened with photo evidence. Reports awaiting resident verification are shown separately, never counted as disputed.' },
+  { key: 'closure', title: 'Closures disputed by residents', text: 'Reports management marked closed that a resident then marked poorly fixed or reopened with photo evidence. Reports awaiting resident verification are shown separately, never counted as disputed.' },
   { key: 'fix_quality', title: 'Fixes that hold up', text: 'Verified fixed divided by verified fixed + poorly fixed + reopened-after-closure.' },
+  { key: 'first_time_fix', title: 'Fixes that held first time', text: 'Of the reports a resident verified as fixed with photo evidence, the share that were never reopened.' },
+  { key: 'recurrence', title: 'Problems that came back', text: 'Of closed reports whose follow-up window (30, 60 or 90 days) has fully passed, the share followed by a later report in the same linked group, or at the same tower, type and area. Recent closures are left out until their window has passed.' },
+  { key: 'hotspots', title: 'Where reports cluster', text: 'Reports grouped by tower and a general area (for example Lift or Car park) taken from the location text. Only areas with at least 2 reports are shown. Private reports and exact places are never included.' },
+  { key: 'evidence', title: 'Evidence behind the reports', text: 'Share of reports with a photo, a management case number, a management reply, and a GPS position. Shows how well documented the figures are.' },
+  { key: 'close_time', title: 'Time to management closure', text: 'Median days from our email to management until management marked the report closed. It says nothing about whether the issue was actually fixed.' },
   { key: 'backlog', title: 'Backlog ageing', text: 'Age of open reports from the original report time. Overdue means older than the target for that priority.' },
   { key: 'score', title: 'Overall score', text: 'Weighted blend of the four components above (25/25/30/20). Components without data are left out and the rest re-weighted. Treat scores from fewer than 10 reports as indicative only.' },
 ];

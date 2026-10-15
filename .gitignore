@@ -6,3 +6,6 @@ dist
 api/data
 *.sqlite
 *.log
+
+# Self-hosted face-detection runtime, copied from node_modules at dev/build time
+web/public/mediapipe/

@@ -68,3 +68,8 @@ Admin > System shows the running version/build and a history of starts, updates 
 
 ## Insights panel
 Admin > Reports opens with Insights (last 90 days). Tiles with "Show these" filter the list below. Watch "Saved but not yet emailed": in the default mode the resident sends the email, so reports the resident never confirmed are not yet with management. "Waiting longest for a reply" is the list to chase.
+
+
+## Photo check and the scorecard (2026-10-15)
+- **Photos are covered on the resident's phone.** Residents see a "Check your photo" screen: faces are covered automatically, they can drag boxes over number plates or anything else, and only the covered image is uploaded. You will never see an unredacted original. If a resident reports a face or plate showing, ask them to retake the photo; there is no admin tool to edit an uploaded photo. First use on a phone downloads about 7 MB.
+- **New scorecard panels:** fixes that held first time, time to management closure, reply time by priority, did the problem come back (30/60/90 days), where reports cluster, and evidence behind the figures. Definitions are under "How this is measured" on the page. "Where reports cluster" only shows general areas with at least 2 reports and leaves out private reports.

@@ -19,7 +19,7 @@ Monorepo (npm workspaces): `api/`, `web/`. `Dockerfile` builds web then api, run
 - `api/src/services/` `incidents.ts` (core workflow), `events.ts` (hash chain), `kpi.ts`, `mailer.ts`, `scheduler.ts`, `serializers.ts` (role-based redaction), `similar.ts`, `images.ts` (sharp), `storage.ts`, `fileLinks.ts`, `ai.ts` (optional server AI, off), `support.ts` (audit/notify), `sleep.ts` (Azure DB wake).
 - `api/src/routes/` `auth`, `me`, `incidents`, `misc` (files, KPI, inbound email), `admin`. `app.ts` wires helmet/CSP, rate limits, CSRF, static web. `server.ts` starts the gate then the app.
 - `api/src/scripts/` `seed.ts` (demo data), `seed-test.ts` + `test-data/incidents.json` (TEST reports with real photos), `create-admin.ts`. `api/test/` vitest + supertest.
-- `web/src/` `App.tsx` routes/layout, `api.ts` fetch wrapper + types, `auth.tsx`, `ui.tsx`, `ownAi.ts` (browser BYO AI), `styles.css`; `pages/` Auth, Feed, Report, Incident, Scorecard, Account, Admin.
+- `web/src/` `App.tsx` routes/layout, `api.ts` fetch wrapper + types, `auth.tsx`, `ui.tsx`, `ownAi.ts` (browser BYO AI), `redact.ts` + `RedactSheet.tsx` (on-device photo check: decode, find faces, pixelate, export clean JPEG), `styles.css`; `pages/` Auth, Feed, Report, Incident, Scorecard, Account, Admin.
 - `infra/main.bicep`, `.github/workflows/`, `backup/` (pg_dump job image), `docker-compose.unraid.yml`, `Dockerfile`.
 
 ## Roles
@@ -34,7 +34,7 @@ resident (own reports + community), committee (read-only, blurred GPS, no intern
 ## API (all under `/api`; JSON; cookie session `np_session`; header `X-Requested-With: neighbourhood` required)
 - **auth:** POST register (needs consent + terms), login, logout, forgot, reset, mfa/setup, mfa/enable, consent; GET me (/terms and /privacy are public pages).
 - **me:** PATCH profile, POST password, GET export, POST delete; **notifications** GET /, POST /read.
-- **incidents:** POST /uploads (photo; re-encoded, EXIF stripped); POST /ai/suggest; GET /incidents, /attention, /similar, /:id; POST /incidents, /:id/affects (optional `case_number`), /:id/my-case-number (affected resident's own management ID), /:id/case-number, /:id/status, /:id/note.
+- **incidents:** POST /uploads (photo; already covered on the device, then re-encoded again here, EXIF stripped); POST /ai/suggest; GET /incidents, /attention, /similar, /:id; POST /incidents, /:id/affects (optional `case_number`), /:id/my-case-number (affected resident's own management ID), /:id/case-number, /:id/status, /:id/note.
 - **misc:** GET /files/* (signed expiring links), GET /kpi/summary, POST /inbound/email (header `x-inbound-secret`).
 - **admin (admin+):** GET/PATCH incidents, POST case-number/status/note/resend-email/link/unlink/verify-chain, GET/PATCH settings, users (list/patch/reset-password/reset-mfa), POST import (dry_run), GET export.csv, GET audit, POST demo/wipe (super_admin).
 - **system (always up):** GET /healthz, GET /api/system/status, POST /api/system/wake.
@@ -70,3 +70,12 @@ New report and each "affects me" produce an independent email to the management 
 - `GET /api/kpi/summary?days=` (any signed-in resident): resident-safe community metrics (no names, no apartments), including response-time distribution, by-priority, this week vs last, top affected, reopen rate.
 - `GET /api/admin/insights?days=` (staff only): the same KPIs plus waiting-for-reply, not-yet-emailed, longest-open lists and people counts. Computed in `api/src/services/kpi.ts` (`communityKpis`) and `api/src/routes/admin.ts`.
 - "My reports" summary is computed in the browser from `GET /api/incidents?scope=mine&state=all`.
+
+
+## On-device photo check (2026-10-15)
+- Flow: file picker -> `redactPhoto(file)` (`web/src/RedactSheet.tsx`) -> decode to a canvas (orientation corrected, max 1600 px) -> faces found -> resident reviews and edits boxes -> `exportRedacted` draws pixelated blocks over each box and exports a fresh JPEG -> `POST /uploads`. Nothing else in the web app uploads a photo.
+- Detector: MediaPipe BlazeFace (Apache-2.0, `@mediapipe/face_detection` 0.4.1646425229), full-range model, whole photo plus 2x2 and 3x3 tiles, boxes merged by overlap. Runs in the hidden same-origin page `web/public/face/face-worker.html` + `face-worker.js` (own CSP with `unsafe-eval`, set in `api/src/app.ts`), talking to the app by `postMessage`. The detector files are copied to `web/public/mediapipe/face_detection/` by `web/scripts/copy-face-model.mjs` (runs before `dev` and `build`; git-ignored) and served from our own origin with a 7-day cache.
+- Docker image: the build stage runs the copy script via `npm run build`, so the final image carries about 13 MB of detector files under `web/dist/mediapipe`.
+
+## Scorecard calculations (2026-10-15)
+`api/src/services/kpi.ts` `communityKpis()` returns, besides the earlier fields: `first_time_fix`, `recurrence[]` (30/60/90 days), `hotspots[]`, `evidence`, `resolution.verified_share`, `closure_quality.median_days_to_management_close` and `by_severity[].median_ack_hours`. `areaOf()` maps free-text locations to general areas (Lift, Car park, Pool, ...). All figures come from existing tables (`incidents`, `uploads`, `affects`); no migration.
