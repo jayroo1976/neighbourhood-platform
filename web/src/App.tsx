@@ -9,11 +9,13 @@ import { Report } from './pages/Report';
 import { IncidentPage } from './pages/Incident';
 import { Scorecard } from './pages/Scorecard';
 import { Air } from './pages/Air';
+import { Smells } from './pages/Smells';
 import { Notifications, Profile } from './pages/Account';
 import { VersionBar } from './VersionBar';
 import { InstallPrompt } from './InstallPrompt';
 import { RedactionHost } from './RedactSheet';
 import { AdminSystem } from './pages/AdminSystem';
+import { AdminSmells } from './pages/AdminSmells';
 import { AdminData, AdminIncident, AdminIncidents, AdminSettings, AdminUsers } from './pages/Admin';
 
 function ConsentGate({ children }: { children: ReactNode }) {
@@ -74,6 +76,7 @@ function Protected({ admin }: { admin?: boolean }) {
           <NavLink to="/" end>Community</NavLink>
           <NavLink to="/scorecard">Scorecard</NavLink>
           {me?.config?.air_enabled && <NavLink to="/air">Air</NavLink>}
+          {me?.config?.odour_enabled && <NavLink to="/smells">Smells</NavLink>}
           <NavLink to="/alerts">Alerts{unread > 0 && <span className="badge">{unread}</span>}</NavLink>
           <NavLink to="/profile">Profile</NavLink>
           {staff && <NavLink to="/admin/incidents">Admin</NavLink>}
@@ -83,6 +86,7 @@ function Protected({ admin }: { admin?: boolean }) {
         <nav className="subnav" aria-label="Admin">
           <NavLink to="/admin/incidents">Reports</NavLink>
           <NavLink to="/admin/users">People{pendingUsers > 0 && <span className="badge">{pendingUsers}</span>}</NavLink>
+          <NavLink to="/admin/smells">Smells</NavLink>
           <NavLink to="/admin/settings">Settings</NavLink>
           <NavLink to="/admin/data">Data</NavLink>
           <NavLink to="/admin/system">System</NavLink>
@@ -99,6 +103,7 @@ function Protected({ admin }: { admin?: boolean }) {
         <NavLink to="/alerts">Alerts{unread > 0 && <span className="badge">{unread}</span>}</NavLink>
         <NavLink to="/scorecard">Scores</NavLink>
         {me?.config?.air_enabled && <NavLink to="/air">Air</NavLink>}
+        {me?.config?.odour_enabled && <NavLink to="/smells">Smells</NavLink>}
         <NavLink to={staff ? '/admin/incidents' : '/profile'}>{staff ? 'Admin' : 'Me'}{staff && pendingUsers > 0 && <span className="badge">{pendingUsers}</span>}</NavLink>
       </nav>
     </div>
@@ -126,11 +131,13 @@ export function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/scorecard" element={<Scorecard />} />
         <Route path="/air" element={<Air />} />
+        <Route path="/smells" element={<Smells />} />
       </Route>
       <Route element={<Protected admin />}>
         <Route path="/admin/incidents" element={<AdminIncidents />} />
         <Route path="/admin/incidents/:id" element={<AdminIncident />} />
         <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/smells" element={<AdminSmells />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/admin/data" element={<AdminData />} />
         <Route path="/admin/system" element={<AdminSystem />} />

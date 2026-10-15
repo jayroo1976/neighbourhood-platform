@@ -81,3 +81,11 @@ Shows the fresh-air temperature and humidity for each tower and the outside temp
 3. In the Unraid `.env` set `HA_URL` (an address the app container can reach, such as `http://192.168.1.20:8123`), `HA_TOKEN`, and `HA_AIR_SENSORS` as one line of JSON (see docs/configuration.md). Re-apply the compose file.
 4. Tower names are free text; use the names residents know. A sensor that is missing, `unavailable`, or has not reported for 30 minutes shows as "Sensor not reporting" or "Old reading".
 Temperatures in °F are converted to °C. Readings are shown as recorded; they are not a measurement standard or a finding.
+
+## Smells tab (odour reports)
+Residents log smells under **Smells**; you see exactly which flats under **Admin > Smells**. Neighbours only ever see counts per building and group of levels (fewer than 3 shows as "fewer than 3").
+- **Plan view:** each tower from the top (penthouses) down, flats 1-5 | 6 | 7-11 with the flat type letters. Darker cells mean more reports. Tap a flat to filter the log below; tap again to clear. Townhouse blocks are shown as numbered tiles.
+- **Patterns to look at:** the same flat position reported on 3 or more levels (a vertical stack, so think shared riser or duct), and 3 or more flats reporting on one level (think corridor or that floor's plant). They are prompts for investigation, not findings.
+- **Filters:** 7, 30, 90 days or all time, smell type, where it was noticed. **Download CSV** gives every report with level, flat and type (audit-logged). Admins (not committee) can delete a report.
+- **Settings > Smell reports:** switch it off or on; reports per resident per day; townhouses per block; which townhouse blocks to include (for example `1, 2, 3`). To hide a tower (such as MR 4-6) remove it from **Towers** on the same page.
+- Demo data from `npm run seed` includes smell reports; **Remove demo data** deletes them. A resident's smell reports are in their data export and are deleted if they erase their account.

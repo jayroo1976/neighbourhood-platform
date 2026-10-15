@@ -25,6 +25,7 @@ import { adminListItem, affectsCounts, incidentDetail } from '../services/serial
 import { getStorage } from '../services/storage';
 import { publicVersion } from '../version';
 import { audit } from '../services/support';
+import { odourAdminRouter } from './odour';
 
 const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
 
@@ -288,6 +289,10 @@ export function adminRouter(): Router {
               email_mode: z.enum(['resident', 'platform']),
               require_approval: z.boolean(),
               trust_resident_invites: z.boolean(),
+              odour_enabled: z.boolean(),
+              odour_max_per_day: z.number().int().min(1).max(100),
+              odour_townhouse_blocks: z.array(z.number().int().min(1).max(99)).max(20),
+              odour_townhouse_units: z.number().int().min(1).max(40),
               whatsapp_group_url: z.string().trim().max(200).refine((v) => v === '' || /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9]+/.test(v), 'Use a WhatsApp group invite link starting https://chat.whatsapp.com/'),
             })
             .partial()
@@ -577,8 +582,10 @@ export function adminRouter(): Router {
           await trx('incident_events').whereIn('incident_id', ids).delete();
           await trx('incidents').whereIn('id', ids).delete();
         }
+        await trx('odour_reports').where({ source: 'demo' }).delete();
         const demoUsers = (await trx('users').where({ is_demo: 1 }).select('id')).map((x) => x.id);
         if (demoUsers.length) {
+          await trx('odour_reports').whereIn('user_id', demoUsers).delete();
           await trx('notifications').whereIn('user_id', demoUsers).delete();
           await trx('uploads').whereIn('user_id', demoUsers).delete();
           await trx('affects').whereIn('user_id', demoUsers).delete();
@@ -590,6 +597,9 @@ export function adminRouter(): Router {
       res.json({ ok: true, removed_incidents: ids.length });
     }),
   );
+
+  // ---------------- smell reports: exact level and flat, admin only ----------------
+  r.use('/odour', odourAdminRouter());
 
   return r;
 }

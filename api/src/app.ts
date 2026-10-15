@@ -13,6 +13,7 @@ import { authRouter } from './routes/auth';
 import { aiRouter, incidentsRouter, uploadsRouter } from './routes/incidents';
 import { airRouter, filesRouter, inboundRouter, kpiRouter } from './routes/misc';
 import { meRouter, notificationsRouter } from './routes/me';
+import { odourRouter } from './routes/odour';
 
 export function createApp(db: Db): Express {
   const app = express();
@@ -69,6 +70,7 @@ export function createApp(db: Db): Express {
   api.use('/incidents', incidentsRouter());
   api.use('/kpi', kpiRouter());
   api.use('/air', airRouter());
+  api.use('/odour', odourRouter());
   api.use('/admin', adminRouter());
   app.use('/api/files', filesRouter());
   app.use('/api', api);

@@ -23,3 +23,6 @@ The app only ever calls `GET /api/states/<entity>` on the configured `HA_URL`, f
 
 ## Sign-up control
 Pending and declined accounts cannot sign in (checked after the password, so it does not reveal which emails exist to strangers). Admins are created or promoted only by super admins. Set-password links for added people expire after 7 days and are single use. Every approval, decline and creation is written to the audit log.
+
+## Smell reports
+Admin routes (`/api/admin/odour*`) require the admin or super_admin role (committee and residents get 403, tested). The neighbour summary is built server-side from counts and contains no level, flat, note or user id (tested by scanning the response). Input is validated against the tower plan and the community's buildings; the observed time cannot be in the future or over a year old; a daily cap (counting deleted reports) limits abuse; notes are plain text (React escapes them) and CSV cells starting with `= + - @` are prefixed with `'`. CSV export and admin delete are audit-logged. Rate limits and CSRF header apply as for other routes.

@@ -769,6 +769,10 @@ interface SettingsResp {
     email_mode: 'resident' | 'platform';
     require_approval: boolean;
     trust_resident_invites: boolean;
+    odour_enabled: boolean;
+    odour_max_per_day: number;
+    odour_townhouse_blocks: number[];
+    odour_townhouse_units: number;
   };
   ai_available: boolean;
 }
@@ -779,12 +783,14 @@ export function AdminSettings() {
   const q = useAsync(() => api.get<SettingsResp>('/admin/settings'), []);
   const [s, setS] = useState<SettingsResp | null>(null);
   const [towers, setTowers] = useState('');
+  const [blocks, setBlocks] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   useEffect(() => {
     if (q.data) {
       setS(q.data);
       setTowers(q.data.community.towers.join('\n'));
+      setBlocks((q.data.settings.odour_townhouse_blocks ?? []).join(', '));
     }
   }, [q.data]);
   if (!s) return <div className="page"><Spinner /></div>;
@@ -796,7 +802,7 @@ export function AdminSettings() {
     setError(null);
     setMsg(null);
     try {
-      await api.patch('/admin/settings', { name: s!.community.name, mgmt_email: s!.community.mgmt_email, towers: towers.split('\n').map((t) => t.trim()).filter(Boolean), settings: s!.settings });
+      await api.patch('/admin/settings', { name: s!.community.name, mgmt_email: s!.community.mgmt_email, towers: towers.split('\n').map((t) => t.trim()).filter(Boolean), settings: { ...s!.settings, odour_townhouse_blocks: [...new Set(blocks.split(/[,\s]+/).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 20))].sort((a, b) => a - b) } });
       setMsg('Settings saved.');
     } catch (err) {
       setError(err);
@@ -870,6 +876,22 @@ export function AdminSettings() {
               </Field>
             ))}
           </div>
+        </fieldset>
+
+        <fieldset disabled={!writer} className="panel stack">
+          <h2>Smell reports</h2>
+          <Toggle checked={s.settings.odour_enabled} onChange={(v) => set('odour_enabled', v)} label="Smell reporting on" hint="Shows the Smells tab to residents. Off hides it and stops new reports; existing reports stay visible to admins." />
+          <div className="row">
+            <Field label="Reports per resident per day">
+              <input type="number" min={1} max={100} value={s.settings.odour_max_per_day} onChange={(e) => set('odour_max_per_day', Number(e.target.value))} />
+            </Field>
+            <Field label="Townhouses per block" hint="Numbers offered when someone picks a townhouse block.">
+              <input type="number" min={1} max={40} value={s.settings.odour_townhouse_units} onChange={(e) => set('odour_townhouse_units', Number(e.target.value))} />
+            </Field>
+          </div>
+          <Field label="Townhouse blocks included (comma separated)" hint="For example 1, 2, 3. Leave out blocks you are not tracking yet. Towers come from the towers list above: remove a tower there to hide it from smell reporting.">
+            <input value={blocks} onChange={(e) => setBlocks(e.target.value)} />
+          </Field>
         </fieldset>
         {msg && <Banner tone="ok">{msg}</Banner>}
         <ErrorNote error={error} />
