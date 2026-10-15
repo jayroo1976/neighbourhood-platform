@@ -21,6 +21,8 @@ NP_IMAGE=ghcr.io/<your-github-user>/neighbourhood-platform:latest
 APP_BASE_URL=https://np.yourdomain.com
 MGMT_EMAIL=your-own-address@...      # NOT the management company while testing
 ```
+Optional Air tab: add `HA_URL=`, `HA_TOKEN=` and `HA_AIR_SENSORS=` to `.env` (see docs/admin-guide.md > Air tab). The app container must be able to reach Home Assistant at that address.
+
 ## 2. Start it
 Install the **Docker Compose Manager** plugin (Community Apps), add a stack pointing at `docker-compose.unraid.yml`, "Compose Up". Or in a terminal: `docker compose -f docker-compose.unraid.yml up -d`.
 

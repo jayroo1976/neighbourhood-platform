@@ -39,3 +39,6 @@ A request stores name, email, tower, apartment and who invited the person. Decli
 
 ## Metrics visibility
 Residents see community-level metrics only (counts, rates, ages, tower and priority breakdowns, and report titles with tower). Staff-only insights add lists of reports and counts of residents, but no extra personal data. Neither view shows names or apartment numbers to residents.
+
+## Air tab
+Shows building sensor readings only (temperature, humidity). No personal data is stored or sent by this feature. The app keeps the latest answer in memory for about a minute and does not store readings in the database. Home Assistant stays on the owner's own network.

@@ -21,6 +21,8 @@ Set in `.env` (Unraid) or the host's settings. Production (`NODE_ENV=production`
 | `EMAIL_LINK_TTL_DAYS` | 30 | Lifetime of photo links in emails to management |
 | `WATCHTOWER_SECRET` | - | Unraid compose only: shared secret Watchtower sends with update notices to `/api/inbound/watchtower` (shown on Admin > System). Empty = endpoint refuses |
 | `APP_VERSION`, `BUILD_NUMBER`, `BUILD_SHA`, `BUILD_DATE` | package.json / dev | Stamped into the image by the GitHub workflow; shown in the version strip and `/api/system/version` |
+| `HA_URL`, `HA_TOKEN`, `HA_AIR_SENSORS` | - | Air tab. Home Assistant base URL (must be reachable from the app container), a long-lived access token (use a dedicated non-admin HA user), and the layout as one-line JSON: `{"outside":{"temperature":"sensor.x"},"towers":[{"name":"MR 1","temperature":"sensor.y","humidity":"sensor.z"}]}`. All three must be set or the tab stays hidden. Invalid JSON or an entity id that is not `domain.name` also leaves it off |
+| `HA_CACHE_SECONDS`, `HA_STALE_MINUTES` | 60 / 30 | How long a Home Assistant answer is reused, and how old a reading may be before it is shown as an old reading |
 | `REPLY_DOMAIN`, `INBOUND_EMAIL_SECRET` | - | Per-incident reply address domain; shared secret for the inbound webhook |
 | `STORAGE_PROVIDER` | local | `local` or `azure` |
 | `STORAGE_LOCAL_DIR` | ./data/files | Photo folder (a mounted volume on Unraid) |

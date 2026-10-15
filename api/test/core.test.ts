@@ -1,11 +1,13 @@
 import { withPreview } from '../src/services/sharePreview';
 import request from 'supertest';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { verifyChain } from '../src/services/events';
 import { deliverOutbox } from '../src/services/scheduler';
 import { signFileLink, verifyFileLink, canonicalJson, passwordProblem } from '../src/security/crypto';
 import { totpAt, verifyTotp } from '../src/security/totp';
 import { extractCaseNumber } from '../src/services/incidents';
+import { clearAirCache, getAir, parseLayout } from '../src/services/air';
+import { config } from '../src/config';
 import { H, PASSWORD, createReport, makeStaff, register, setup, uploadPhoto } from './helpers';
 
 let ctx: Awaited<ReturnType<typeof setup>>;
@@ -577,5 +579,91 @@ describe('no invite code', () => {
     const r = await request(c.app).post('/api/auth/register').set(H).send({ name: 'X Y', email: 'nocode@example.test', password: PASSWORD, tower: 'MR 1', unit: '5', consent: true, terms: true, invite_code: 'anything' });
     expect(r.status).toBe(202);
     expect(r.body.pending).toBe(true);
+  });
+});
+
+describe('air tab (Home Assistant)', () => {
+  const layout = JSON.stringify({
+    outside: { temperature: 'sensor.outside_temp' },
+    towers: [
+      { name: 'MR 1', temperature: 'sensor.mr1_air_temp', humidity: 'sensor.mr1_air_hum' },
+      { name: 'MR 2', temperature: 'sensor.mr2_air_temp', humidity: 'sensor.mr2_air_hum' },
+    ],
+  });
+  const ha = config.homeAssistant;
+  const fresh = new Date().toISOString();
+  const old = new Date(Date.now() - 3 * 3_600_000).toISOString();
+  const states: Record<string, { state: string; last_updated: string; attributes?: object }> = {
+    'sensor.outside_temp': { state: '104', last_updated: fresh, attributes: { unit_of_measurement: '°F' } },
+    'sensor.mr1_air_temp': { state: '24.46', last_updated: fresh, attributes: { unit_of_measurement: '°C' } },
+    'sensor.mr1_air_hum': { state: '48', last_updated: fresh, attributes: { unit_of_measurement: '%' } },
+    'sensor.mr2_air_temp': { state: 'unavailable', last_updated: fresh },
+    'sensor.mr2_air_hum': { state: '51', last_updated: old, attributes: { unit_of_measurement: '%' } },
+  };
+  const seen: { url: string; auth: string }[] = [];
+  const fake = async (url: string, init: { headers: Record<string, string> }) => {
+    seen.push({ url, auth: init.headers.Authorization });
+    const st = states[url.split('/api/states/')[1]];
+    return st ? { ok: true, status: 200, json: async () => st } : { ok: false, status: 404, json: async () => ({}) };
+  };
+  const set = (url: string, token: string, sensors: string) => Object.assign(ha, { url, token, airSensors: sensors });
+  const original = { ...ha };
+  afterEach(() => {
+    Object.assign(ha, original);
+    clearAirCache();
+    seen.length = 0;
+  });
+
+  it('is off unless URL, token and a valid layout are all set', async () => {
+    expect((await getAir(fake)).enabled).toBe(false);
+    set('http://ha.local:8123', 'tok', 'not json');
+    expect((await getAir(fake)).enabled).toBe(false);
+    set('http://ha.local:8123', '', layout);
+    expect((await getAir(fake)).enabled).toBe(false);
+    expect(seen).toHaveLength(0);
+  });
+
+  it('rejects entity ids that could change the request path', () => {
+    expect(parseLayout(JSON.stringify({ towers: [{ name: 'A', temperature: '../config' }] }))).toBeNull();
+    expect(parseLayout(JSON.stringify({ towers: [{ name: 'A', temperature: 'sensor.ok_1' }] }))).not.toBeNull();
+  });
+
+  it('reads each tower and the outside temperature, converting °F and flagging unavailable or old sensors', async () => {
+    set('http://ha.local:8123/', 'secret-token', layout);
+    clearAirCache();
+    set('http://ha.local:8123', 'secret-token', layout);
+    const a = await getAir(fake);
+    expect(a.enabled).toBe(true);
+    expect(a.outside!.temperature).toMatchObject({ value: 40, unit: '°C', stale: false });
+    expect(a.towers![0].temperature).toMatchObject({ value: 24.5, unit: '°C', stale: false });
+    expect(a.towers![0].humidity).toMatchObject({ value: 48, stale: false });
+    expect(a.towers![1].temperature).toMatchObject({ value: null, stale: true });
+    expect(a.towers![1].humidity).toMatchObject({ value: 51, stale: true });
+    expect(seen.every((x) => x.auth === 'Bearer secret-token')).toBe(true);
+    expect(seen).toHaveLength(5);
+    await getAir(fake); // served from cache
+    expect(seen).toHaveLength(5);
+  });
+
+  it('says so, and keeps old figures marked, when Home Assistant cannot be reached', async () => {
+    set('http://ha.local:8123', 'tok', layout);
+    const down = async () => {
+      throw new Error('ECONNREFUSED');
+    };
+    const first = await getAir(down);
+    expect(first).toMatchObject({ enabled: true, unreachable: true });
+    expect(first.towers![0].temperature.value).toBeNull();
+  });
+
+  it('requires sign-in and never exposes the token, address or entity ids', async () => {
+    set('http://ha.local:8123', 'secret-token', layout);
+    expect((await request(ctx.app).get('/api/air')).status).toBe(401);
+    const { agent } = await register(ctx.app);
+    const me = await agent.get('/api/auth/me');
+    expect(me.body.config.air_enabled).toBe(true);
+    const res = await agent.get('/api/air');
+    expect(res.status).toBe(200);
+    const text = JSON.stringify(res.body);
+    expect(text).not.toMatch(/secret-token|ha\.local|sensor\./);
   });
 });

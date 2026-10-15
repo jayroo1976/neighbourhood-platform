@@ -73,3 +73,11 @@ Admin > Reports opens with Insights (last 90 days). Tiles with "Show these" filt
 ## Photo check and the scorecard (2026-10-15)
 - **Photos are covered on the resident's phone.** Residents see a "Check your photo" screen: faces are covered automatically, they can drag boxes over number plates or anything else, and only the covered image is uploaded. You will never see an unredacted original. If a resident reports a face or plate showing, ask them to retake the photo; there is no admin tool to edit an uploaded photo. First use on a phone downloads about 7 MB.
 - **New scorecard panels:** fixes that held first time, time to management closure, reply time by priority, did the problem come back (30/60/90 days), where reports cluster, and evidence behind the figures. Definitions are under "How this is measured" on the page. "Where reports cluster" only shows general areas with at least 2 reports and leaves out private reports.
+
+## Air tab (Home Assistant sensors)
+Shows the fresh-air temperature and humidity for each tower and the outside temperature, refreshed every minute, to all signed-in residents. It stays hidden until set up.
+1. In Home Assistant create a **non-admin user** (for example `neighbourhood-readonly`), sign in as it, open its profile and create a **long-lived access token**.
+2. Find the entity ids in HA under Settings > Devices & services > Entities (for example `sensor.mr1_fresh_air_temperature`).
+3. In the Unraid `.env` set `HA_URL` (an address the app container can reach, such as `http://192.168.1.20:8123`), `HA_TOKEN`, and `HA_AIR_SENSORS` as one line of JSON (see docs/configuration.md). Re-apply the compose file.
+4. Tower names are free text; use the names residents know. A sensor that is missing, `unavailable`, or has not reported for 30 minutes shows as "Sensor not reporting" or "Old reading".
+Temperatures in °F are converted to °C. Readings are shown as recorded; they are not a measurement standard or a finding.

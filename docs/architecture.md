@@ -17,6 +17,7 @@ Monorepo (npm workspaces): `api/`, `web/`. `Dockerfile` builds web then api, run
 - `api/src/config.ts` env config; `domain.ts` categories/severities/statuses/settings; `db.ts` knex + migrations.
 - `api/src/security/` scrypt/AES-GCM/signed links (`crypto.ts`), TOTP (`totp.ts`).
 - `api/src/services/` `incidents.ts` (core workflow), `events.ts` (hash chain), `kpi.ts`, `mailer.ts`, `scheduler.ts`, `serializers.ts` (role-based redaction), `similar.ts`, `images.ts` (sharp), `storage.ts`, `fileLinks.ts`, `ai.ts` (optional server AI, off), `support.ts` (audit/notify), `sleep.ts` (Azure DB wake).
+- `api/src/services/air.ts` reads Home Assistant `GET /api/states/<entity>` server-side (5 s timeout, cached `HA_CACHE_SECONDS`, entity ids validated, °F converted to °C, unavailable or old readings flagged). `web/src/pages/Air.tsx` is the tab (refreshes every minute).
 - `api/src/routes/` `auth`, `me`, `incidents`, `misc` (files, KPI, inbound email), `admin`. `app.ts` wires helmet/CSP, rate limits, CSRF, static web. `server.ts` starts the gate then the app.
 - `api/src/scripts/` `seed.ts` (demo data), `seed-test.ts` + `test-data/incidents.json` (TEST reports with real photos), `create-admin.ts`. `api/test/` vitest + supertest.
 - `web/src/` `App.tsx` routes/layout, `api.ts` fetch wrapper + types, `auth.tsx`, `ui.tsx`, `ownAi.ts` (browser BYO AI), `redact.ts` + `RedactSheet.tsx` (on-device photo check: decode, find faces, pixelate, export clean JPEG), `styles.css`; `pages/` Auth, Feed, Report, Incident, Scorecard, Account, Admin.
@@ -35,7 +36,7 @@ resident (own reports + community), committee (read-only, blurred GPS, no intern
 - **auth:** POST register (needs consent + terms), login, logout, forgot, reset, mfa/setup, mfa/enable, consent; GET me (/terms and /privacy are public pages).
 - **me:** PATCH profile, POST password, GET export, POST delete; **notifications** GET /, POST /read.
 - **incidents:** POST /uploads (photo; already covered on the device, then re-encoded again here, EXIF stripped); POST /ai/suggest; GET /incidents, /attention, /similar, /:id; POST /incidents, /:id/affects (optional `case_number`), /:id/my-case-number (affected resident's own management ID), /:id/case-number, /:id/status, /:id/note.
-- **misc:** GET /files/* (signed expiring links), GET /kpi/summary, POST /inbound/email (header `x-inbound-secret`).
+- **misc:** GET /files/* (signed expiring links), GET /kpi/summary, GET /air (Air tab: fresh-air temperature and humidity per tower plus outside temperature from Home Assistant, sign-in required, `Cache-Control: no-store`; `config.air_enabled` on /auth/me drives the nav entry), POST /inbound/email (header `x-inbound-secret`).
 - **admin (admin+):** GET/PATCH incidents, POST case-number/status/note/resend-email/link/unlink/verify-chain, GET/PATCH settings, users (list/patch/reset-password/reset-mfa), POST import (dry_run), GET export.csv, GET audit, POST demo/wipe (super_admin).
 - **system (always up):** GET /healthz, GET /api/system/status, POST /api/system/wake.
 

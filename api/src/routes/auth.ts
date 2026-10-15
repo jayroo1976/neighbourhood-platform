@@ -7,6 +7,7 @@ import { ADMIN_ROLES, mergeSettings } from '../domain';
 import { COOKIE, clientIp, issueSession, parse, requireAuth, requireAuthAllowLimited, wrap } from '../http';
 import { decryptSecret, encryptSecret, hashPassword, passwordProblem, sha256, verifyPassword } from '../security/crypto';
 import { generateSecret, otpauthUri, verifyTotp } from '../security/totp';
+import { airEnabled } from '../services/air';
 import { HttpError } from '../services/incidents';
 import { queueEmail } from '../services/mailer';
 import { audit } from '../services/support';
@@ -181,6 +182,7 @@ export function authRouter(): Router {
           ...publicConfig(),
           require_photo_for_affects: s.require_photo_for_affects,
           ai_suggest: s.ai_suggest_enabled && config.ai.enabled,
+          air_enabled: airEnabled(),
           sla_case_hours: s.sla_case_hours,
           whatsapp_group_url: s.whatsapp_group_url,
         },

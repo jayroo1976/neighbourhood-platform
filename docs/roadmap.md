@@ -14,3 +14,4 @@
 9. Azure Monitor alerts on errors and outbox failures.
 10. Public scorecard only after legal review.
 11. Arabic translation and right-to-left layout.
+8. Air tab history (charts and thresholds, from Home Assistant history) and extra sensors such as pool readings. The first version (2026-10-15) shows live values only.

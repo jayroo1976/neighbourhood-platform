@@ -8,6 +8,7 @@ import { Feed } from './pages/Feed';
 import { Report } from './pages/Report';
 import { IncidentPage } from './pages/Incident';
 import { Scorecard } from './pages/Scorecard';
+import { Air } from './pages/Air';
 import { Notifications, Profile } from './pages/Account';
 import { VersionBar } from './VersionBar';
 import { InstallPrompt } from './InstallPrompt';
@@ -72,6 +73,7 @@ function Protected({ admin }: { admin?: boolean }) {
         <nav className="topnav" aria-label="Main">
           <NavLink to="/" end>Community</NavLink>
           <NavLink to="/scorecard">Scorecard</NavLink>
+          {me?.config?.air_enabled && <NavLink to="/air">Air</NavLink>}
           <NavLink to="/alerts">Alerts{unread > 0 && <span className="badge">{unread}</span>}</NavLink>
           <NavLink to="/profile">Profile</NavLink>
           {staff && <NavLink to="/admin/incidents">Admin</NavLink>}
@@ -96,6 +98,7 @@ function Protected({ admin }: { admin?: boolean }) {
         <NavLink to="/" end>Community</NavLink>
         <NavLink to="/alerts">Alerts{unread > 0 && <span className="badge">{unread}</span>}</NavLink>
         <NavLink to="/scorecard">Scores</NavLink>
+        {me?.config?.air_enabled && <NavLink to="/air">Air</NavLink>}
         <NavLink to={staff ? '/admin/incidents' : '/profile'}>{staff ? 'Admin' : 'Me'}{staff && pendingUsers > 0 && <span className="badge">{pendingUsers}</span>}</NavLink>
       </nav>
     </div>
@@ -122,6 +125,7 @@ export function App() {
         <Route path="/alerts" element={<Notifications />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/scorecard" element={<Scorecard />} />
+        <Route path="/air" element={<Air />} />
       </Route>
       <Route element={<Protected admin />}>
         <Route path="/admin/incidents" element={<AdminIncidents />} />

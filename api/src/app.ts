@@ -11,7 +11,7 @@ import { csrfGuard, errorHandler, loadSession } from './http';
 import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
 import { aiRouter, incidentsRouter, uploadsRouter } from './routes/incidents';
-import { filesRouter, inboundRouter, kpiRouter } from './routes/misc';
+import { airRouter, filesRouter, inboundRouter, kpiRouter } from './routes/misc';
 import { meRouter, notificationsRouter } from './routes/me';
 
 export function createApp(db: Db): Express {
@@ -68,6 +68,7 @@ export function createApp(db: Db): Express {
   api.use('/ai', limit(60 * 60_000, 60), aiRouter());
   api.use('/incidents', incidentsRouter());
   api.use('/kpi', kpiRouter());
+  api.use('/air', airRouter());
   api.use('/admin', adminRouter());
   app.use('/api/files', filesRouter());
   app.use('/api', api);

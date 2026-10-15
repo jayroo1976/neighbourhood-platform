@@ -1,5 +1,12 @@
 # Changelog (newest first)
 
+## 2026-10-15 - v0.5.0: Air tab (fresh-air temperature and humidity per tower, outside temperature)
+- New **Air** tab for signed-in residents: fresh-air temperature and humidity for each tower, and the outside temperature, from the owner's Home Assistant. Refreshes every minute. Each figure shows how long ago it was updated; a sensor that is unavailable, missing or silent for 30 minutes is shown as "Sensor not reporting" or "Old reading". Wording is factual ("readings from sensors, shown as recorded").
+- Server-side and read-only: the API calls `GET /api/states/<entity>` on Home Assistant with a token kept in the server environment; the browser never sees the token, address or entity ids. Answers are cached for `HA_CACHE_SECONDS` (60). If HA cannot be reached the tab says so and shows the last good figures marked old. °F is converted to °C.
+- **Off by default.** Needs `HA_URL`, `HA_TOKEN` and `HA_AIR_SENSORS` (one-line JSON mapping towers to entity ids). Invalid JSON or an entity id not shaped `domain.name` leaves it off. The nav entry appears only when it is on (`config.air_enabled` on `/api/auth/me`). `docker-compose.unraid.yml` now passes the three variables through. New `GET /api/air` (sign-in required, no-store).
+- 30 tests pass (5 new, with a fake Home Assistant). Screenshot checked in headless Chromium on a phone-sized screen.
+- **Not tested against the real Home Assistant.** Entity ids are not known yet, and the Unraid app container must be able to reach HA on the LAN. Use a dedicated non-admin HA user for the token (HA cannot limit a token to specific entities). No live history or charts yet.
+
 ## 2026-10-15 - v0.4.0: photos are checked and faces covered on the phone before upload; scorecard additions
 **Photo check on the device (new)**
 - Every photo (report, "affects me too", resolution photos) now opens a **Check your photo** screen before anything is uploaded. Faces are found and covered automatically with heavy pixelation (about 6 blocks across, plus a 30% margin). The resident sees exactly what will be sent, can **drag a box** over anything else (number plates, children, papers, screens), **tap a box to remove it**, and undo. Only the covered image is uploaded; the original never leaves the phone. Re-drawing also removes all metadata (EXIF, GPS, embedded thumbnails). The server still re-encodes with sharp as before.
