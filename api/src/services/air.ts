@@ -18,12 +18,12 @@ export interface AirSummary {
   /** true when Home Assistant could not be reached on the last try */
   unreachable?: boolean;
   fetched_at?: string;
-  outside?: { temperature: AirReading };
+  outside?: { temperature: AirReading; humidity: AirReading };
   towers?: { name: string; temperature: AirReading; humidity: AirReading }[];
 }
 
 interface Layout {
-  outside?: { temperature?: string };
+  outside?: { temperature?: string; humidity?: string };
   towers: { name: string; temperature?: string; humidity?: string }[];
 }
 
@@ -35,7 +35,7 @@ export function parseLayout(raw: string): Layout | null {
   try {
     const j = JSON.parse(raw) as Layout;
     const ok = (id: unknown) => id === undefined || (typeof id === 'string' && ENTITY.test(id));
-    if (!j || !Array.isArray(j.towers) || !ok(j.outside?.temperature)) return null;
+    if (!j || !Array.isArray(j.towers) || !ok(j.outside?.temperature) || !ok(j.outside?.humidity)) return null;
     for (const t of j.towers) if (typeof t?.name !== 'string' || !t.name || !ok(t.temperature) || !ok(t.humidity)) return null;
     return { outside: j.outside, towers: j.towers.map((t) => ({ name: t.name.slice(0, 40), temperature: t.temperature, humidity: t.humidity })) };
   } catch {
@@ -88,14 +88,15 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike)
   const now = Date.now();
   if (cache && now - cache.at < config.homeAssistant.cacheSeconds * 1000) return cache.data;
   try {
-    const [outside, ...rest] = await Promise.all([
+    const [outsideTemp, outsideHum, ...rest] = await Promise.all([
       readEntity(layout.outside?.temperature, fetcher, now),
+      readEntity(layout.outside?.humidity, fetcher, now),
       ...layout.towers.flatMap((t) => [readEntity(t.temperature, fetcher, now), readEntity(t.humidity, fetcher, now)]),
     ]);
     const data: AirSummary = {
       enabled: true,
       fetched_at: new Date(now).toISOString(),
-      outside: { temperature: outside },
+      outside: { temperature: outsideTemp, humidity: outsideHum },
       towers: layout.towers.map((t, i) => ({ name: t.name, temperature: rest[i * 2], humidity: rest[i * 2 + 1] })),
     };
     cache = { at: now, data };
@@ -103,6 +104,6 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike)
   } catch {
     // Home Assistant unreachable: show the last good figures marked as old, or say it is unreachable
     if (cache) return { ...cache.data, unreachable: true };
-    return { enabled: true, unreachable: true, outside: { temperature: EMPTY }, towers: layout.towers.map((t) => ({ name: t.name, temperature: EMPTY, humidity: EMPTY })) };
+    return { enabled: true, unreachable: true, outside: { temperature: EMPTY, humidity: EMPTY }, towers: layout.towers.map((t) => ({ name: t.name, temperature: EMPTY, humidity: EMPTY })) };
   }
 }

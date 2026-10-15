@@ -1,5 +1,10 @@
 # Changelog (newest first)
 
+## 2026-10-15 - v0.6.1: Air tab shows outside humidity and the exact time of each last reading
+- The Air tab now has an **Outside humidity** tile next to the outside temperature. In `HA_AIR_SENSORS` add `"humidity":"sensor.palm_outside_humidity"` inside `"outside"` (optional; without it the tile shows "Sensor not reporting").
+- Every figure (outside and each tower) now shows **Last read 22:04 (3 min ago)**, with the date and time in Asia/Dubai taken from Home Assistant's own `last_updated`. A sensor that reports `unavailable` shows "Sensor not reporting. Last seen ..." and old readings are labelled "old reading".
+- API: `/api/air` outside block gained `humidity`. 30 tests pass (outside humidity and the exact timestamp are now asserted). Not run against the real Home Assistant yet.
+
 ## 2026-10-15 - v0.6.0: Smells tab (odour reports and a map of affected flats)
 - New **Smells** tab for residents: log a smell against a home (building, level, flat, what it is like, strength, where, how often, when, optional note). Towers use the floor plan James supplied: levels 1-13 with **11 flats a level** (1-5 along one side, 6 at the end, 7-11 along the other; types D C C C B A B C C C D, so D = flats 1 and 11) plus a **penthouse** level (F1, F2, G1, G2, H). Townhouses are logged by block and number. The flat is picked on a tappable row where the letter is the flat type; a "1204"-style apartment number pre-selects level 12, flat 4. Residents see and can delete their own reports (a delete hides the report and erases its note; the row stays, hidden, so the daily limit still counts it). A "gas or burning: call 997 first" notice sits on the form.
 - **Neighbours never see a flat.** The community view shows counts per building and per group of levels (1-4, 5-8, 9-13, penthouses), by smell type and by hour of day (Dubai time). A group or building with fewer than 3 reports is shown as "fewer than 3" and its detail is withheld. Notes and exact homes are only visible to the resident who wrote them and to admins.

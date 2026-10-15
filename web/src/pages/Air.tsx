@@ -12,7 +12,7 @@ interface AirData {
   enabled: boolean;
   unreachable?: boolean;
   fetched_at?: string;
-  outside?: { temperature: Reading };
+  outside?: { temperature: Reading; humidity: Reading };
   towers?: { name: string; temperature: Reading; humidity: Reading }[];
 }
 
@@ -27,13 +27,19 @@ function ago(iso: string | null, now: number): string {
   return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
 }
 
+/** "15 Oct, 22:04" in the community's time zone, so the exact last reading is visible, not just "3 min ago". */
+function clock(iso: string | null): string {
+  if (!iso) return '';
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso));
+}
+
 function Figure({ label, r, unit, now }: { label: string; r: Reading; unit: string; now: number }) {
   const has = r.value != null;
   return (
     <div className={`tile ${r.stale ? 'mid' : ''}`}>
       <span className="tile-label">{label}</span>
       <b>{has ? `${r.value}${unit}` : '-'}</b>
-      <span className="tile-sub">{has ? (r.stale ? `Old reading, ${ago(r.updated_at, now)}` : `Updated ${ago(r.updated_at, now)}`) : 'Sensor not reporting'}</span>
+      <span className="tile-sub">{has ? `Last read ${clock(r.updated_at)} (${ago(r.updated_at, now)})${r.stale ? ' - old reading' : ''}` : r.updated_at ? `Sensor not reporting. Last seen ${clock(r.updated_at)}` : 'Sensor not reporting'}</span>
     </div>
   );
 }
@@ -73,6 +79,7 @@ export function Air() {
           <h2>Outside</h2>
           <div className="tiles">
             <Figure label="Outside temperature" r={data.outside.temperature} unit="°C" now={now} />
+            <Figure label="Outside humidity" r={data.outside.humidity} unit="%" now={now} />
           </div>
           <h2>Inside, by tower</h2>
           {data.towers?.map((t) => (

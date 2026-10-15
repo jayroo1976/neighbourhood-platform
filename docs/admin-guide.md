@@ -79,7 +79,7 @@ Shows the fresh-air temperature and humidity for each tower and the outside temp
 1. In Home Assistant create a **non-admin user** (for example `neighbourhood-readonly`), sign in as it, open its profile and create a **long-lived access token**.
 2. Find the entity ids in HA under Settings > Devices & services > Entities (for example `sensor.mr1_fresh_air_temperature`).
 3. In the Unraid `.env` set `HA_URL` (an address the app container can reach, such as `http://192.168.1.20:8123`), `HA_TOKEN`, and `HA_AIR_SENSORS` as one line of JSON (see docs/configuration.md). Re-apply the compose file.
-4. Tower names are free text; use the names residents know. A sensor that is missing, `unavailable`, or has not reported for 30 minutes shows as "Sensor not reporting" or "Old reading".
+4. Tower names are free text; use the names residents know. A sensor that is missing, `unavailable`, or has not reported for 30 minutes shows as "Sensor not reporting" or "old reading". Each figure shows the exact time of its last reading (Dubai time).
 Temperatures in °F are converted to °C. Readings are shown as recorded; they are not a measurement standard or a finding.
 
 ## Smells tab (odour reports)

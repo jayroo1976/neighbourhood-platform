@@ -584,7 +584,7 @@ describe('no invite code', () => {
 
 describe('air tab (Home Assistant)', () => {
   const layout = JSON.stringify({
-    outside: { temperature: 'sensor.outside_temp' },
+    outside: { temperature: 'sensor.outside_temp', humidity: 'sensor.outside_hum' },
     towers: [
       { name: 'MR 1', temperature: 'sensor.mr1_air_temp', humidity: 'sensor.mr1_air_hum' },
       { name: 'MR 2', temperature: 'sensor.mr2_air_temp', humidity: 'sensor.mr2_air_hum' },
@@ -595,6 +595,7 @@ describe('air tab (Home Assistant)', () => {
   const old = new Date(Date.now() - 3 * 3_600_000).toISOString();
   const states: Record<string, { state: string; last_updated: string; attributes?: object }> = {
     'sensor.outside_temp': { state: '104', last_updated: fresh, attributes: { unit_of_measurement: '°F' } },
+    'sensor.outside_hum': { state: '65', last_updated: fresh, attributes: { unit_of_measurement: '%' } },
     'sensor.mr1_air_temp': { state: '24.46', last_updated: fresh, attributes: { unit_of_measurement: '°C' } },
     'sensor.mr1_air_hum': { state: '48', last_updated: fresh, attributes: { unit_of_measurement: '%' } },
     'sensor.mr2_air_temp': { state: 'unavailable', last_updated: fresh },
@@ -635,14 +636,16 @@ describe('air tab (Home Assistant)', () => {
     const a = await getAir(fake);
     expect(a.enabled).toBe(true);
     expect(a.outside!.temperature).toMatchObject({ value: 40, unit: '°C', stale: false });
+    expect(a.outside!.humidity).toMatchObject({ value: 65, unit: '%', stale: false });
+    expect(a.towers![0].temperature.updated_at).toBe(fresh);
     expect(a.towers![0].temperature).toMatchObject({ value: 24.5, unit: '°C', stale: false });
     expect(a.towers![0].humidity).toMatchObject({ value: 48, stale: false });
     expect(a.towers![1].temperature).toMatchObject({ value: null, stale: true });
     expect(a.towers![1].humidity).toMatchObject({ value: 51, stale: true });
     expect(seen.every((x) => x.auth === 'Bearer secret-token')).toBe(true);
-    expect(seen).toHaveLength(5);
+    expect(seen).toHaveLength(6);
     await getAir(fake); // served from cache
-    expect(seen).toHaveLength(5);
+    expect(seen).toHaveLength(6);
   });
 
   it('says so, and keeps old figures marked, when Home Assistant cannot be reached', async () => {
