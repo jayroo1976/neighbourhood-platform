@@ -1,5 +1,10 @@
 # Changelog (newest first)
 
+## 2026-10-16 (evening) - AirCon: readings shown as old after 120 minutes, not 30 (v0.8.3)
+- MR 3's fresh-air feed is a battery Zigbee temperature/humidity sensor. Over a day its gaps between updates ran 12 to 55 minutes, so the 30-minute limit made a healthy sensor show "old reading" for much of every hour. The sensor id was correct.
+- `HA_STALE_MINUTES` now defaults to 120 (was 30). It is also passed through in `docker-compose.unraid.yml` (it was not, so setting it in `.env` would have done nothing) and listed in `.env.example`. Docs: `docs/configuration.md`.
+- Untested on the Unraid instance. Re-apply the compose file only if you want to set a different value; the new default arrives with the image.
+
 ## 2026-10-16 (later) - AirCon: two all-tower charts instead of a chart per tower (v0.8.2)
 - The per-tower chart and sensor picker are gone. The tower panels (same-size temperature and humidity tiles, small tiles for extra sensors) are unchanged. Under them are two charts: fresh-air temperature for MR 1, MR 2 and MR 3 on one chart, and fresh-air humidity for the three towers on one chart. Real values on the axis, last 72 hours of hourly averages, the Good band shaded, point at the chart (or arrow keys) for the exact figure per tower.
 - Last known reading: a sensor with no current reading now shows its last known reading from the last 72 hours (tile marked "old reading" with the hour it came from) instead of a dash. On the charts the line stops at the last reading (ringed point) and a dotted line carries that figure forward to now. Applies to every sensor, including the small tiles.
