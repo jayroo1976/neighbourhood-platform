@@ -1,11 +1,13 @@
 import { withPreview } from '../src/services/sharePreview';
 import request from 'supertest';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { verifyChain } from '../src/services/events';
 import { deliverOutbox } from '../src/services/scheduler';
 import { signFileLink, verifyFileLink, canonicalJson, passwordProblem } from '../src/security/crypto';
 import { totpAt, verifyTotp } from '../src/security/totp';
 import { extractCaseNumber } from '../src/services/incidents';
+import { clearAirCache, getAir, parseLayout, type WsCtor } from '../src/services/air';
+import { config } from '../src/config';
 import { H, PASSWORD, createReport, makeStaff, register, setup, uploadPhoto } from './helpers';
 
 let ctx: Awaited<ReturnType<typeof setup>>;
@@ -486,6 +488,73 @@ describe('admin and KPIs', () => {
   });
 });
 
+describe('scorecard: first-time fix, recurrence, hotspots, evidence', () => {
+  it('works out the new resident-safe metrics from existing data', async () => {
+    const { communityKpis, areaOf } = await import('../src/services/kpi');
+    const { mergeSettings } = await import('../src/domain');
+    const { createIncident } = await import('../src/services/incidents');
+    const db = (await import('../src/db')).createDb('sqlite::memory:');
+    await (await import('../src/db')).migrate(db);
+    const cid = await (await import('../src/bootstrap')).ensureCommunity(db);
+    const user = { id: 'u1', role: 'resident' as const, name: 'K', tower: 'MR 1', unit: '1', community_id: cid };
+    await db('users').insert({ id: 'u1', community_id: cid, email: 'k@x.test', password_hash: 'x', name: 'K', role: 'resident', tower: 'MR 1', unit: '1', created_at: new Date().toISOString() });
+    const now = Date.parse('2026-10-01T08:00:00Z');
+    const DAY = 86_400_000;
+    const HOUR = 3_600_000;
+    const iso = (t: number) => new Date(t).toISOString();
+    const mk = async (daysAgo: number, patch: Record<string, unknown>, severity: 'normal' | 'urgent' = 'normal') => {
+      const t = now - daysAgo * DAY;
+      const inc = await createIncident(db, user, { title: `Issue ${daysAgo}`, description: '', category: 'lift', severity, visibility: 'community', upload_ids: [] }, { at: iso(t), source: 'demo', skipEmail: true });
+      await db('incidents').where({ id: inc.id }).update({ emailed_at: iso(t), ...patch });
+      return { id: inc.id, t };
+    };
+    // A: lift fault, closed by management after 4 days, verified fixed after 5, never reopened
+    const A = await mk(100, { tower: 'MR 1', category: 'lift', location_text: 'Lift 2', lat: 25.1, lng: 55.1 });
+    await db('incidents').where({ id: A.id }).update({ case_number_at: iso(A.t + 10 * HOUR), mgmt_first_reply_at: iso(A.t + 12 * HOUR), mgmt_closed_at: iso(A.t + 4 * DAY), mgmt_closed_count: 1, resolved_at: iso(A.t + 5 * DAY), resolution: 'ok', status: 'resolved_ok' });
+    // B: the same lift area again 25 days after A was fixed
+    const B = await mk(70, { tower: 'MR 1', category: 'lift', location_text: 'Lift 1', lat: 25.1, lng: 55.1, case_number_at: iso(now - 70 * DAY + 3 * HOUR) });
+    // C: different tower and type, verified fixed but reopened once, nothing came back
+    const C = await mk(40, { tower: 'MR 2', category: 'cleaning', location_text: 'Pool deck', mgmt_closed_at: iso(now - 40 * DAY + DAY), mgmt_closed_count: 1, resolved_at: iso(now - 40 * DAY + 2 * DAY), resolution: 'ok', status: 'resolved_ok', reopen_count: 1 });
+    // D: open safety report in the lift area, case number within 2 hours
+    const D = await mk(5, { tower: 'MR 1', category: 'lift', location_text: 'Lift lobby, bay 214', case_number_at: iso(now - 5 * DAY + 2 * HOUR) }, 'urgent');
+    // E: private report in the lift area must not feed the hotspot list
+    await mk(2, { tower: 'MR 1', category: 'lift', location_text: 'Lift 3', visibility: 'private' });
+    for (const [id, inc] of [['p1', A.id], ['p2', B.id]] as const) {
+      await db('uploads').insert({ id, user_id: 'u1', key: id, thumb_key: id, mime: 'image/jpeg', bytes: 1, kind: 'report', incident_id: inc, created_at: iso(now) });
+    }
+
+    const k = await communityKpis(db, cid, mergeSettings({}), {}, now);
+    expect(k.counts.total).toBe(5);
+    expect(k.resolution.verified_share).toBe(0.4);
+    // first-time fix: A never reopened, C reopened once => 1 of 2
+    expect(k.first_time_fix).toEqual({ verified_fixed: 2, never_reopened: 1, rate: 0.5 });
+    // management closure took 4 days (A) and 1 day (C): median 2.5
+    expect(k.closure_quality.median_days_to_management_close).toBe(2.5);
+    // recurrence: A closed 95 days ago and B followed within 30 days; C (closed 38 days ago) has no repeat; its 60 and 90 day windows are not complete yet
+    expect(k.recurrence).toEqual([
+      { window_days: 30, eligible: 2, repeated: 1, rate: 0.5 },
+      { window_days: 60, eligible: 1, repeated: 1, rate: 1 },
+      { window_days: 90, eligible: 1, repeated: 1, rate: 1 },
+    ]);
+    // hotspots: A, B and D share MR 1 / Lift (B and D are still open); the private report and the single pool report are left out
+    expect(k.hotspots).toEqual([{ tower: 'MR 1', area: 'Lift', total: 3, open: 2 }]);
+    expect(JSON.stringify(k.hotspots)).not.toContain('214');
+    // evidence: photo on A and B, case number on A, B, D, reply on A only, GPS on A and B
+    expect(k.evidence).toEqual({ with_photo: 0.4, with_case_number: 0.6, with_management_reply: 0.2, with_gps: 0.4 });
+    // safety-priority reply time
+    expect(k.by_severity.find((x) => x.severity === 'urgent')!.median_ack_hours).toBe(2);
+    expect(D.id).toBeTruthy();
+    expect(C.id).toBeTruthy();
+
+    // location text maps to general areas only
+    expect(areaOf('Car park B2, near bay 214')).toBe('Car park');
+    expect(areaOf('Waterfront walkway')).toBe('Waterfront / walkway');
+    expect(areaOf('Inside my kitchen')).toBeNull();
+    expect(areaOf(null)).toBeNull();
+    await db.destroy();
+  });
+});
+
 describe('version and system log', () => {
   it('serves the version publicly and keeps the watchtower endpoint locked', async () => {
     const { app, db, communityId } = await setup();
@@ -514,5 +583,174 @@ describe('no invite code', () => {
     const r = await request(c.app).post('/api/auth/register').set(H).send({ name: 'X Y', email: 'nocode@example.test', password: PASSWORD, tower: 'MR 1', unit: '5', consent: true, terms: true, invite_code: 'anything' });
     expect(r.status).toBe(202);
     expect(r.body.pending).toBe(true);
+  });
+});
+
+describe('air tab (Home Assistant)', () => {
+  const layout = JSON.stringify({
+    outside: { temperature: 'sensor.outside_temp', humidity: 'sensor.outside_hum' },
+    towers: [
+      { name: 'MR 1', temperature: 'sensor.mr1_air_temp', humidity: 'sensor.mr1_air_hum' },
+      { name: 'MR 2', temperature: 'sensor.mr2_air_temp', humidity: 'sensor.mr2_air_hum' },
+    ],
+  });
+  const ha = config.homeAssistant;
+  const fresh = new Date().toISOString();
+  const old = new Date(Date.now() - 3 * 3_600_000).toISOString();
+  const states: Record<string, { state: string; last_updated: string; attributes?: object }> = {
+    'sensor.outside_temp': { state: '104', last_updated: fresh, attributes: { unit_of_measurement: '°F' } },
+    'sensor.outside_hum': { state: '65', last_updated: fresh, attributes: { unit_of_measurement: '%' } },
+    'sensor.mr1_air_temp': { state: '24.46', last_updated: fresh, attributes: { unit_of_measurement: '°C' } },
+    'sensor.mr1_air_hum': { state: '48', last_updated: fresh, attributes: { unit_of_measurement: '%' } },
+    'sensor.mr2_air_temp': { state: 'unavailable', last_updated: fresh },
+    'sensor.mr2_air_hum': { state: '51', last_updated: old, attributes: { unit_of_measurement: '%' } },
+  };
+  const seen: { url: string; auth: string }[] = [];
+  const fake = async (url: string, init: { headers: Record<string, string> }) => {
+    seen.push({ url, auth: init.headers.Authorization });
+    const st = states[url.split('/api/states/')[1]];
+    return st ? { ok: true, status: 200, json: async () => st } : { ok: false, status: 404, json: async () => ({}) };
+  };
+  const set = (url: string, token: string, sensors: string) => Object.assign(ha, { url, token, airSensors: sensors });
+  const original = { ...ha };
+  afterEach(() => {
+    Object.assign(ha, original);
+    clearAirCache();
+    seen.length = 0;
+  });
+
+  it('is off unless URL, token and a valid layout are all set', async () => {
+    expect((await getAir(fake)).enabled).toBe(false);
+    set('http://ha.local:8123', 'tok', 'not json');
+    expect((await getAir(fake)).enabled).toBe(false);
+    set('http://ha.local:8123', '', layout);
+    expect((await getAir(fake)).enabled).toBe(false);
+    expect(seen).toHaveLength(0);
+  });
+
+  it('rejects entity ids that could change the request path', () => {
+    expect(parseLayout(JSON.stringify({ towers: [{ name: 'A', temperature: '../config' }] }))).toBeNull();
+    expect(parseLayout(JSON.stringify({ towers: [{ name: 'A', temperature: 'sensor.ok_1' }] }))).not.toBeNull();
+  });
+
+  it('reads each tower and the outside temperature, converting °F and flagging unavailable or old sensors', async () => {
+    set('http://ha.local:8123/', 'secret-token', layout);
+    clearAirCache();
+    set('http://ha.local:8123', 'secret-token', layout);
+    const a = await getAir(fake);
+    expect(a.enabled).toBe(true);
+    expect(a.outside!.temperature).toMatchObject({ value: 40, unit: '°C', stale: false });
+    expect(a.outside!.humidity).toMatchObject({ value: 65, unit: '%', stale: false });
+    expect(a.towers![0].temperature.updated_at).toBe(fresh);
+    expect(a.towers![0].temperature).toMatchObject({ value: 24.5, unit: '°C', stale: false });
+    expect(a.towers![0].humidity).toMatchObject({ value: 48, stale: false });
+    expect(a.towers![1].temperature).toMatchObject({ value: null, stale: true });
+    expect(a.towers![1].humidity).toMatchObject({ value: 51, stale: true });
+    expect(seen.every((x) => x.auth === 'Bearer secret-token')).toBe(true);
+    expect(seen).toHaveLength(6);
+    await getAir(fake); // served from cache
+    expect(seen).toHaveLength(6);
+  });
+
+  it('says so, and keeps old figures marked, when Home Assistant cannot be reached', async () => {
+    set('http://ha.local:8123', 'tok', layout);
+    const down = async () => {
+      throw new Error('ECONNREFUSED');
+    };
+    const first = await getAir(down);
+    expect(first).toMatchObject({ enabled: true, unreachable: true });
+    expect(first.towers![0].temperature.value).toBeNull();
+  });
+
+
+  /** Scripted stand-in for Home Assistant's WebSocket API (long-term statistics). */
+  function fakeWs(opts: { token?: string; stats: Record<string, { start: number; end: number; mean?: number | null; state?: number | null }[]>; units?: Record<string, string> }) {
+    const log: string[] = [];
+    class FakeWs {
+      onopen: (() => void) | null = null;
+      onmessage: ((ev: { data: unknown }) => void) | null = null;
+      onerror: ((ev: unknown) => void) | null = null;
+      onclose: (() => void) | null = null;
+      constructor(public url: string) {
+        log.push(url);
+        setTimeout(() => this.emit({ type: 'auth_required' }), 0);
+      }
+      emit(m: object) {
+        this.onmessage?.({ data: JSON.stringify(m) });
+      }
+      send(raw: string) {
+        const m = JSON.parse(raw);
+        log.push(m.type);
+        if (m.type === 'auth') setTimeout(() => this.emit({ type: m.access_token === (opts.token ?? 'tok') ? 'auth_ok' : 'auth_invalid' }), 0);
+        if (m.type === 'recorder/get_statistics_metadata') setTimeout(() => this.emit({ id: m.id, type: 'result', success: true, result: m.statistic_ids.map((id: string) => ({ statistic_id: id, unit_of_measurement: opts.units?.[id] ?? null })) }), 0);
+        if (m.type === 'recorder/statistics_during_period') setTimeout(() => this.emit({ id: m.id, type: 'result', success: true, result: opts.stats }), 0);
+      }
+      close() {
+        this.onclose = null;
+      }
+    }
+    return { Ctor: FakeWs as unknown as WsCtor, log };
+  }
+
+  it('reads imported hourly statistics (tower1:name) over the WebSocket API and labels them hourly', async () => {
+    const statLayout = JSON.stringify({ outside: { temperature: 'sensor.outside_temp' }, towers: [{ name: 'MR 1', temperature: 'tower1:fresh_air_temperature', humidity: 'tower1:fresh_air_humidity' }, { name: 'MR 3', temperature: 'sensor.mr1_air_temp', humidity: 'sensor.mr1_air_hum' }] });
+    set('https://ha.local:8123', 'tok', statLayout);
+    const hour = Math.floor(Date.now() / 3_600_000) * 3_600_000 - 3_600_000; // last completed hour
+    const { Ctor, log } = fakeWs({
+      stats: {
+        'tower1:fresh_air_temperature': [{ start: hour - 3_600_000, end: hour, mean: 24.0 }, { start: hour, end: hour + 3_600_000, mean: 25.46 }],
+        'tower1:fresh_air_humidity': [{ start: hour, end: hour + 3_600_000, mean: 47.2 }, { start: hour + 3_600_000, end: hour + 7_200_000, mean: null }],
+      },
+      units: { 'tower1:fresh_air_temperature': '°C', 'tower1:fresh_air_humidity': '%' },
+    });
+    const a = await getAir(fake, Ctor);
+    expect(a.towers![0].temperature).toMatchObject({ value: 25.5, unit: '°C', kind: 'hourly', stale: false, updated_at: new Date(hour).toISOString() });
+    expect(a.towers![0].humidity).toMatchObject({ value: 47.2, unit: '%', kind: 'hourly' }); // empty last hour is skipped
+    expect(a.towers![1].temperature).toMatchObject({ value: 24.5 }); // live sensors still read over REST
+    expect(a.towers![1].temperature.kind).toBeUndefined();
+    expect(log[0]).toBe('wss://ha.local:8123/api/websocket');
+    expect(log).toContain('recorder/statistics_during_period');
+    expect(seen.every((x) => !x.url.includes(':fresh_air'))).toBe(true); // statistics are never requested as REST entities
+  });
+
+  it('marks old imported statistics as old, and keeps live figures when the WebSocket fails', async () => {
+    const statLayout = JSON.stringify({ towers: [{ name: 'MR 1', temperature: 'tower1:fresh_air_temperature', humidity: 'sensor.mr1_air_hum' }] });
+    set('http://ha.local:8123', 'tok', statLayout);
+    const oldHour = Date.now() - 10 * 3_600_000;
+    const { Ctor } = fakeWs({ stats: { 'tower1:fresh_air_temperature': [{ start: oldHour, end: oldHour + 3_600_000, mean: 26 }] } });
+    const a = await getAir(fake, Ctor);
+    expect(a.towers![0].temperature).toMatchObject({ value: 26, stale: true, kind: 'hourly' });
+    clearAirCache();
+    const wrongToken = fakeWs({ token: 'other', stats: {} });
+    const b = await getAir(fake, wrongToken.Ctor);
+    expect(b.unreachable).toBe(true);
+    expect(b.towers![0].temperature).toMatchObject({ value: null, stale: true });
+    expect(b.towers![0].humidity).toMatchObject({ value: 48 }); // the live sensor is unaffected
+  });
+
+  it('can be switched off by an admin (nav flag false, endpoint reports switched off) and back on', async () => {
+    set('http://ha.local:8123', 'secret-token', layout);
+    const admin = await makeStaff(ctx.db, ctx.communityId, 'admin', ctx.app);
+    const { agent } = await register(ctx.app);
+    const patch = (v: boolean) => admin.agent.patch('/api/admin/settings').set(H).send({ settings: { aircon_enabled: v } });
+    expect((await patch(false)).status).toBe(200);
+    expect((await agent.get('/api/auth/me')).body.config.air_enabled).toBe(false);
+    expect((await agent.get('/api/air')).body).toMatchObject({ enabled: false, switched_off: true });
+    expect((await patch(true)).status).toBe(200);
+    expect((await agent.get('/api/auth/me')).body.config.air_enabled).toBe(true);
+    expect((await agent.get('/api/air')).body.enabled).toBe(true);
+    expect((await admin.agent.get('/api/admin/settings')).body.aircon_available).toBe(true);
+  });
+
+  it('requires sign-in and never exposes the token, address or entity ids', async () => {
+    set('http://ha.local:8123', 'secret-token', layout);
+    expect((await request(ctx.app).get('/api/air')).status).toBe(401);
+    const { agent } = await register(ctx.app);
+    const me = await agent.get('/api/auth/me');
+    expect(me.body.config.air_enabled).toBe(true);
+    const res = await agent.get('/api/air');
+    expect(res.status).toBe(200);
+    const text = JSON.stringify(res.body);
+    expect(text).not.toMatch(/secret-token|ha\.local|sensor\./);
   });
 });

@@ -769,8 +769,14 @@ interface SettingsResp {
     email_mode: 'resident' | 'platform';
     require_approval: boolean;
     trust_resident_invites: boolean;
+    aircon_enabled: boolean;
+    odour_enabled: boolean;
+    odour_max_per_day: number;
+    odour_townhouse_blocks: number[];
+    odour_townhouse_units: number;
   };
   ai_available: boolean;
+  aircon_available?: boolean;
 }
 
 export function AdminSettings() {
@@ -779,12 +785,14 @@ export function AdminSettings() {
   const q = useAsync(() => api.get<SettingsResp>('/admin/settings'), []);
   const [s, setS] = useState<SettingsResp | null>(null);
   const [towers, setTowers] = useState('');
+  const [blocks, setBlocks] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   useEffect(() => {
     if (q.data) {
       setS(q.data);
       setTowers(q.data.community.towers.join('\n'));
+      setBlocks((q.data.settings.odour_townhouse_blocks ?? []).join(', '));
     }
   }, [q.data]);
   if (!s) return <div className="page"><Spinner /></div>;
@@ -796,7 +804,7 @@ export function AdminSettings() {
     setError(null);
     setMsg(null);
     try {
-      await api.patch('/admin/settings', { name: s!.community.name, mgmt_email: s!.community.mgmt_email, towers: towers.split('\n').map((t) => t.trim()).filter(Boolean), settings: s!.settings });
+      await api.patch('/admin/settings', { name: s!.community.name, mgmt_email: s!.community.mgmt_email, towers: towers.split('\n').map((t) => t.trim()).filter(Boolean), settings: { ...s!.settings, odour_townhouse_blocks: [...new Set(blocks.split(/[,\s]+/).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 20))].sort((a, b) => a - b) } });
       setMsg('Settings saved.');
     } catch (err) {
       setError(err);
@@ -809,6 +817,13 @@ export function AdminSettings() {
         <h1>Settings</h1>
       </header>
       <form className="stack" onSubmit={save}>
+        <fieldset disabled={!writer} className="panel stack">
+          <h2>Resident tabs</h2>
+          <p className="muted">Choose which optional features residents can see. Turning one off hides its tab; nothing is deleted.</p>
+          <Toggle checked={s.settings.odour_enabled} onChange={(v) => set('odour_enabled', v)} label="Smells tab" hint="Smell reporting. Off hides the tab and stops new reports; existing reports stay visible to admins." />
+          <Toggle checked={s.settings.aircon_enabled} onChange={(v) => set('aircon_enabled', v)} label="AirCon tab" hint={s.aircon_available ? 'Fresh-air temperature and humidity per tower, plus outside conditions, from Home Assistant.' : 'Fresh-air temperature and humidity from Home Assistant. Home Assistant is not connected yet (see the setup guide), so the tab will stay hidden even when this is ticked.'} />
+        </fieldset>
+
         <fieldset disabled={!writer} className="panel stack">
           <h2>Where reports go</h2>
           <Field label="Community name" hint="Shown at the top of the dashboard.">
@@ -870,6 +885,21 @@ export function AdminSettings() {
               </Field>
             ))}
           </div>
+        </fieldset>
+
+        <fieldset disabled={!writer} className="panel stack">
+          <h2>Smell reports</h2>
+          <div className="row">
+            <Field label="Reports per resident per day">
+              <input type="number" min={1} max={100} value={s.settings.odour_max_per_day} onChange={(e) => set('odour_max_per_day', Number(e.target.value))} />
+            </Field>
+            <Field label="Townhouses per block" hint="Numbers offered when someone picks a townhouse block.">
+              <input type="number" min={1} max={40} value={s.settings.odour_townhouse_units} onChange={(e) => set('odour_townhouse_units', Number(e.target.value))} />
+            </Field>
+          </div>
+          <Field label="Townhouse blocks included (comma separated)" hint="For example 1, 2, 3. Leave out blocks you are not tracking yet. Towers come from the towers list above: remove a tower there to hide it from smell reporting.">
+            <input value={blocks} onChange={(e) => setBlocks(e.target.value)} />
+          </Field>
         </fieldset>
         {msg && <Banner tone="ok">{msg}</Banner>}
         <ErrorNote error={error} />

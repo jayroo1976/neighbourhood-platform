@@ -310,6 +310,31 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    name: '008_odour_reports',
+    up: async (db) => {
+      await db.schema.createTable('odour_reports', (t) => {
+        t.text('id').primary();
+        t.text('community_id').notNullable().references('communities.id');
+        t.text('user_id').notNullable().references('users.id');
+        t.text('building').notNullable(); // tower name, or "Townhouse 2"
+        t.text('kind').notNullable().defaultTo('tower'); // tower | townhouse
+        t.integer('level').notNullable().defaultTo(0); // 1-13, 14 = penthouse, 0 = townhouse
+        t.integer('flat').notNullable(); // 1-11 (penthouse 1-5, townhouse 1-40)
+        t.text('smell_type').notNullable();
+        t.integer('strength').notNullable().defaultTo(2); // 1 faint .. 4 unbearable
+        t.text('frequency').notNullable().defaultTo('sometimes'); // once | sometimes | daily
+        t.text('where_noticed').notNullable().defaultTo('inside');
+        t.text('observed_at').notNullable();
+        t.text('notes').notNullable().defaultTo('');
+        t.text('source').notNullable().defaultTo('app'); // app | demo
+        t.text('created_at').notNullable();
+        t.text('deleted_at');
+        t.index(['community_id', 'observed_at']);
+        t.index(['user_id']);
+      });
+    },
+  },
 ];
 
 export async function migrate(db: Db): Promise<void> {

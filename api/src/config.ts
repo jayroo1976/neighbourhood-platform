@@ -55,6 +55,16 @@ export const config = {
     linkTtlDays: Number(env.EMAIL_LINK_TTL_DAYS ?? 30),
   },
 
+  // Read-only link to Home Assistant for the Air tab (fresh-air temperature and humidity per tower, outside temperature).
+  // Off unless HA_URL, HA_TOKEN and HA_AIR_SENSORS are all set. The token never leaves the server.
+  homeAssistant: {
+    url: (env.HA_URL ?? '').replace(/\/$/, ''),
+    token: env.HA_TOKEN ?? '',
+    airSensors: env.HA_AIR_SENSORS ?? '',
+    cacheSeconds: Number(env.HA_CACHE_SECONDS ?? 60),
+    staleMinutes: Number(env.HA_STALE_MINUTES ?? 30),
+  },
+
   ai: {
     enabled: env.AI_SUGGEST_ENABLED === 'true',
     apiKey: env.ANTHROPIC_API_KEY ?? '',

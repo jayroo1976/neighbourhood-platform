@@ -11,8 +11,9 @@ import { csrfGuard, errorHandler, loadSession } from './http';
 import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
 import { aiRouter, incidentsRouter, uploadsRouter } from './routes/incidents';
-import { filesRouter, inboundRouter, kpiRouter } from './routes/misc';
+import { airRouter, filesRouter, inboundRouter, kpiRouter } from './routes/misc';
 import { meRouter, notificationsRouter } from './routes/me';
+import { odourRouter } from './routes/odour';
 
 export function createApp(db: Db): Express {
   const app = express();
@@ -68,6 +69,8 @@ export function createApp(db: Db): Express {
   api.use('/ai', limit(60 * 60_000, 60), aiRouter());
   api.use('/incidents', incidentsRouter());
   api.use('/kpi', kpiRouter());
+  api.use('/air', airRouter());
+  api.use('/odour', odourRouter());
   api.use('/admin', adminRouter());
   app.use('/api/files', filesRouter());
   app.use('/api', api);
@@ -76,7 +79,20 @@ export function createApp(db: Db): Express {
   // Serve the built web client (single container deployment)
   const webDist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(webDist)) {
-    app.use(express.static(webDist, { index: false, maxAge: '1h', setHeaders: (res, p) => p.endsWith('sw.js') && res.setHeader('Cache-Control', 'no-cache') }));
+    app.use(express.static(webDist, { index: false, maxAge: '1h', setHeaders: (res, p) => {
+      if (p.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache');
+      else if (p.endsWith('/face/face-worker.html')) {
+        // The on-device face detector's WebAssembly glue needs unsafe-eval. It runs ONLY in this isolated same-origin page
+        // (no network except our own origin, framed only by the app); the main app keeps its strict policy.
+        res.setHeader(
+          'Content-Security-Policy',
+          "default-src 'none'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; connect-src 'self'; img-src blob: data:; worker-src 'self' blob:; frame-ancestors 'self'; base-uri 'none'; form-action 'none'",
+        );
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+      else if (p.includes('/mediapipe/')) res.setHeader('Cache-Control', 'public, max-age=604800'); // ~7 MB face-detection runtime: fetched once per phone
+    } }));
     const indexPath = path.join(webDist, 'index.html');
     app.get('/incident/:id', async (req, res, next) => {
       try {

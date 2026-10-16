@@ -68,3 +68,25 @@ Admin > System shows the running version/build and a history of starts, updates 
 
 ## Insights panel
 Admin > Reports opens with Insights (last 90 days). Tiles with "Show these" filter the list below. Watch "Saved but not yet emailed": in the default mode the resident sends the email, so reports the resident never confirmed are not yet with management. "Waiting longest for a reply" is the list to chase.
+
+
+## Photo check and the scorecard (2026-10-15)
+- **Photos are covered on the resident's phone.** Residents see a "Check your photo" screen: faces are covered automatically, they can drag boxes over number plates or anything else, and only the covered image is uploaded. You will never see an unredacted original. If a resident reports a face or plate showing, ask them to retake the photo; there is no admin tool to edit an uploaded photo. First use on a phone downloads about 7 MB.
+- **New scorecard panels:** fixes that held first time, time to management closure, reply time by priority, did the problem come back (30/60/90 days), where reports cluster, and evidence behind the figures. Definitions are under "How this is measured" on the page. "Where reports cluster" only shows general areas with at least 2 reports and leaves out private reports.
+
+## AirCon tab (Home Assistant sensors)
+Shown as **AirCon** to residents. Turn it on or off for residents in **Admin > Settings > Resident tabs** (it also needs the setup below). Shows the fresh-air temperature and humidity for each tower and the outside temperature, refreshed every minute, to all signed-in residents. It stays hidden until set up.
+1. In Home Assistant create a **non-admin user** (for example `neighbourhood-readonly`), sign in as it, open its profile and create a **long-lived access token**.
+2. Find the entity ids in HA under Settings > Devices & services > Entities (for example `sensor.mr1_fresh_air_temperature`).
+3. In the Unraid `.env` set `HA_URL` (an address the app container can reach, such as `http://192.168.1.20:8123`), `HA_TOKEN`, and `HA_AIR_SENSORS` as one line of JSON (see docs/configuration.md). Re-apply the compose file.
+4. A sensor id like `sensor.x` is read live. An id like `tower1:fresh_air_temperature` (shown in HA as "Entity not found" in History) is an **imported statistic**: it is read as an hourly average and labelled so. Both kinds can be used together.
+5. Tower names are free text; use the names residents know. A sensor that is missing, `unavailable`, or has not reported for 30 minutes shows as "Sensor not reporting" or "old reading". Each figure shows the exact time of its last reading (Dubai time).
+Temperatures in °F are converted to °C. Readings are shown as recorded; they are not a measurement standard or a finding.
+
+## Smells tab (odour reports)
+Residents log smells under **Smells**; you see exactly which flats under **Admin > Smells**. Neighbours only ever see counts per building and group of levels (fewer than 3 shows as "fewer than 3").
+- **Plan view:** each tower from the top (penthouses) down, flats 1-5 | 6 | 7-11 with the flat type letters. Darker cells mean more reports. Tap a flat to filter the log below; tap again to clear. Townhouse blocks are shown as numbered tiles.
+- **Patterns to look at:** the same flat position reported on 3 or more levels (a vertical stack, so think shared riser or duct), and 3 or more flats reporting on one level (think corridor or that floor's plant). They are prompts for investigation, not findings.
+- **Filters:** 7, 30, 90 days or all time, smell type, where it was noticed. **Download CSV** gives every report with level, flat and type (audit-logged). Admins (not committee) can delete a report.
+- **Settings > Resident tabs:** tick or untick **Smells tab** (and **AirCon tab**) to show or hide the tab for residents. **Settings > Smell reports:** reports per resident per day; townhouses per block; which townhouse blocks to include (for example `1, 2, 3`). To hide a tower (such as MR 4-6) remove it from **Towers** on the same page.
+- Demo data from `npm run seed` includes smell reports; **Remove demo data** deletes them. A resident's smell reports are in their data export and are deleted if they erase their account.
