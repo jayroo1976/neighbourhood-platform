@@ -1,6 +1,6 @@
 # Status (update every build)
 
-**Last updated:** 2026-10-16 (AirCon gauges and full uHoo readings) · **Version:** 0.8.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
+**Last updated:** 2026-10-16 (AirCon all-tower temperature and humidity charts, last-known fallback) · **Version:** 0.8.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
 
 ## Works and has been verified
 - API typechecks and builds; 47 automated tests pass (`npm test`): Smells tab (floor-plan mapping, validation, daily limit, neighbour view hides flats and small counts, admin-only, CSV safety, switch off, export, erasure, demo wipe); TOTP vector, signed links, tamper detection, auth/lockout/CSRF, full report lifecycle, inbound email webhook, affects-me rules and admin toggle, privacy/blurring/private reports, EXIF stripping, data export/erasure, admin link duplicates + roles, KPI maths, AirCon tab (good/fair/poor bands, tower prefix expansion, admin on/off, imported hourly statistics, fake Home Assistant: °F conversion, unavailable/old sensors, cache, unreachable, sign-in required, nothing sensitive in the response).
@@ -9,6 +9,7 @@
 - Sleep-mode gate (start page, 503 "asleep", status/wake endpoints, normal startup) tested locally.
 
 ## Not verified (assume it needs testing)
+- **AirCon all-tower charts, tile layout and last-known fallback** (2026-10-16): checked with mock data in headless Chromium and a fake Home Assistant in tests. Not against the real HA history for the uHoo entities or the `tower1:*` statistics, not on real phones. Needs HA to hold 72 hours of history for each sensor; a sensor with none shows no fallback. Chart wording is not lawyer-reviewed.
 - **Smells tab** (2026-10-15): checked on SQLite and in headless Chromium only. Not on real phones, not on Postgres (migration `008_odour_reports`). The flat layout (11 flats a level, 5 penthouses, 7 townhouses per block, blocks 1-3) is from James's plans and a guess for the townhouses: confirm. Wording not lawyer-reviewed.
 - **AirCon gauges** (2026-10-16): the reference bands (uHoo, WHO 2021, US EPA) are not lawyer-reviewed and the Fair margins for temperature and humidity are our own. The mould and influenza index bands are assumed to match the virus index. Tower 2 nitrogen dioxide currently reads Poor: confirm the sensor before residents rely on it.
 - **AirCon tab against the real Home Assistant** (2026-10-15): built and checked only against a fake HA, including the WebSocket statistics read for `tower1:*` ids (the exact ids come from screenshots). Needs the real URL, a non-admin token, the real entity ids, and a check that the Unraid app container can reach HA.
