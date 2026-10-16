@@ -7,6 +7,7 @@ import { signFileLink, verifyFileLink, canonicalJson, passwordProblem } from '..
 import { totpAt, verifyTotp } from '../src/security/totp';
 import { extractCaseNumber } from '../src/services/incidents';
 import { clearAirCache, getAir, parseLayout, type WsCtor } from '../src/services/air';
+import { levelFor } from '../src/services/airScales';
 import { config } from '../src/config';
 import { H, PASSWORD, createReport, makeStaff, register, setup, uploadPhoto } from './helpers';
 
@@ -646,6 +647,59 @@ describe('air tab (Home Assistant)', () => {
     expect(seen).toHaveLength(6);
     await getAir(fake); // served from cache
     expect(seen).toHaveLength(6);
+  });
+
+  it('expands a tower prefix to every sensor, rates each against the reference bands and leaves out sensors that do not exist', async () => {
+    const P = 'sensor.outside_tower_2_fresh_air_';
+    const t2 = (v: string, unit?: string) => ({ state: v, last_updated: fresh, attributes: unit ? { unit_of_measurement: unit } : {} });
+    Object.assign(states, {
+      [`${P}temperature`]: t2('17.7', '°C'), [`${P}humidity`]: t2('61.2', '%'), [`${P}carbon_dioxide`]: t2('473.2', 'ppm'), [`${P}pm2_5`]: t2('5.2', 'µg/m³'),
+      [`${P}nitrogen_dioxide`]: t2('140.8', 'ppb'), [`${P}virus_index`]: t2('3.0'), [`${P}mold_index`]: t2('7'), [`${P}volatile_organic_compounds`]: t2('47.6', 'ppb'), [`${P}pressure`]: t2('1006.5', 'hPa'),
+    });
+    set('http://ha.local:8123', 'tok', JSON.stringify({ towers: [{ name: 'MR 2', prefix: P }] }));
+    const a = await getAir(fake);
+    const m = a.towers![0].metrics!;
+    expect(a.towers![0].temperature).toMatchObject({ value: 17.7, level: 'fair' });
+    expect(a.towers![0].humidity).toMatchObject({ value: 61.2, level: 'fair' });
+    expect(m.co2).toMatchObject({ value: 473.2, unit: 'ppm', level: 'good' });
+    expect(m.pm25).toMatchObject({ value: 5.2, level: 'good' });
+    expect(m.no2).toMatchObject({ value: 140.8, level: 'poor' });
+    expect(m.virus).toMatchObject({ value: 3, level: 'good' });
+    expect(m.mold).toMatchObject({ value: 7, level: 'poor' });
+    expect(m.voc).toMatchObject({ value: 47.6, level: null });
+    expect(m.pressure).toMatchObject({ value: 1006.5, level: null });
+    expect(m.co).toBeUndefined(); // not in Home Assistant, so no tile
+    expect(m.o3).toBeUndefined();
+    expect(a.scales!.co2).toMatchObject({ unit: 'ppm' });
+    expect(JSON.stringify(a)).not.toMatch(/"sensor\.|outside_tower_2/);
+    for (const k of Object.keys(states).filter((x) => x.startsWith(P))) delete states[k];
+  });
+
+  it('lets explicit sensor ids override the prefix, and rejects a bad prefix, metric name or id', () => {
+    const l = parseLayout(JSON.stringify({ towers: [{ name: 'A', prefix: 'sensor.a_', humidity: 'sensor.other_hum', metrics: { co2: 'sensor.my_co2' } }] }))!;
+    expect(l.towers[0]).toMatchObject({ temperature: 'sensor.a_temperature', humidity: 'sensor.other_hum' });
+    expect(l.towers[0].metrics).toMatchObject({ co2: 'sensor.my_co2', pm25: 'sensor.a_pm2_5', mold: 'sensor.a_mold_index' });
+    expect(parseLayout(JSON.stringify({ towers: [{ name: 'A', prefix: '../x_' }] }))).toBeNull();
+    expect(parseLayout(JSON.stringify({ towers: [{ name: 'A', prefix: 'sensor.a' }] }))).toBeNull();
+    expect(parseLayout(JSON.stringify({ towers: [{ name: 'A', metrics: { radon: 'sensor.x' } }] }))).toBeNull();
+    expect(parseLayout(JSON.stringify({ towers: [{ name: 'A', metrics: { co2: '../x' } }] }))).toBeNull();
+  });
+
+  it('bands: boundaries count in the higher band, both ends of two-sided ranges are rated, unrated sensors have no level', () => {
+    expect(levelFor('co2', 799)).toBe('good');
+    expect(levelFor('co2', 800)).toBe('fair');
+    expect(levelFor('co2', 1000)).toBe('poor');
+    expect(levelFor('temperature', 18)).toBe('fair');
+    expect(levelFor('temperature', 21)).toBe('good');
+    expect(levelFor('temperature', 30)).toBe('poor');
+    expect(levelFor('humidity', 20)).toBe('poor');
+    expect(levelFor('humidity', 65)).toBe('fair');
+    expect(levelFor('virus', 3)).toBe('good');
+    expect(levelFor('virus', 4)).toBe('fair');
+    expect(levelFor('virus', 7)).toBe('poor');
+    expect(levelFor('pm25', 1e6)).toBe('poor');
+    expect(levelFor('voc', 100)).toBeNull();
+    expect(levelFor('co2', null)).toBeNull();
   });
 
   it('says so, and keeps old figures marked, when Home Assistant cannot be reached', async () => {

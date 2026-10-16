@@ -1,6 +1,6 @@
 {
   "name": "neighbourhood-platform",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "description": "Resident-run incident reporting and accountability platform for residential communities",
   "workspaces": ["api", "web"],

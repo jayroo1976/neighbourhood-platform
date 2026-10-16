@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { EXTRA_KEYS, SCALES, SUFFIX, UNRATED, levelFor, type ExtraKey, type Level, type MetricKey, type Scale } from './airScales';
 
 /**
  * Air tab: fresh-air temperature and humidity in each tower, plus the outside temperature, read from the
@@ -14,6 +15,15 @@ export interface AirReading {
   stale: boolean;
   /** 'hourly' = the latest hourly average of imported long-term statistics (id written `source:name`), otherwise a live sensor */
   kind?: 'live' | 'hourly';
+  /** good / fair / poor against the reference bands in `scales`; absent for outside figures and unrated sensors */
+  level?: Level | null;
+}
+export interface AirTower {
+  name: string;
+  temperature: AirReading;
+  humidity: AirReading;
+  /** extra sensors this tower has (carbon dioxide, fine dust, ...); a sensor that does not exist in Home Assistant is left out */
+  metrics?: Partial<Record<ExtraKey, AirReading>>;
 }
 export interface AirSummary {
   enabled: boolean;
@@ -21,12 +31,14 @@ export interface AirSummary {
   unreachable?: boolean;
   fetched_at?: string;
   outside?: { temperature: AirReading; humidity: AirReading };
-  towers?: { name: string; temperature: AirReading; humidity: AirReading }[];
+  towers?: AirTower[];
+  /** reference bands for the gauges, with where each comes from */
+  scales?: Partial<Record<MetricKey, Scale | { label: string; unit: string; basis: string }>>;
 }
 
 interface Layout {
   outside?: { temperature?: string; humidity?: string };
-  towers: { name: string; temperature?: string; humidity?: string }[];
+  towers: { name: string; temperature?: string; humidity?: string; metrics: Partial<Record<ExtraKey, string>> }[];
 }
 
 const ENTITY = /^[a-z0-9_]+\.[a-z0-9_]+$/;
@@ -34,15 +46,37 @@ const ENTITY = /^[a-z0-9_]+\.[a-z0-9_]+$/;
 const STAT = /^[a-z0-9_]+:[a-z0-9_]+$/;
 const isStat = (id: string | undefined): id is string => !!id && STAT.test(id);
 
+/** A tower's `prefix` is the start of its entity ids, for example "sensor.outside_tower_2_fresh_air_"; it expands to every sensor the uHoo integration creates. */
+const PREFIX = /^[a-z0-9_]+\.[a-z0-9_]*_$/;
+
 /** Parses HA_AIR_SENSORS. Returns null when empty or invalid so the tab simply stays off. */
 export function parseLayout(raw: string): Layout | null {
   if (!raw.trim()) return null;
   try {
-    const j = JSON.parse(raw) as Layout;
+    const j = JSON.parse(raw) as { outside?: { temperature?: string; humidity?: string }; towers?: Record<string, unknown>[] };
     const ok = (id: unknown) => id === undefined || (typeof id === 'string' && (ENTITY.test(id) || STAT.test(id)));
     if (!j || !Array.isArray(j.towers) || !ok(j.outside?.temperature) || !ok(j.outside?.humidity)) return null;
-    for (const t of j.towers) if (typeof t?.name !== 'string' || !t.name || !ok(t.temperature) || !ok(t.humidity)) return null;
-    return { outside: j.outside, towers: j.towers.map((t) => ({ name: t.name.slice(0, 40), temperature: t.temperature, humidity: t.humidity })) };
+    const towers: Layout['towers'] = [];
+    for (const t of j.towers) {
+      if (typeof t?.name !== 'string' || !t.name || !ok(t.temperature) || !ok(t.humidity)) return null;
+      if (t.prefix !== undefined && (typeof t.prefix !== 'string' || !PREFIX.test(t.prefix))) return null;
+      const given = (t.metrics ?? {}) as Record<string, unknown>;
+      if (typeof given !== 'object' || Array.isArray(given)) return null;
+      for (const [k, v] of Object.entries(given)) if (!(EXTRA_KEYS as readonly string[]).includes(k) || typeof v !== 'string' || !ok(v)) return null;
+      const prefix = t.prefix as string | undefined;
+      const metrics: Partial<Record<ExtraKey, string>> = {};
+      for (const k of EXTRA_KEYS) {
+        const id = (given[k] as string | undefined) ?? (prefix ? prefix + SUFFIX[k] : undefined);
+        if (id) metrics[k] = id;
+      }
+      towers.push({
+        name: t.name.slice(0, 40),
+        temperature: (t.temperature as string | undefined) ?? (prefix ? prefix + SUFFIX.temperature : undefined),
+        humidity: (t.humidity as string | undefined) ?? (prefix ? prefix + SUFFIX.humidity : undefined),
+        metrics,
+      });
+    }
+    return { outside: j.outside, towers };
   } catch {
     return null;
   }
@@ -180,7 +214,17 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
   if (!layout) return { enabled: false };
   const now = Date.now();
   if (cache && now - cache.at < config.homeAssistant.cacheSeconds * 1000) return cache.data;
-  const ids = [layout.outside?.temperature, layout.outside?.humidity, ...layout.towers.flatMap((t) => [t.temperature, t.humidity])];
+  // one flat list of sensor ids: outside (2), then per tower temperature, humidity and any extras
+  const slots: { id: string | undefined; tower?: number; key?: MetricKey }[] = [
+    { id: layout.outside?.temperature },
+    { id: layout.outside?.humidity },
+    ...layout.towers.flatMap((t, i) => [
+      { id: t.temperature, tower: i, key: 'temperature' as MetricKey },
+      { id: t.humidity, tower: i, key: 'humidity' as MetricKey },
+      ...EXTRA_KEYS.filter((k) => t.metrics[k]).map((k) => ({ id: t.metrics[k], tower: i, key: k as MetricKey })),
+    ]),
+  ];
+  const ids = slots.map((x) => x.id);
   try {
     // live sensors over REST, imported hourly statistics over the WebSocket API
     let statsFailed = false;
@@ -195,12 +239,25 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
       if (isStat(id)) return stats.get(id) ?? { ...EMPTY, kind: 'hourly' };
       return live[i];
     };
+    const towers: AirTower[] = layout.towers.map((t) => ({ name: t.name, temperature: { ...EMPTY }, humidity: { ...EMPTY } }));
+    slots.forEach((slot, i) => {
+      if (slot.tower === undefined || !slot.key) return;
+      const r = at(i);
+      const rated: AirReading = { ...r, level: levelFor(slot.key, r.value) };
+      const tw = towers[slot.tower];
+      if (slot.key === 'temperature' || slot.key === 'humidity') tw[slot.key] = rated;
+      else if (r.value != null || r.updated_at) (tw.metrics ??= {})[slot.key as ExtraKey] = rated; // a sensor that does not exist is not shown
+    });
+    const scales: NonNullable<AirSummary['scales']> = {};
+    for (const [k, v] of Object.entries(SCALES)) scales[k as MetricKey] = v;
+    for (const [k, v] of Object.entries(UNRATED)) scales[k as MetricKey] = v;
     const data: AirSummary = {
       enabled: true,
       fetched_at: new Date(now).toISOString(),
       ...(statsFailed ? { unreachable: true } : {}),
       outside: { temperature: at(0), humidity: at(1) },
-      towers: layout.towers.map((t, i) => ({ name: t.name, temperature: at(2 + i * 2), humidity: at(3 + i * 2) })),
+      towers,
+      scales,
     };
     if (!statsFailed) cache = { at: now, data };
     return data;
