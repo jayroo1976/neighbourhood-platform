@@ -62,7 +62,7 @@ export const config = {
     token: env.HA_TOKEN ?? '',
     airSensors: env.HA_AIR_SENSORS ?? '',
     cacheSeconds: Number(env.HA_CACHE_SECONDS ?? 60),
-    staleMinutes: Number(env.HA_STALE_MINUTES ?? 30),
+    staleMinutes: Number(env.HA_STALE_MINUTES ?? 120),
   },
 
   ai: {
