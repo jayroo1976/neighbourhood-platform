@@ -18,7 +18,7 @@ export interface AirReading {
   /** good / fair / poor against the reference bands in `scales`; absent for outside figures and unrated sensors */
   level?: Level | null;
 }
-/** Last 24 hours, one value per hour (hour start, UTC) for each sensor a tower has; null where an hour has no reading. Used for the comparison chart. */
+/** Last 72 hours, one value per hour (hour start, UTC) per sensor; null where an hour has no reading. Used for the comparison charts and to fall back to a sensor's last known reading. */
 export interface AirHistory {
   hours: string[];
   series: Partial<Record<MetricKey, (number | null)[]>>;
@@ -27,7 +27,7 @@ export interface AirTower {
   name: string;
   temperature: AirReading;
   humidity: AirReading;
-  /** hourly averages for the last 24 hours (temperature, humidity and any extras); absent when Home Assistant has no history for this tower */
+  /** hourly averages for the last 72 hours, temperature and humidity only (for the comparison charts); absent when Home Assistant has no history for this tower */
   history?: AirHistory;
   /** extra sensors this tower has (carbon dioxide, fine dust, ...); a sensor that does not exist in Home Assistant is left out */
   metrics?: Partial<Record<ExtraKey, AirReading>>;
@@ -212,10 +212,10 @@ export async function readStatistics(ids: string[], now: number, Ctor: WsCtor = 
   });
 }
 
-// ---------------------------------------------------------------- 24-hour history for the comparison chart
+// ---------------------------------------------------------------- 72-hour history for the comparison charts
 
 const HOUR = 3_600_000;
-const HISTORY_HOURS = 24;
+const HISTORY_HOURS = 72;
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const toC = (v: number) => ((v - 32) * 5) / 9;
 
@@ -311,7 +311,29 @@ function readStatisticSeries(ids: string[], now: number, hours: number[], Ctor: 
   });
 }
 
-/** Builds each tower's 24-hour history. Never throws: a failure just means no chart. */
+/**
+ * A sensor with no current reading (unavailable, or missing from the live read) shows its last known reading from the
+ * last 72 hours instead, marked as old with the hour it came from. Sensors with a current reading are untouched.
+ */
+function useLastKnown(tw: AirTower, h: AirHistory): void {
+  for (const key of ['temperature', 'humidity', ...EXTRA_KEYS] as MetricKey[]) {
+    const vals = h.series[key];
+    if (!vals) continue;
+    let idx = -1;
+    vals.forEach((v, i) => {
+      if (v != null) idx = i;
+    });
+    if (idx < 0) continue;
+    const current = key === 'temperature' || key === 'humidity' ? tw[key] : tw.metrics?.[key as ExtraKey];
+    if (current && current.value != null) continue;
+    const unit = key === 'temperature' ? '°C' : key === 'humidity' ? '%' : (SCALES[key] ?? UNRATED[key])?.unit ?? null;
+    const reading: AirReading = { value: vals[idx], unit: unit || null, updated_at: h.hours[idx], stale: true, kind: 'hourly' };
+    if (key === 'temperature' || key === 'humidity') tw[key] = reading;
+    else (tw.metrics ??= {})[key as ExtraKey] = reading;
+  }
+}
+
+/** Builds each tower's 72-hour history. Never throws: a failure just means no chart. */
 async function readHistory(layout: Layout, slots: { id: string | undefined; tower?: number; key?: MetricKey }[], fetcher: FetchLike, now: number, fahrenheit: Set<string>, wsCtor?: WsCtor): Promise<(AirHistory | undefined)[]> {
   const hours = historyHours(now);
   const ids = [...new Set(slots.filter((x) => x.tower !== undefined).map((x) => x.id).filter((x): x is string => !!x))];
@@ -375,7 +397,12 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
     });
     const histories = await readHistory(layout, slots, fetcher, now, fahrenheit, wsCtor).catch(() => []);
     histories.forEach((h, i) => {
-      if (h) towers[i].history = h;
+      if (!h) return;
+      useLastKnown(towers[i], h);
+      // only temperature and humidity go to the page (the two comparison charts); the rest was only needed for the fallback above
+      const series: AirHistory['series'] = {};
+      for (const k of ['temperature', 'humidity'] as const) if (h.series[k]) series[k] = h.series[k];
+      if (Object.keys(series).length) towers[i].history = { hours: h.hours, series };
     });
     const scales: NonNullable<AirSummary['scales']> = {};
     for (const [k, v] of Object.entries(SCALES)) scales[k as MetricKey] = v;

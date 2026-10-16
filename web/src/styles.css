@@ -64,8 +64,6 @@ img{max-width:100%}
 input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea{width:100%;padding:.65rem .75rem;border:1px solid #cdbf9f;border-radius:10px;background:#fff;font:inherit;color:inherit}
 textarea{resize:vertical}
 .chips{display:flex;gap:.4rem;overflow-x:auto;padding:.2rem 0}.chips.wrap{flex-wrap:wrap;overflow:visible}
-.chip{flex:none;min-height:36px;padding:.3rem .85rem;border:1px solid #cdbf9f;border-radius:999px;background:var(--paper);font:inherit;font-size:.9rem;cursor:pointer;color:var(--ink)}
-.chip.on{background:var(--teal);border-color:var(--teal);color:#fff}
 .seg{display:inline-flex;border:1px solid var(--teal);border-radius:10px;overflow:hidden}
 .filters{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem}.filters>*{flex:1 1 150px}
 .toggle{display:flex;gap:.75rem;align-items:flex-start;cursor:pointer}.toggle input{width:22px;height:22px;margin-top:.15rem;accent-color:var(--teal);flex:none}
@@ -240,6 +238,8 @@ details summary{cursor:pointer;font-weight:600}
 .gauge .pin{position:absolute;top:-4px;width:4px;height:18px;margin-left:-2px;border-radius:2px;background:var(--ink);box-shadow:0 0 0 2px var(--paper)}
 .gauge-level{display:block;font-size:.8rem;font-weight:700}.lvl-good .gauge-level{color:var(--ok)}.lvl-fair .gauge-level{color:var(--mid)}.lvl-poor .gauge-level{color:var(--bad)}
 
+.chip{flex:none;min-height:36px;padding:.3rem .85rem;border:1px solid #cdbf9f;border-radius:999px;background:var(--paper);font:inherit;font-size:.9rem;cursor:pointer;color:var(--ink)}
+.chip.on{background:var(--teal);border-color:var(--teal);color:#fff}
 /* AirCon: same-size main tiles in every tower, small tiles for the extra sensors, 24-hour comparison chart */
 .tiles-main{grid-template-columns:repeat(2,minmax(0,1fr))}
 .tiles-small{grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:.5rem}
@@ -248,12 +248,7 @@ details summary{cursor:pointer;font-weight:600}
 .tiles-small .tile b{font-size:1.05rem;white-space:nowrap}
 .tiles-small .gauge{height:7px;margin:.35rem 0 .25rem}.tiles-small .gauge .pin{top:-3.5px;width:3px;height:14px;margin-left:-1.5px}
 .tiles-small .gauge-level{font-size:.72rem}.tiles-small .tile-sub{font-size:.68rem;display:block}
-.trend{border-top:1px solid var(--line);margin-top:.2rem;padding-top:.8rem}
-.trend-head{display:flex;flex-wrap:wrap;gap:.5rem .9rem;align-items:center;justify-content:space-between;margin-bottom:.4rem}
-.trend h4{margin:0;font:700 .95rem Georgia,serif;color:var(--teal)}
-.chips{display:flex;flex-wrap:wrap;gap:.35rem}
-.chip{font:600 .78rem system-ui,sans-serif;padding:.3rem .65rem;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
-.chip.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.trend h3{margin:.1rem 0 .6rem}
 .trend-svg{display:block;width:100%;height:auto;touch-action:pan-y;border-radius:8px;background:#fbf7ec}
 .trend-svg:focus-visible{outline:3px solid var(--teal)}
 .trend-svg .grid{stroke:var(--line);stroke-width:1}
@@ -263,3 +258,5 @@ details summary{cursor:pointer;font-weight:600}
 .trend-key li{display:grid;grid-template-columns:26px 1fr auto;gap:.5rem;align-items:center;font-size:.85rem}
 .trend-val{font-weight:700;font-variant-numeric:tabular-nums}
 .trend-note{margin:.2rem 0 0}
+.trend-svg .goodband{fill:var(--ok);opacity:.12}.trend-svg .axis.day{font-weight:700}
+@media(max-width:520px){.trend-svg .axis{font-size:19px}.trend-svg{min-height:200px}}

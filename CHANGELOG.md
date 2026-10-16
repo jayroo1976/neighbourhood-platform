@@ -1,5 +1,11 @@
 # Changelog (newest first)
 
+## 2026-10-16 (later) - AirCon: two all-tower charts instead of a chart per tower (v0.8.2)
+- The per-tower chart and sensor picker are gone. The tower panels (same-size temperature and humidity tiles, small tiles for extra sensors) are unchanged. Under them are two charts: fresh-air temperature for MR 1, MR 2 and MR 3 on one chart, and fresh-air humidity for the three towers on one chart. Real values on the axis, last 72 hours of hourly averages, the Good band shaded, point at the chart (or arrow keys) for the exact figure per tower.
+- Last known reading: a sensor with no current reading now shows its last known reading from the last 72 hours (tile marked "old reading" with the hour it came from) instead of a dash. On the charts the line stops at the last reading (ringed point) and a dotted line carries that figure forward to now. Applies to every sensor, including the small tiles.
+- API: history window is 72 hours (was 24) and `towers[].history` now carries only temperature and humidity; the other sensors' history is used server-side for the last-known fallback and not sent. Tests updated (48 pass).
+- Untested against the real Home Assistant history or on real phones. The y-axis uses whole-number steps.
+
 ## 2026-10-16 - AirCon: same-size main tiles, small sensor tiles, 24-hour comparison chart (v0.8.1)
 - Every tower now shows Fresh-air temperature and humidity as the same two large tiles (MR 2 was shrinking them to fit its extra sensors). The extra uHoo sensors (CO2, PM2.5, VOC, CO, NO2, ozone, pressure, virus, influenza, mould) sit in a row of small tiles underneath, with a short "Read 21:08" note instead of the long one.
 - New chart per tower: the last 24 hours (hourly averages) of temperature and humidity, plus one other sensor chosen with a button (default: carbon dioxide). Each line is scaled to its own 24-hour range so the shapes can be compared; the real range and the exact value for any hour (point at it, or arrow keys) are written beside it. Towers with only temperature and humidity get the two-line chart. Plain SVG, no new library.

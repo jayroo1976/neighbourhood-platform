@@ -675,7 +675,7 @@ describe('air tab (Home Assistant)', () => {
     for (const k of Object.keys(states).filter((x) => x.startsWith(P))) delete states[k];
   });
 
-  it('adds a 24-hour hourly history per tower for the comparison chart, converting °F and leaving it out when there is none', async () => {
+  it('adds a 72-hour hourly temperature and humidity history per tower for the comparison charts, converting °F, and falls back to the last known reading when a sensor has no current one', async () => {
     set('http://ha.local:8123', 'tok', JSON.stringify({ towers: [{ name: 'MR 2', temperature: 'sensor.h_temp', humidity: 'sensor.h_hum', metrics: { co2: 'sensor.h_co2' } }, { name: 'MR 3', temperature: 'sensor.none_temp' }] }));
     const hourStart = Math.floor(Date.now() / 3_600_000) * 3_600_000;
     const iso = (hoursAgo: number, mins = 0) => new Date(hourStart - hoursAgo * 3_600_000 + mins * 60_000).toISOString();
@@ -690,19 +690,19 @@ describe('air tab (Home Assistant)', () => {
           rows('sensor.h_co2', [[2, 10, '600'], [2, 40, 'unavailable'], [0, 5, '700']]),
         ] };
       }
-      const live: Record<string, { state: string; attributes: object }> = { 'sensor.h_temp': { state: '78.8', attributes: { unit_of_measurement: '°F' } }, 'sensor.h_hum': { state: '52', attributes: { unit_of_measurement: '%' } }, 'sensor.h_co2': { state: '700', attributes: { unit_of_measurement: 'ppm' } } };
+      const live: Record<string, { state: string; attributes: object }> = { 'sensor.h_temp': { state: '78.8', attributes: { unit_of_measurement: '°F' } }, 'sensor.h_hum': { state: '52', attributes: { unit_of_measurement: '%' } }, 'sensor.h_co2': { state: 'unavailable', attributes: { unit_of_measurement: 'ppm' } } };
       const st = live[url.split('/api/states/')[1]];
       return st ? { ok: true, status: 200, json: async () => ({ ...st, last_updated: new Date().toISOString() }) } : { ok: false, status: 404, json: async () => ({}) };
     };
     const a = await getAir(withHistory);
     const h = a.towers![0].history!;
-    expect(h.hours).toHaveLength(25);
+    expect(h.hours).toHaveLength(73);
     expect(h.hours.at(-1)).toBe(new Date(hourStart).toISOString());
     expect(h.series.temperature!.at(-2)).toBe(26); // 78.8 °F
-    expect(h.series.temperature![21]).toBe(24.5); // mean of 75.2 °F and 77 °F, in °C
+    expect(h.series.temperature![69]).toBe(24.5); // mean of 75.2 °F and 77 °F, in °C
     expect(h.series.humidity!.at(-2)).toBe(52);
-    expect(h.series.co2![22]).toBe(600); // 'unavailable' is skipped
-    expect(h.series.co2!.at(-1)).toBe(700);
+    expect(Object.keys(h.series).sort()).toEqual(['humidity', 'temperature']); // extras are not sent to the page
+    expect(a.towers![0].metrics!.co2).toMatchObject({ value: 700, unit: 'ppm', stale: true, kind: 'hourly', updated_at: new Date(hourStart).toISOString() }); // sensor unavailable now: last known reading
     expect(a.towers![1].history).toBeUndefined(); // no history rows for that tower: no chart
     expect(historyUrl).toContain('minimal_response');
     expect(JSON.stringify(a)).not.toMatch(/"sensor\.|h_temp|h_co2/);

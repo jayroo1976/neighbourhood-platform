@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { Banner, ErrorNote, Spinner } from '../ui';
 
@@ -106,76 +106,70 @@ function Gauge({ k, r, scale, now, compact }: { k: MetricKey; r: Reading; scale:
   );
 }
 
-const SERIES_STYLE: Record<'temperature' | 'humidity' | 'metric', { color: string; dash?: string; width: number }> = {
-  temperature: { color: '#c97a0a', width: 2.5 },
-  humidity: { color: '#2c6a8f', dash: '7 4', width: 2.5 },
-  metric: { color: '#0f4c4c', width: 3.5 },
-};
+const TOWER_STYLE = [
+  { color: '#0f4c4c', dash: undefined },
+  { color: '#c97a0a', dash: '8 4' },
+  { color: '#2c6a8f', dash: '2 4' },
+];
 const dubai = (iso: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', hour12: false, ...o }).format(new Date(iso));
 
 /**
- * 24-hour comparison: temperature and humidity against one other sensor the viewer picks. Each line is drawn against its own
- * 24-hour low-to-high range so the shapes can be compared; the real range of each is written in the key and the exact figures
- * for any hour appear under the chart when you point at it (or use the arrow keys).
+ * One chart for one measure (fresh-air temperature or humidity) with a line per tower on the same axis, last 72 hours of
+ * hourly averages. A tower with no current reading keeps its last known reading: the line stops at that reading (ring marker)
+ * and a dotted line carries the figure forward to now. The key states each tower's latest figure and when it was read; pointing
+ * at the chart (or using the arrow keys) gives the exact figure for each tower at that hour.
  */
-function TrendChart({ name, history, scales, units }: { name: string; history: History; scales: Partial<Record<MetricKey, Scale>>; units: Partial<Record<MetricKey, string>> }) {
-  const options = EXTRA_ORDER.filter((k) => history.series[k] && scales[k]);
-  const [pick, setPick] = useState<MetricKey | null>(options[0] ?? null);
+function CompareChart({ title, k, towers, scale }: { title: string; k: 'temperature' | 'humidity'; towers: NonNullable<AirData['towers']>; scale?: Scale }) {
+  const withData = towers.map((t, i) => ({ t, i, vals: t.history?.series[k] ?? null })).filter((x) => x.vals && x.vals.some((v) => v != null));
+  const hours = towers.find((t) => t.history)?.history?.hours;
   const [hover, setHover] = useState<number | null>(null);
-  const metric = pick && options.includes(pick as (typeof EXTRA_ORDER)[number]) ? pick : null;
+  if (!hours || !withData.length) return null;
 
-  const W = 640, H = 210, L = 10, R = 10, T = 12, B = 26;
-  const n = history.hours.length;
+  const unit = k === 'temperature' ? '°C' : '%';
+  const W = 720, H = 280, L = 46, R = 14, T = 14, B = 30;
+  const n = hours.length;
   const x = (i: number) => L + (i / (n - 1)) * (W - L - R);
-  const lines = useMemo(() => {
-    const keys: { key: MetricKey; style: 'temperature' | 'humidity' | 'metric' }[] = [];
-    if (history.series.temperature) keys.push({ key: 'temperature', style: 'temperature' });
-    if (history.series.humidity) keys.push({ key: 'humidity', style: 'humidity' });
-    if (metric && history.series[metric]) keys.push({ key: metric, style: 'metric' });
-    return keys.map(({ key, style }) => {
-      const vals = history.series[key]!;
-      const nums = vals.filter((v): v is number => v != null);
-      const lo = Math.min(...nums), hi = Math.max(...nums);
-      const y = (v: number) => T + (1 - (hi === lo ? 0.5 : (v - lo) / (hi - lo))) * (H - T - B);
-      let d = '';
-      vals.forEach((v, i) => {
-        d += v == null ? '' : `${d && vals[i - 1] != null ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)} `;
-      });
-      return { key, style, vals, lo, hi, d, y };
-    });
-  }, [history, metric]);
-
-  if (!lines.length) return null;
-  const label = (k: MetricKey) => (k === 'temperature' ? 'Temperature' : k === 'humidity' ? 'Humidity' : scales[k]?.label ?? k);
-  const unit = (k: MetricKey) => { const u = units[k] ?? scales[k]?.unit ?? ''; return u && u !== '%' && u !== '°C' ? ` ${u}` : u; };
-  const fmt = (k: MetricKey, v: number | null) => (v == null ? 'no reading' : `${v}${unit(k)}`);
+  const all = withData.flatMap((x) => x.vals!.filter((v): v is number => v != null));
+  const good = scale?.segments?.find((g) => g.level === 'good');
+  let lo = Math.min(...all, good?.from ?? Infinity), hi = Math.max(...all, good?.to ?? -Infinity);
+  const pad = Math.max((hi - lo) * 0.08, k === 'temperature' ? 0.5 : 2);
+  const span = hi - lo + 2 * pad;
+  const step = [1, 2, 5, 10].find((st) => span / st <= 6) ?? 20;
+  lo = Math.floor((lo - pad) / step) * step;
+  hi = Math.ceil((hi + pad) / step) * step;
+  const y = (v: number) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const yTicks: number[] = [];
+  for (let v = lo; v <= hi + 1e-9; v += step) yTicks.push(v);
+  const ticks = hours.map((h, i) => ({ h, i })).filter(({ h }) => Number(dubai(h, { hour: '2-digit' })) % 12 === 0);
   const at = hover ?? n - 1;
-  const ticks = history.hours.map((h, i) => ({ h, i })).filter(({ h }) => Number(dubai(h, { hour: '2-digit' })) % 6 === 0);
+
+  const lines = withData.map(({ t, i, vals }) => {
+    let d = '';
+    let last = -1;
+    vals!.forEach((v, j) => {
+      if (v == null) return;
+      d += `${d ? 'L' : 'M'}${x(j).toFixed(1)} ${y(v).toFixed(1)} `; // gaps are bridged: the line carries on from the last reading
+      last = j;
+    });
+    const ended = last < n - 2; // no reading in the latest hours: carry the last known figure forward, dotted
+    return { name: t.name, style: TOWER_STYLE[i % TOWER_STYLE.length], vals: vals!, d, last, ended, lastV: vals![last]! };
+  });
 
   const move = (clientX: number, el: SVGSVGElement) => {
     const box = el.getBoundingClientRect();
     const px = ((clientX - box.left) / box.width) * W;
     setHover(Math.min(n - 1, Math.max(0, Math.round(((px - L) / (W - L - R)) * (n - 1)))));
   };
-  const summary = lines.map((l) => `${label(l.key)} ${fmt(l.key, l.vals.filter((v) => v != null).at(-1) ?? null)}`).join(', ');
+  const summary = lines.map((l) => `${l.name} ${l.lastV}${unit}`).join(', ');
 
   return (
-    <div className="trend" aria-label={`${name} last 24 hours`}>
-      <div className="trend-head">
-        <h4>Last 24 hours: temperature and humidity against</h4>
-        {options.length > 0 && (
-          <div className="chips" role="group" aria-label="Compare against">
-            {options.map((k) => (
-              <button key={k} type="button" className={`chip${metric === k ? ' on' : ''}`} aria-pressed={metric === k} onClick={() => setPick(metric === k ? null : k)}>{scales[k]!.label}</button>
-            ))}
-          </div>
-        )}
-      </div>
+    <section className="panel trend" aria-label={title}>
+      <h3>{title}</h3>
       <svg
         className="trend-svg"
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={`Line chart, last 24 hours. Latest: ${summary}.`}
+        aria-label={`Line chart of ${title.toLowerCase()}, last 72 hours. Latest known: ${summary}.`}
         tabIndex={0}
         onPointerMove={(e) => move(e.clientX, e.currentTarget)}
         onPointerDown={(e) => move(e.clientX, e.currentTarget)}
@@ -186,28 +180,41 @@ function TrendChart({ name, history, scales, units }: { name: string; history: H
         }}
         onBlur={() => setHover(null)}
       >
-        {[0, 0.5, 1].map((f) => <line key={f} x1={L} x2={W - R} y1={T + f * (H - T - B)} y2={T + f * (H - T - B)} className="grid" />)}
+        {good && <rect x={L} width={W - L - R} y={y(Math.min(good.to, hi))} height={Math.max(0, y(Math.max(good.from, lo)) - y(Math.min(good.to, hi)))} className="goodband" />}
+        {yTicks.map((v) => (
+          <g key={v}>
+            <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} className="grid" />
+            <text x={L - 6} y={y(v) + 4} textAnchor="end" className="axis">{v}</text>
+          </g>
+        ))}
         {ticks.map(({ h, i }) => (
           <g key={h}>
             <line x1={x(i)} x2={x(i)} y1={T} y2={H - B} className="grid" />
-            <text x={x(i)} y={H - 8} textAnchor="middle" className="axis">{dubai(h, { hour: '2-digit', minute: '2-digit' })}</text>
+            <text x={x(i)} y={H - 10} textAnchor="middle" className="axis">{dubai(h, { hour: '2-digit', minute: '2-digit' })}</text>
+            {Number(dubai(h, { hour: '2-digit' })) === 0 && <text x={x(i)} y={H - 1} textAnchor="middle" className="axis day">{dubai(h, { day: 'numeric', month: 'short' })}</text>}
           </g>
         ))}
-        {lines.map((l) => <path key={l.key} d={l.d} fill="none" stroke={SERIES_STYLE[l.style].color} strokeWidth={SERIES_STYLE[l.style].width} strokeDasharray={SERIES_STYLE[l.style].dash} strokeLinejoin="round" strokeLinecap="round" />)}
+        {lines.map((l) => (
+          <g key={l.name}>
+            <path d={l.d} fill="none" stroke={l.style.color} strokeWidth={3} strokeDasharray={l.style.dash} strokeLinejoin="round" strokeLinecap="round" />
+            {l.ended && <line x1={x(l.last)} x2={x(n - 1)} y1={y(l.lastV)} y2={y(l.lastV)} stroke={l.style.color} strokeWidth={2} strokeDasharray="1 5" strokeLinecap="round" />}
+            {l.ended && <circle cx={x(l.last)} cy={y(l.lastV)} r={5} fill="var(--paper)" stroke={l.style.color} strokeWidth={2.5} />}
+          </g>
+        ))}
         {hover !== null && <line x1={x(at)} x2={x(at)} y1={T} y2={H - B} className="cursor" />}
-        {lines.map((l) => l.vals[at] != null && <circle key={l.key} cx={x(at)} cy={l.y(l.vals[at]!)} r={4.5} fill="var(--paper)" stroke={SERIES_STYLE[l.style].color} strokeWidth={2.5} />)}
+        {hover !== null && lines.map((l) => l.vals[at] != null && <circle key={l.name} cx={x(at)} cy={y(l.vals[at]!)} r={4.5} fill="var(--paper)" stroke={l.style.color} strokeWidth={2.5} />)}
       </svg>
       <ul className="trend-key">
         {lines.map((l) => (
-          <li key={l.key}>
-            <svg width="26" height="10" aria-hidden="true"><line x1="1" x2="25" y1="5" y2="5" stroke={SERIES_STYLE[l.style].color} strokeWidth={SERIES_STYLE[l.style].width} strokeDasharray={SERIES_STYLE[l.style].dash} strokeLinecap="round" /></svg>
-            <span><b>{label(l.key)}</b> <span className="muted">24 h range {l.lo} to {l.hi}{unit(l.key)}</span></span>
-            <span className="trend-val">{fmt(l.key, l.vals[at])}</span>
+          <li key={l.name}>
+            <svg width="30" height="10" aria-hidden="true"><line x1="1" x2="29" y1="5" y2="5" stroke={l.style.color} strokeWidth={3} strokeDasharray={l.style.dash} strokeLinecap="round" /></svg>
+            <span><b>{l.name}</b> <span className="muted">{hover === null ? (l.ended ? `last known reading, ${dubai(hours[l.last], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'latest hour') : 'at this hour'}</span></span>
+            <span className="trend-val">{hover === null ? `${l.lastV}${unit}` : l.vals[at] == null ? 'no reading' : `${l.vals[at]}${unit}`}</span>
           </li>
         ))}
       </ul>
-      <p className="muted small trend-note">{dubai(history.hours[at], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}{hover === null ? ' (latest hour). Point at the chart for other hours.' : ''} Hourly averages. Each line is scaled to its own 24-hour range, so compare the shapes, not the heights.</p>
-    </div>
+      <p className="muted small trend-note">{hover === null ? 'Point at the chart to read a particular hour. ' : `${dubai(hours[at], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. `}Hourly averages, last 72 hours.{good ? ` Shaded band is the Good range (${good.from} to ${good.to}${unit}).` : ''} A ringed point with a dotted line means no newer reading, so the last known figure is carried forward.</p>
+    </section>
   );
 }
 
@@ -268,16 +275,15 @@ export function Air() {
                   })}
                 </div>
               )}
-              {t.history && (
-                <TrendChart
-                  name={t.name}
-                  history={t.history}
-                  scales={scales}
-                  units={{ temperature: '°C', humidity: '%', ...Object.fromEntries(EXTRA_ORDER.map((k) => [k, t.metrics?.[k]?.unit ?? scales[k]?.unit ?? ''])) }}
-                />
-              )}
             </section>
           ))}
+          {data.towers && (
+            <>
+              <h2>Comparing the towers</h2>
+              <CompareChart title="Fresh-air temperature, all towers" k="temperature" towers={data.towers} scale={scales.temperature} />
+              <CompareChart title="Fresh-air humidity, all towers" k="humidity" towers={data.towers} scale={scales.humidity} />
+            </>
+          )}
           <details className="panel">
             <summary><b>How Good, Fair and Poor are decided</b></summary>
             <p className="muted">Each label compares a reading with a fixed range taken from published guidance (uHoo's stated ideal ranges, the WHO 2021 air quality guidelines and US EPA standards), with margins we chose for Fair. A value exactly on a boundary counts in the higher band. These are not health findings, not a legal standard for the building, and the sensors are not certified instruments. Outside readings are not rated.</p>
