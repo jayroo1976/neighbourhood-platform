@@ -26,6 +26,8 @@ export interface Scale {
 export const EXTRA_KEYS = ['pressure', 'co2', 'pm25', 'voc', 'co', 'no2', 'o3', 'virus', 'influenza', 'mold'] as const;
 export type ExtraKey = (typeof EXTRA_KEYS)[number];
 export type MetricKey = 'temperature' | 'humidity' | ExtraKey;
+/** Figures worked out from temperature and humidity (see airDerived.ts); never rated. */
+export type DerivedKey = 'dew_point' | 'moisture';
 
 /** Entity-id endings used by the uHoo integration; `prefix` in HA_AIR_SENSORS expands to prefix + ending. */
 export const SUFFIX: Record<MetricKey, string> = {
@@ -88,9 +90,11 @@ export const SCALES: Partial<Record<MetricKey, Scale>> = {
 };
 
 /** Labels for metrics that are shown but not rated. */
-export const UNRATED: Partial<Record<MetricKey, { label: string; unit: string; basis: string }>> = {
+export const UNRATED: Partial<Record<MetricKey | DerivedKey, { label: string; unit: string; basis: string }>> = {
   voc: { label: 'Volatile organic compounds', unit: 'ppb', basis: 'Not rated: there is no single agreed indoor reference for this sensor. Shown as recorded.' },
   pressure: { label: 'Air pressure', unit: 'hPa', basis: 'Not rated: pressure is shown for information only.' },
+  dew_point: { label: 'Dew point', unit: '°C', basis: 'Not rated. Worked out from the temperature and humidity readings (Magnus formula), not measured. It is the temperature at which the air is fully saturated and water starts to condense on a surface that cold.' },
+  moisture: { label: 'Moisture in the air', unit: 'g/m³', basis: 'Not rated. Worked out from the temperature and humidity readings, not measured. It is the weight of water vapour in each cubic metre of air (absolute humidity), which does not change with temperature the way relative humidity does.' },
 };
 
 /** Band for a value. A value exactly on a boundary counts in the higher band; values beyond either end use the end band. */

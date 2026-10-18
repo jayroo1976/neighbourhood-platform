@@ -8,6 +8,7 @@ import { totpAt, verifyTotp } from '../src/security/totp';
 import { extractCaseNumber } from '../src/services/incidents';
 import { clearAirCache, getAir, parseLayout, type WsCtor } from '../src/services/air';
 import { levelFor } from '../src/services/airScales';
+import { dewPoint, moisture } from '../src/services/airDerived';
 import { config } from '../src/config';
 import { H, PASSWORD, createReport, makeStaff, register, setup, uploadPhoto } from './helpers';
 
@@ -706,6 +707,56 @@ describe('air tab (Home Assistant)', () => {
     expect(a.towers![1].history).toBeUndefined(); // no history rows for that tower: no chart
     expect(historyUrl).toContain('minimal_response');
     expect(JSON.stringify(a)).not.toMatch(/"sensor\.|h_temp|h_co2/);
+  });
+
+  it('works out dew point and moisture in the air from temperature and humidity, for the latest reading, the outside figures and the history', async () => {
+    expect(dewPoint(25, 50)).toBe(13.9);
+    expect(moisture(25, 50)).toBe(11.5);
+    expect(dewPoint(25, 100)).toBe(25);
+    expect(dewPoint(25, 0)).toBeNull();
+    expect(moisture(Number.NaN, 50)).toBeNull();
+    set('http://ha.local:8123', 'tok', layout);
+    const a = await getAir(fake);
+    expect(a.towers![0].dew_point).toMatchObject({ value: dewPoint(24.5, 48), unit: '°C', stale: false });
+    expect(a.towers![0].moisture).toMatchObject({ value: moisture(24.5, 48), unit: 'g/m³', stale: false });
+    expect(a.towers![1].dew_point).toMatchObject({ value: null, stale: true }); // MR 2 temperature unavailable: nothing to work out from
+    expect(a.outside!.dew_point!.value).toBe(dewPoint(40, 65));
+    expect(a.outside!.moisture!.value).toBe(moisture(40, 65));
+    expect(a.scales!.dew_point).toMatchObject({ label: 'Dew point', unit: '°C' });
+    expect(a.scales!.moisture).toMatchObject({ label: 'Moisture in the air', unit: 'g/m³' });
+    expect(a.scales!.dew_point).not.toHaveProperty('segments'); // never rated
+
+    clearAirCache();
+    set('http://ha.local:8123', 'tok', JSON.stringify({ towers: [{ name: 'MR 1', temperature: 'sensor.d_temp', humidity: 'sensor.d_hum' }] }));
+    const hourStart = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+    const iso = (hoursAgo: number) => new Date(hourStart - hoursAgo * 3_600_000 + 5 * 60_000).toISOString();
+    const withHistory = async (url: string) => {
+      if (url.includes('/api/history/period/')) {
+        return { ok: true, status: 200, json: async () => [
+          [{ entity_id: 'sensor.d_temp', state: '25', last_changed: iso(3) }, { entity_id: 'sensor.d_temp', state: '27', last_changed: iso(2) }, { entity_id: 'sensor.d_temp', state: '26', last_changed: iso(1) }],
+          [{ entity_id: 'sensor.d_hum', state: '50', last_changed: iso(3) }, { entity_id: 'sensor.d_hum', state: '60', last_changed: iso(2) }],
+        ] };
+      }
+      const live: Record<string, string> = { 'sensor.d_temp': '26', 'sensor.d_hum': '55' };
+      const v = live[url.split('/api/states/')[1]];
+      return v ? { ok: true, status: 200, json: async () => ({ state: v, last_updated: new Date().toISOString(), attributes: {} }) } : { ok: false, status: 404, json: async () => ({}) };
+    };
+    const h = (await getAir(withHistory)).towers![0].history!;
+    expect(h.series.dew_point!.at(-4)).toBe(dewPoint(25, 50)); // only hours with both a temperature and a humidity get a figure
+    expect(h.series.dew_point!.at(-3)).toBe(dewPoint(27, 60));
+    expect(h.series.dew_point!.at(-2)).toBeNull();
+    expect(h.series.moisture!.at(-3)).toBe(moisture(27, 60));
+    expect(Object.keys(h.series).sort()).toEqual(['dew_point', 'humidity', 'moisture', 'temperature']);
+  });
+
+  it('lets a tower be marked hidden: the page gets the flag and keeps it behind a button, and a non-boolean flag is rejected', async () => {
+    const l = parseLayout(JSON.stringify({ towers: [{ name: 'MR 1', temperature: 'sensor.a_t' }, { name: 'MR 2', hidden: true, temperature: 'sensor.b_t' }] }))!;
+    expect(l.towers[0].hidden).toBeUndefined();
+    expect(l.towers[1].hidden).toBe(true);
+    expect(parseLayout(JSON.stringify({ towers: [{ name: 'MR 2', hidden: 'yes' }] }))).toBeNull();
+    set('http://ha.local:8123', 'tok', layout.replace('"name":"MR 2"', '"name":"MR 2","hidden":true'));
+    const a = await getAir(fake);
+    expect(a.towers!.map((t) => t.hidden)).toEqual([undefined, true]);
   });
 
   it('lets explicit sensor ids override the prefix, and rejects a bad prefix, metric name or id', () => {

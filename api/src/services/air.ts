@@ -1,5 +1,6 @@
 import { config } from '../config';
-import { EXTRA_KEYS, SCALES, SUFFIX, UNRATED, levelFor, type ExtraKey, type Level, type MetricKey, type Scale } from './airScales';
+import { EXTRA_KEYS, SCALES, SUFFIX, UNRATED, levelFor, type DerivedKey, type ExtraKey, type Level, type MetricKey, type Scale } from './airScales';
+import { dewPoint, moisture } from './airDerived';
 
 /**
  * Air tab: fresh-air temperature and humidity in each tower, plus the outside temperature, read from the
@@ -21,12 +22,17 @@ export interface AirReading {
 /** Last 72 hours, one value per hour (hour start, UTC) per sensor; null where an hour has no reading. Used for the comparison charts and to fall back to a sensor's last known reading. */
 export interface AirHistory {
   hours: string[];
-  series: Partial<Record<MetricKey, (number | null)[]>>;
+  series: Partial<Record<MetricKey | DerivedKey, (number | null)[]>>;
 }
 export interface AirTower {
   name: string;
+  /** true when the layout marks this tower as a hidden view: the page keeps it behind a "show" button (a display choice, not access control) */
+  hidden?: boolean;
   temperature: AirReading;
   humidity: AirReading;
+  /** worked out from this tower's temperature and humidity; not measured */
+  dew_point?: AirReading;
+  moisture?: AirReading;
   /** hourly averages for the last 72 hours, temperature and humidity only (for the comparison charts); absent when Home Assistant has no history for this tower */
   history?: AirHistory;
   /** extra sensors this tower has (carbon dioxide, fine dust, ...); a sensor that does not exist in Home Assistant is left out */
@@ -37,15 +43,15 @@ export interface AirSummary {
   /** true when Home Assistant could not be reached on the last try */
   unreachable?: boolean;
   fetched_at?: string;
-  outside?: { temperature: AirReading; humidity: AirReading };
+  outside?: { temperature: AirReading; humidity: AirReading; dew_point?: AirReading; moisture?: AirReading };
   towers?: AirTower[];
   /** reference bands for the gauges, with where each comes from */
-  scales?: Partial<Record<MetricKey, Scale | { label: string; unit: string; basis: string }>>;
+  scales?: Partial<Record<MetricKey | DerivedKey, Scale | { label: string; unit: string; basis: string }>>;
 }
 
 interface Layout {
   outside?: { temperature?: string; humidity?: string };
-  towers: { name: string; temperature?: string; humidity?: string; metrics: Partial<Record<ExtraKey, string>> }[];
+  towers: { name: string; hidden?: boolean; temperature?: string; humidity?: string; metrics: Partial<Record<ExtraKey, string>> }[];
 }
 
 const ENTITY = /^[a-z0-9_]+\.[a-z0-9_]+$/;
@@ -67,6 +73,7 @@ export function parseLayout(raw: string): Layout | null {
     for (const t of j.towers) {
       if (typeof t?.name !== 'string' || !t.name || !ok(t.temperature) || !ok(t.humidity)) return null;
       if (t.prefix !== undefined && (typeof t.prefix !== 'string' || !PREFIX.test(t.prefix))) return null;
+      if (t.hidden !== undefined && typeof t.hidden !== 'boolean') return null;
       const given = (t.metrics ?? {}) as Record<string, unknown>;
       if (typeof given !== 'object' || Array.isArray(given)) return null;
       for (const [k, v] of Object.entries(given)) if (!(EXTRA_KEYS as readonly string[]).includes(k) || typeof v !== 'string' || !ok(v)) return null;
@@ -78,6 +85,7 @@ export function parseLayout(raw: string): Layout | null {
       }
       towers.push({
         name: t.name.slice(0, 40),
+        ...(t.hidden ? { hidden: true } : {}),
         temperature: (t.temperature as string | undefined) ?? (prefix ? prefix + SUFFIX.temperature : undefined),
         humidity: (t.humidity as string | undefined) ?? (prefix ? prefix + SUFFIX.humidity : undefined),
         metrics,
@@ -350,6 +358,16 @@ async function readHistory(layout: Layout, slots: { id: string | undefined; towe
   });
 }
 
+/** A figure worked out from a temperature and a humidity reading. Old if either input is old; dated by the older input. */
+function derive(t: AirReading, h: AirReading, f: (t: number, rh: number) => number | null, unit: string): AirReading {
+  const v = t.value != null && h.value != null ? f(t.value, h.value) : null;
+  if (v == null) return { value: null, unit, updated_at: null, stale: true };
+  const times = [t.updated_at, h.updated_at].filter((x): x is string => !!x).sort();
+  return { value: v, unit, updated_at: times[0] ?? null, stale: t.stale || h.stale, kind: t.kind === 'hourly' || h.kind === 'hourly' ? 'hourly' : 'live' };
+}
+const deriveSeries = (t: (number | null)[] | undefined, h: (number | null)[] | undefined, f: (t: number, rh: number) => number | null) =>
+  t && h ? t.map((x, i) => (x != null && h[i] != null ? f(x, h[i]!) : null)) : undefined;
+
 let cache: { at: number; data: AirSummary } | null = null;
 export function clearAirCache() {
   cache = null;
@@ -386,7 +404,7 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
       if (isStat(id)) return stats.get(id) ?? { ...EMPTY, kind: 'hourly' };
       return live[i];
     };
-    const towers: AirTower[] = layout.towers.map((t) => ({ name: t.name, temperature: { ...EMPTY }, humidity: { ...EMPTY } }));
+    const towers: AirTower[] = layout.towers.map((t) => ({ name: t.name, ...(t.hidden ? { hidden: true } : {}), temperature: { ...EMPTY }, humidity: { ...EMPTY } }));
     slots.forEach((slot, i) => {
       if (slot.tower === undefined || !slot.key) return;
       const r = at(i);
@@ -402,8 +420,19 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
       // only temperature and humidity go to the page (the two comparison charts); the rest was only needed for the fallback above
       const series: AirHistory['series'] = {};
       for (const k of ['temperature', 'humidity'] as const) if (h.series[k]) series[k] = h.series[k];
+      const dp = deriveSeries(h.series.temperature, h.series.humidity, dewPoint);
+      const mo = deriveSeries(h.series.temperature, h.series.humidity, moisture);
+      if (dp && dp.filter((x) => x != null).length >= 2) series.dew_point = dp;
+      if (mo && mo.filter((x) => x != null).length >= 2) series.moisture = mo;
       if (Object.keys(series).length) towers[i].history = { hours: h.hours, series };
     });
+    // dew point and moisture are worked out last, so a last-known temperature or humidity carries through
+    for (const tw of towers) {
+      tw.dew_point = derive(tw.temperature, tw.humidity, dewPoint, '°C');
+      tw.moisture = derive(tw.temperature, tw.humidity, moisture, 'g/m³');
+    }
+    const outT = at(0);
+    const outH = at(1);
     const scales: NonNullable<AirSummary['scales']> = {};
     for (const [k, v] of Object.entries(SCALES)) scales[k as MetricKey] = v;
     for (const [k, v] of Object.entries(UNRATED)) scales[k as MetricKey] = v;
@@ -411,7 +440,7 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
       enabled: true,
       fetched_at: new Date(now).toISOString(),
       ...(statsFailed ? { unreachable: true } : {}),
-      outside: { temperature: at(0), humidity: at(1) },
+      outside: { temperature: outT, humidity: outH, dew_point: derive(outT, outH, dewPoint, '°C'), moisture: derive(outT, outH, moisture, 'g/m³') },
       towers,
       scales,
     };
@@ -420,6 +449,6 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
   } catch {
     // Home Assistant unreachable: show the last good figures marked as old, or say it is unreachable
     if (cache) return { ...cache.data, unreachable: true };
-    return { enabled: true, unreachable: true, outside: { temperature: EMPTY, humidity: EMPTY }, towers: layout.towers.map((t) => ({ name: t.name, temperature: EMPTY, humidity: EMPTY })) };
+    return { enabled: true, unreachable: true, outside: { temperature: EMPTY, humidity: EMPTY }, towers: layout.towers.map((t) => ({ name: t.name, ...(t.hidden ? { hidden: true } : {}), temperature: EMPTY, humidity: EMPTY })) };
   }
 }

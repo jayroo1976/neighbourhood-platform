@@ -3,6 +3,7 @@ import { api } from '../api';
 import { Banner, ErrorNote, Spinner } from '../ui';
 
 type Level = 'good' | 'fair' | 'poor';
+type Tower = NonNullable<AirData['towers']>[number];
 interface Reading {
   value: number | null;
   unit: string | null;
@@ -20,7 +21,8 @@ interface Scale {
   basis: string;
 }
 const EXTRA_ORDER = ['co2', 'pm25', 'voc', 'co', 'no2', 'o3', 'pressure', 'virus', 'influenza', 'mold'] as const;
-type MetricKey = 'temperature' | 'humidity' | (typeof EXTRA_ORDER)[number];
+type MetricKey = 'temperature' | 'humidity' | 'dew_point' | 'moisture' | (typeof EXTRA_ORDER)[number];
+type ChartKey = 'temperature' | 'humidity' | 'dew_point' | 'moisture';
 const LEVEL_TEXT: Record<Level, string> = { good: 'Good', fair: 'Fair', poor: 'Poor' };
 interface History {
   hours: string[];
@@ -31,8 +33,8 @@ interface AirData {
   switched_off?: boolean;
   unreachable?: boolean;
   fetched_at?: string;
-  outside?: { temperature: Reading; humidity: Reading };
-  towers?: { name: string; temperature: Reading; humidity: Reading; history?: History; metrics?: Partial<Record<(typeof EXTRA_ORDER)[number], Reading>> }[];
+  outside?: { temperature: Reading; humidity: Reading; dew_point?: Reading; moisture?: Reading };
+  towers?: { name: string; hidden?: boolean; temperature: Reading; humidity: Reading; dew_point?: Reading; moisture?: Reading; history?: History; metrics?: Partial<Record<(typeof EXTRA_ORDER)[number], Reading>> }[];
   scales?: Partial<Record<MetricKey, Scale>>;
 }
 
@@ -119,22 +121,25 @@ const dubai = (iso: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeF
  * and a dotted line carries the figure forward to now. The key states each tower's latest figure and when it was read; pointing
  * at the chart (or using the arrow keys) gives the exact figure for each tower at that hour.
  */
-function CompareChart({ title, k, towers, scale }: { title: string; k: 'temperature' | 'humidity'; towers: NonNullable<AirData['towers']>; scale?: Scale }) {
-  const withData = towers.map((t, i) => ({ t, i, vals: t.history?.series[k] ?? null })).filter((x) => x.vals && x.vals.some((v) => v != null));
-  const hours = towers.find((t) => t.history)?.history?.hours;
+const CHART_UNIT: Record<ChartKey, string> = { temperature: '°C', humidity: '%', dew_point: '°C', moisture: ' g/m³' };
+const CHART_PAD: Record<ChartKey, number> = { temperature: 0.5, humidity: 2, dew_point: 0.5, moisture: 0.5 };
+
+function CompareChart({ title, k, towers, scale, note }: { title: string; k: ChartKey; towers: { t: Tower; i: number }[]; scale?: Scale; note?: string }) {
+  const withData = towers.map(({ t, i }) => ({ t, i, vals: t.history?.series[k] ?? null })).filter((x) => x.vals && x.vals.some((v) => v != null));
+  const hours = towers.find(({ t }) => t.history)?.t.history?.hours;
   const [hover, setHover] = useState<number | null>(null);
   if (!hours || !withData.length) return null;
 
-  const unit = k === 'temperature' ? '°C' : '%';
+  const unit = CHART_UNIT[k];
   const W = 720, H = 280, L = 46, R = 14, T = 14, B = 30;
   const n = hours.length;
   const x = (i: number) => L + (i / (n - 1)) * (W - L - R);
   const all = withData.flatMap((x) => x.vals!.filter((v): v is number => v != null));
   const good = scale?.segments?.find((g) => g.level === 'good');
   let lo = Math.min(...all, good?.from ?? Infinity), hi = Math.max(...all, good?.to ?? -Infinity);
-  const pad = Math.max((hi - lo) * 0.08, k === 'temperature' ? 0.5 : 2);
+  const pad = Math.max((hi - lo) * 0.08, CHART_PAD[k]);
   const span = hi - lo + 2 * pad;
-  const step = [1, 2, 5, 10].find((st) => span / st <= 6) ?? 20;
+  const step = (k === 'moisture' ? [0.5, 1, 2, 5, 10] : [1, 2, 5, 10]).find((st) => span / st <= 6) ?? 20;
   lo = Math.floor((lo - pad) / step) * step;
   hi = Math.ceil((hi + pad) / step) * step;
   const y = (v: number) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
@@ -163,7 +168,7 @@ function CompareChart({ title, k, towers, scale }: { title: string; k: 'temperat
   const summary = lines.map((l) => `${l.name} ${l.lastV}${unit}`).join(', ');
 
   return (
-    <section className="panel trend" aria-label={title}>
+    <section className="panel trend chart-block" aria-label={title}>
       <h3>{title}</h3>
       <svg
         className="trend-svg"
@@ -213,7 +218,75 @@ function CompareChart({ title, k, towers, scale }: { title: string; k: 'temperat
           </li>
         ))}
       </ul>
-      <p className="muted small trend-note">{hover === null ? 'Point at the chart to read a particular hour. ' : `${dubai(hours[at], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. `}Hourly averages, last 72 hours.{good ? ` Shaded band is the Good range (${good.from} to ${good.to}${unit}).` : ''} A ringed point with a dotted line means no newer reading, so the last known figure is carried forward.</p>
+      <p className="muted small trend-note">{hover === null ? 'Point at the chart to read a particular hour. ' : `${dubai(hours[at], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. `}Hourly averages, last 72 hours.{good ? ` Shaded band is the Good range (${good.from} to ${good.to}${unit}).` : ''} A ringed point with a dotted line means no newer reading, so the last known figure is carried forward.{note ? ` ${note}` : ''}</p>
+    </section>
+  );
+}
+
+const TABLE_ROWS: { k: MetricKey; label: string; unit: string; outside?: 'temperature' | 'humidity' | 'dew_point' | 'moisture' }[] = [
+  { k: 'temperature', label: 'Fresh-air temperature', unit: '°C', outside: 'temperature' },
+  { k: 'humidity', label: 'Fresh-air humidity', unit: '%', outside: 'humidity' },
+  { k: 'dew_point', label: 'Dew point', unit: '°C', outside: 'dew_point' },
+  { k: 'moisture', label: 'Moisture in the air', unit: ' g/m³', outside: 'moisture' },
+  { k: 'co2', label: 'Carbon dioxide', unit: ' ppm' },
+  { k: 'pm25', label: 'PM2.5 (fine dust)', unit: ' µg/m³' },
+  { k: 'voc', label: 'Volatile organic compounds', unit: ' ppb' },
+  { k: 'co', label: 'Carbon monoxide', unit: ' ppm' },
+  { k: 'no2', label: 'Nitrogen dioxide', unit: ' ppb' },
+  { k: 'o3', label: 'Ozone', unit: ' ppb' },
+  { k: 'pressure', label: 'Air pressure', unit: ' hPa' },
+  { k: 'virus', label: 'Virus index', unit: '' },
+  { k: 'influenza', label: 'Influenza index', unit: '' },
+  { k: 'mold', label: 'Mould index', unit: '' },
+];
+
+function readingOf(t: Tower | NonNullable<AirData['outside']>, k: MetricKey): Reading | undefined {
+  if (k === 'temperature' || k === 'humidity' || k === 'dew_point' || k === 'moisture') return (t as Tower)[k];
+  return (t as Tower).metrics?.[k as (typeof EXTRA_ORDER)[number]];
+}
+
+/** Every reading for every tower side by side, for a quick read. Each cell says the figure, the Good / Fair / Poor label in words, and "old" if the reading is old. */
+function GlanceTable({ outside, towers, scales }: { outside?: AirData['outside']; towers: Tower[]; scales: AirData['scales'] }) {
+  const rows = TABLE_ROWS.filter((r) => towers.some((t) => readingOf(t, r.k)?.value != null) || (r.outside && outside && readingOf(outside as never, r.k)?.value != null));
+  const newest = (r: (Reading | undefined)[]) => r.map((x) => x?.updated_at).filter((x): x is string => !!x).sort().pop() ?? null;
+  const cell = (r: Reading | undefined, unit: string, rated: boolean) => {
+    if (!r || r.value == null) return <td className="na">-</td>;
+    const word = r.stale ? 'old reading' : rated && r.level ? LEVEL_TEXT[r.level] : '';
+    return (
+      <td className={r.stale ? 'old' : r.level && rated ? `lvl-${r.level}` : ''}>
+        <b>{r.value}{unit}</b>
+        {word && <span className="cell-word">{word}</span>}
+      </td>
+    );
+  };
+  return (
+    <section className="panel glance" aria-label="All towers at a glance">
+      <div className="table-wrap">
+        <table className="glance-table">
+          <thead>
+            <tr>
+              <th scope="col">Reading</th>
+              {outside && <th scope="col">Outside</th>}
+              {towers.map((t) => <th scope="col" key={t.name}>{t.name}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.k}>
+                <th scope="row">{r.label}</th>
+                {outside && (r.outside ? cell(readingOf(outside as never, r.k), r.unit, false) : <td className="na">-</td>)}
+                {towers.map((t) => cell(readingOf(t, r.k), r.unit, !!scales?.[r.k] && 'segments' in (scales[r.k] as object)))}
+              </tr>
+            ))}
+            <tr className="when">
+              <th scope="row">Latest reading (Dubai time)</th>
+              {outside && <td>{clock(newest([outside.temperature, outside.humidity])) || '-'}</td>}
+              {towers.map((t) => <td key={t.name}>{clock(newest([t.temperature, t.humidity, ...Object.values(t.metrics ?? {})])) || '-'}</td>)}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="muted small">Good / Fair / Poor compares each figure with the reference ranges at the bottom of the page. Dew point and moisture are worked out from temperature and humidity, not measured. Blank means no reading.</p>
     </section>
   );
 }
@@ -222,6 +295,7 @@ export function Air() {
   const [data, setData] = useState<AirData | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [now, setNow] = useState(Date.now());
+  const [showHidden, setShowHidden] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -239,12 +313,21 @@ export function Air() {
   }, []);
 
   const scales = data?.scales ?? {};
-  const shown = EXTRA_ORDER.filter((k) => scales[k] && data?.towers?.some((t) => t.metrics?.[k]));
+  const allTowers = (data?.towers ?? []).map((t, i) => ({ t, i }));
+  const hiddenTowers = allTowers.filter(({ t }) => t.hidden);
+  // a hidden tower appears everywhere (tiles, table, charts, printout) only after "Show" is pressed; charts keep each tower's own colour
+  const visible = allTowers.filter(({ t }) => !t.hidden || showHidden);
+  const shown = EXTRA_ORDER.filter((k) => scales[k] && visible.some(({ t }) => t.metrics?.[k]));
 
   return (
     <div className="page wide">
+      <div className="printonly print-head">
+        <h1>AirCon report: fresh-air readings</h1>
+        <p>Printed {clock(new Date(now).toISOString())} (Dubai time). Sensor readings shown as recorded: {visible.map(({ t }) => t.name).join(', ')}{data?.outside ? ', and outside' : ''}.</p>
+      </div>
       <header className="page-head">
         <h1>AirCon</h1>
+        <button type="button" className="chip noprint" onClick={() => window.print()} disabled={!data?.enabled}>Print / save as PDF</button>
         <p className="muted">Fresh-air readings in each tower, and the conditions outside. These are readings from sensors, shown as recorded; the Good / Fair / Poor labels compare each reading with the reference ranges listed at the bottom of this page. Refreshes every minute.</p>
       </header>
       <ErrorNote error={error} />
@@ -253,14 +336,16 @@ export function Air() {
       {data?.unreachable && <Banner tone="warn">The sensor system could not be reached just now. Any figures shown may be out of date.</Banner>}
       {data?.enabled && data.outside && (
         <>
-          <h2>Outside</h2>
-          <div className="tiles">
+          <h2 className="noprint">Outside</h2>
+          <div className="tiles noprint">
             <Figure label="Outside temperature" r={data.outside.temperature} unit="°C" now={now} />
             <Figure label="Outside humidity" r={data.outside.humidity} unit="%" now={now} />
           </div>
-          <h2>Inside, by tower</h2>
-          {data.towers?.map((t) => (
-            <section key={t.name} className="panel" aria-label={t.name}>
+          <h2>All towers at a glance</h2>
+          <GlanceTable outside={data.outside} towers={visible.map(({ t }) => t)} scales={scales} />
+          <h2 className="noprint">Inside, by tower</h2>
+          {visible.map(({ t }) => (
+            <section key={t.name} className="panel noprint" aria-label={t.name}>
               <h3>{t.name}</h3>
               <div className="tiles tiles-main">
                 {scales.temperature ? <Gauge k="temperature" r={t.temperature} scale={{ ...scales.temperature, label: 'Fresh-air temperature' }} now={now} /> : <Figure label="Fresh-air temperature" r={t.temperature} unit="°C" now={now} />}
@@ -277,18 +362,35 @@ export function Air() {
               )}
             </section>
           ))}
-          {data.towers && (
+          {hiddenTowers.length > 0 && (
+            <div className="noprint hidden-view">
+              <button type="button" className="chip" aria-expanded={showHidden} onClick={() => setShowHidden((v) => !v)}>
+                {showHidden ? 'Hide' : 'Show'} {hiddenTowers.map(({ t }) => t.name).join(' and ')} air readings
+              </button>
+              {!showHidden && <span className="muted small"> Hidden view: {hiddenTowers.map(({ t }) => t.name).join(', ')} is left out of the table, charts and printout until shown.</span>}
+            </div>
+          )}
+          {visible.length > 0 && (
             <>
               <h2>Comparing the towers</h2>
-              <CompareChart title="Fresh-air temperature, all towers" k="temperature" towers={data.towers} scale={scales.temperature} />
-              <CompareChart title="Fresh-air humidity, all towers" k="humidity" towers={data.towers} scale={scales.humidity} />
+              <CompareChart title="Fresh-air temperature, all towers" k="temperature" towers={visible} scale={scales.temperature} />
+              <CompareChart title="Fresh-air humidity, all towers" k="humidity" towers={visible} scale={scales.humidity} />
+              <CompareChart title="Dew point, all towers" k="dew_point" towers={visible} note="Dew point is worked out from temperature and humidity, not measured: the temperature at which water starts to condense." />
+              <CompareChart title="Moisture in the air, all towers" k="moisture" towers={visible} note="Moisture is grams of water vapour per cubic metre of air, worked out from temperature and humidity, not measured." />
             </>
           )}
-          <details className="panel">
+          <div className="printonly print-defs">
+            <h2>How Good, Fair and Poor are decided</h2>
+            <p>Each label compares a reading with a fixed range from published guidance. These are not health findings, not a legal standard for the building, and the sensors are not certified instruments. Dew point and moisture are calculated.</p>
+            <ul>
+              {(['temperature', 'humidity', 'dew_point', 'moisture', ...shown] as MetricKey[]).map((k) => (scales[k] ? <li key={k}><b>{scales[k]!.label}{scales[k]!.unit ? ` (${scales[k]!.unit})` : ''}:</b> {scales[k]!.basis}</li> : null))}
+            </ul>
+          </div>
+          <details className="panel noprint">
             <summary><b>How Good, Fair and Poor are decided</b></summary>
             <p className="muted">Each label compares a reading with a fixed range taken from published guidance (uHoo's stated ideal ranges, the WHO 2021 air quality guidelines and US EPA standards), with margins we chose for Fair. A value exactly on a boundary counts in the higher band. These are not health findings, not a legal standard for the building, and the sensors are not certified instruments. Outside readings are not rated.</p>
             <ul className="plain">
-              {(['temperature', 'humidity', ...shown] as MetricKey[]).map((k) => (scales[k] ? <li key={k}><b>{scales[k]!.label}{scales[k]!.unit ? ` (${scales[k]!.unit})` : ''}:</b> {scales[k]!.basis}</li> : null))}
+              {(['temperature', 'humidity', 'dew_point', 'moisture', ...shown] as MetricKey[]).map((k) => (scales[k] ? <li key={k}><b>{scales[k]!.label}{scales[k]!.unit ? ` (${scales[k]!.unit})` : ''}:</b> {scales[k]!.basis}</li> : null))}
             </ul>
           </details>
         </>
