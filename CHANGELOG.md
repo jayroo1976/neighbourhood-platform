@@ -1,5 +1,10 @@
 # Changelog (newest first)
 
+## 2026-10-18 - AirCon: MR 1 now reads the live X-Sense thermo-hygrometer (docs and example only, no code change)
+- MR 1 (Tower 1) is now fed by the X-Sense thermo-hygrometer in Home Assistant: `sensor.thermo_hygrometer_temperature` and `sensor.thermo_hygrometer_humidity`. These are ordinary live sensors, so the imported `tower1:*` hourly statistics (which stopped updating on 2026-10-15) are no longer needed. The "Tower 1 Fresh Air Dew Point" helper in HA already uses these two.
+- Change in the Unraid `.env` only: replace the MR 1 entry in `HA_AIR_SENSORS` with `{"name":"MR 1","temperature":"sensor.thermo_hygrometer_temperature","humidity":"sensor.thermo_hygrometer_humidity"}`, then Compose Up (or restart the container). Old history before the switch stays in HA's `tower1:*` statistics and is not shown on the charts.
+- `.env.example` and `docs/admin-guide.md` now use this as the example. Untested against the real Home Assistant from the app; the entity ids were read from HA on 2026-10-18.
+
 ## 2026-10-16 (evening) - AirCon: readings shown as old after 120 minutes, not 30 (v0.8.3)
 - MR 3's fresh-air feed is a battery Zigbee temperature/humidity sensor. Over a day its gaps between updates ran 12 to 55 minutes, so the 30-minute limit made a healthy sensor show "old reading" for much of every hour. The sensor id was correct.
 - `HA_STALE_MINUTES` now defaults to 120 (was 30). It is also passed through in `docker-compose.unraid.yml` (it was not, so setting it in `.env` would have done nothing) and listed in `.env.example`. Docs: `docs/configuration.md`.
