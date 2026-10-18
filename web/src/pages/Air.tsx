@@ -223,37 +223,20 @@ function CompareChart({ title, k, towers, scale, note }: { title: string; k: Cha
   );
 }
 
-const TABLE_ROWS: { k: MetricKey; label: string; unit: string; outside?: 'temperature' | 'humidity' | 'dew_point' | 'moisture' }[] = [
-  { k: 'temperature', label: 'Fresh-air temperature', unit: '°C', outside: 'temperature' },
-  { k: 'humidity', label: 'Fresh-air humidity', unit: '%', outside: 'humidity' },
-  { k: 'dew_point', label: 'Dew point', unit: '°C', outside: 'dew_point' },
-  { k: 'moisture', label: 'Moisture in the air', unit: ' g/m³', outside: 'moisture' },
-  { k: 'co2', label: 'Carbon dioxide', unit: ' ppm' },
-  { k: 'pm25', label: 'PM2.5 (fine dust)', unit: ' µg/m³' },
-  { k: 'voc', label: 'Volatile organic compounds', unit: ' ppb' },
-  { k: 'co', label: 'Carbon monoxide', unit: ' ppm' },
-  { k: 'no2', label: 'Nitrogen dioxide', unit: ' ppb' },
-  { k: 'o3', label: 'Ozone', unit: ' ppb' },
-  { k: 'pressure', label: 'Air pressure', unit: ' hPa' },
-  { k: 'virus', label: 'Virus index', unit: '' },
-  { k: 'influenza', label: 'Influenza index', unit: '' },
-  { k: 'mold', label: 'Mould index', unit: '' },
+const TABLE_ROWS: { k: ChartKey; label: string; unit: string }[] = [
+  { k: 'temperature', label: 'Temperature', unit: '°C' },
+  { k: 'humidity', label: 'Humidity', unit: '%' },
+  { k: 'dew_point', label: 'Dew point', unit: '°C' },
+  { k: 'moisture', label: 'Moisture in the air', unit: ' g/m³' },
 ];
 
-function readingOf(t: Tower | NonNullable<AirData['outside']>, k: MetricKey): Reading | undefined {
-  if (k === 'temperature' || k === 'humidity' || k === 'dew_point' || k === 'moisture') return (t as Tower)[k];
-  return (t as Tower).metrics?.[k as (typeof EXTRA_ORDER)[number]];
-}
-
-/** Every reading for every tower side by side, for a quick read. Each cell says the figure, the Good / Fair / Poor label in words, and "old" if the reading is old. */
-function GlanceTable({ outside, towers, scales }: { outside?: AirData['outside']; towers: Tower[]; scales: AirData['scales'] }) {
-  const rows = TABLE_ROWS.filter((r) => towers.some((t) => readingOf(t, r.k)?.value != null) || (r.outside && outside && readingOf(outside as never, r.k)?.value != null));
-  const newest = (r: (Reading | undefined)[]) => r.map((x) => x?.updated_at).filter((x): x is string => !!x).sort().pop() ?? null;
-  const cell = (r: Reading | undefined, unit: string, rated: boolean) => {
-    if (!r || r.value == null) return <td className="na">-</td>;
-    const word = r.stale ? 'old reading' : rated && r.level ? LEVEL_TEXT[r.level] : '';
+/** The four readings every tower and the outside share, side by side. Each cell says the figure, the Good / Fair / Poor word and "old reading" where it applies. Words wrap so all columns fit a phone without sideways scrolling. */
+function GlanceTable({ outside, towers }: { outside?: AirData['outside']; towers: Tower[] }) {
+  const cell = (r: Reading | undefined, unit: string, key: string) => {
+    if (!r || r.value == null) return <td key={key} className="na">-</td>;
+    const word = r.stale ? 'old reading' : r.level ? LEVEL_TEXT[r.level] : '';
     return (
-      <td className={r.stale ? 'old' : r.level && rated ? `lvl-${r.level}` : ''}>
+      <td key={key} className={r.stale ? 'old' : r.level ? `lvl-${r.level}` : ''}>
         <b>{r.value}{unit}</b>
         {word && <span className="cell-word">{word}</span>}
       </td>
@@ -261,32 +244,25 @@ function GlanceTable({ outside, towers, scales }: { outside?: AirData['outside']
   };
   return (
     <section className="panel glance" aria-label="All towers at a glance">
-      <div className="table-wrap">
-        <table className="glance-table">
-          <thead>
-            <tr>
-              <th scope="col">Reading</th>
-              {outside && <th scope="col">Outside</th>}
-              {towers.map((t) => <th scope="col" key={t.name}>{t.name}</th>)}
+      <table className="glance-table">
+        <thead>
+          <tr>
+            <th scope="col">Reading</th>
+            {outside && <th scope="col">Outside</th>}
+            {towers.map((t) => <th scope="col" key={t.name}>{t.name}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {TABLE_ROWS.map((r) => (
+            <tr key={r.k}>
+              <th scope="row">{r.label}</th>
+              {outside && cell(outside[r.k], r.unit, 'outside')}
+              {towers.map((t) => cell(t[r.k], r.unit, t.name))}
             </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.k}>
-                <th scope="row">{r.label}</th>
-                {outside && (r.outside ? cell(readingOf(outside as never, r.k), r.unit, false) : <td className="na">-</td>)}
-                {towers.map((t) => cell(readingOf(t, r.k), r.unit, !!scales?.[r.k] && 'segments' in (scales[r.k] as object)))}
-              </tr>
-            ))}
-            <tr className="when">
-              <th scope="row">Latest reading (Dubai time)</th>
-              {outside && <td>{clock(newest([outside.temperature, outside.humidity])) || '-'}</td>}
-              {towers.map((t) => <td key={t.name}>{clock(newest([t.temperature, t.humidity, ...Object.values(t.metrics ?? {})])) || '-'}</td>)}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p className="muted small">Good / Fair / Poor compares each figure with the reference ranges at the bottom of the page. Dew point and moisture are worked out from temperature and humidity, not measured. Blank means no reading.</p>
+          ))}
+        </tbody>
+      </table>
+      <p className="muted small">Good / Fair / Poor compares each figure with the reference ranges at the bottom of the page. Dew point and moisture are worked out from temperature and humidity, not measured. Dash means no reading.</p>
     </section>
   );
 }
@@ -317,7 +293,6 @@ export function Air() {
   const hiddenTowers = allTowers.filter(({ t }) => t.hidden);
   // a hidden tower appears everywhere (tiles, table, charts, printout) only after "Show" is pressed; charts keep each tower's own colour
   const visible = allTowers.filter(({ t }) => !t.hidden || showHidden);
-  const shown = EXTRA_ORDER.filter((k) => scales[k] && visible.some(({ t }) => t.metrics?.[k]));
 
   return (
     <div className="page wide">
@@ -341,8 +316,6 @@ export function Air() {
             <Figure label="Outside temperature" r={data.outside.temperature} unit="°C" now={now} />
             <Figure label="Outside humidity" r={data.outside.humidity} unit="%" now={now} />
           </div>
-          <h2>All towers at a glance</h2>
-          <GlanceTable outside={data.outside} towers={visible.map(({ t }) => t)} scales={scales} />
           <h2 className="noprint">Inside, by tower</h2>
           {visible.map(({ t }) => (
             <section key={t.name} className="panel noprint" aria-label={t.name}>
@@ -351,15 +324,6 @@ export function Air() {
                 {scales.temperature ? <Gauge k="temperature" r={t.temperature} scale={{ ...scales.temperature, label: 'Fresh-air temperature' }} now={now} /> : <Figure label="Fresh-air temperature" r={t.temperature} unit="°C" now={now} />}
                 {scales.humidity ? <Gauge k="humidity" r={t.humidity} scale={{ ...scales.humidity, label: 'Fresh-air humidity' }} now={now} /> : <Figure label="Fresh-air humidity" r={t.humidity} unit="%" now={now} />}
               </div>
-              {EXTRA_ORDER.some((k) => t.metrics?.[k] && scales[k]) && (
-                <div className="tiles tiles-small">
-                  {EXTRA_ORDER.map((k) => {
-                    const r = t.metrics?.[k];
-                    const sc = scales[k];
-                    return r && sc ? <Gauge key={k} k={k} r={r} scale={sc} now={now} compact /> : null;
-                  })}
-                </div>
-              )}
             </section>
           ))}
           {hiddenTowers.length > 0 && (
@@ -370,6 +334,8 @@ export function Air() {
               {!showHidden && <span className="muted small"> Hidden view: {hiddenTowers.map(({ t }) => t.name).join(', ')} is left out of the table, charts and printout until shown.</span>}
             </div>
           )}
+          <h2>All towers at a glance</h2>
+          <GlanceTable outside={data.outside} towers={visible.map(({ t }) => t)} />
           {visible.length > 0 && (
             <>
               <h2>Comparing the towers</h2>
@@ -383,14 +349,14 @@ export function Air() {
             <h2>How Good, Fair and Poor are decided</h2>
             <p>Each label compares a reading with a fixed range from published guidance. These are not health findings, not a legal standard for the building, and the sensors are not certified instruments. Dew point and moisture are calculated.</p>
             <ul>
-              {(['temperature', 'humidity', 'dew_point', 'moisture', ...shown] as MetricKey[]).map((k) => (scales[k] ? <li key={k}><b>{scales[k]!.label}{scales[k]!.unit ? ` (${scales[k]!.unit})` : ''}:</b> {scales[k]!.basis}</li> : null))}
+              {(['temperature', 'humidity', 'dew_point', 'moisture'] as const).map((k) => (scales[k] ? <li key={k}><b>{scales[k]!.label}{scales[k]!.unit ? ` (${scales[k]!.unit})` : ''}:</b> {scales[k]!.basis}</li> : null))}
             </ul>
           </div>
           <details className="panel noprint">
             <summary><b>How Good, Fair and Poor are decided</b></summary>
             <p className="muted">Each label compares a reading with a fixed range taken from published guidance (uHoo's stated ideal ranges, the WHO 2021 air quality guidelines and US EPA standards), with margins we chose for Fair. A value exactly on a boundary counts in the higher band. These are not health findings, not a legal standard for the building, and the sensors are not certified instruments. Outside readings are not rated.</p>
             <ul className="plain">
-              {(['temperature', 'humidity', 'dew_point', 'moisture', ...shown] as MetricKey[]).map((k) => (scales[k] ? <li key={k}><b>{scales[k]!.label}{scales[k]!.unit ? ` (${scales[k]!.unit})` : ''}:</b> {scales[k]!.basis}</li> : null))}
+              {(['temperature', 'humidity', 'dew_point', 'moisture'] as const).map((k) => (scales[k] ? <li key={k}><b>{scales[k]!.label}{scales[k]!.unit ? ` (${scales[k]!.unit})` : ''}:</b> {scales[k]!.basis}</li> : null))}
             </ul>
           </details>
         </>
