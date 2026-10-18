@@ -270,7 +270,8 @@ details summary{cursor:pointer;font-weight:600}
 .glance-table tbody th{font-weight:600;white-space:normal;line-height:1.2;font-size:.78rem}
 .glance-table td b{display:block;font-variant-numeric:tabular-nums}
 .glance-table .cell-word{display:block;font-size:.72rem;line-height:1.15;color:var(--muted)}
-.glance-table td.lvl-good{border-left:3px solid var(--ok)}.glance-table td.lvl-fair{border-left:3px solid var(--mid)}.glance-table td.lvl-poor{border-left:3px solid var(--bad)}
+.glance-table td.top{background:#fbeede;border-left:3px solid var(--bad)}.glance-table td.top .cell-word{color:var(--bad);font-weight:700}
+.glance-line{margin:.6rem 0 .3rem;font-size:.92rem}
 .glance-table td.old{border-left:3px dotted var(--mid);color:var(--muted)}.glance-table td.na{color:var(--muted)}
 .hidden-view{margin:0 0 1rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
 .printonly{display:none}
@@ -282,7 +283,7 @@ details summary{cursor:pointer;font-weight:600}
   .print-defs{font-size:.78rem;break-before:page}.print-defs h2{font-size:1rem}
   .glance-table{font-size:.82rem;min-width:0}.table-wrap{overflow:visible}
   .chart-block{break-inside:avoid;padding:.4rem}.trend-svg{background:#fbf7ec;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .glance-table td[class^="lvl-"]{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .glance-table td.top{-webkit-print-color-adjust:exact;print-color-adjust:exact}.trend-svg .goodband{display:none}
   .page.wide{max-width:none}h2{break-after:avoid}
 }
 @media print{.versionbar{display:none!important}}

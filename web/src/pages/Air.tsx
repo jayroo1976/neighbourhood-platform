@@ -218,7 +218,7 @@ function CompareChart({ title, k, towers, scale, note }: { title: string; k: Cha
           </li>
         ))}
       </ul>
-      <p className="muted small trend-note">{hover === null ? 'Point at the chart to read a particular hour. ' : `${dubai(hours[at], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. `}Hourly averages, last 72 hours.{good ? ` Shaded band is the Good range (${good.from} to ${good.to}${unit}).` : ''} A ringed point with a dotted line means no newer reading, so the last known figure is carried forward.{note ? ` ${note}` : ''}</p>
+      <p className="muted small trend-note">{hover === null ? <span className="noprint">Point at the chart to read a particular hour. </span> : `${dubai(hours[at], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. `}Hourly averages, last 72 hours.{good && <span className="noprint"> Shaded band is the Good range ({good.from} to {good.to}{unit}).</span>} A ringed point with a dotted line means no newer reading, so the last known figure is carried forward.{note ? ` ${note}` : ''}</p>
     </section>
   );
 }
@@ -230,18 +230,41 @@ const TABLE_ROWS: { k: ChartKey; label: string; unit: string }[] = [
   { k: 'moisture', label: 'Moisture in the air', unit: ' g/m³' },
 ];
 
-/** The four readings every tower and the outside share, side by side. Each cell says the figure, the Good / Fair / Poor word and "old reading" where it applies. Words wrap so all columns fit a phone without sideways scrolling. */
+const WET_ROWS: ChartKey[] = ['humidity', 'dew_point', 'moisture'];
+
+/** One plain sentence from the numbers: which tower holds the most moisture and by how much against the others. Empty when the towers are close. */
+function wettestLine(towers: Tower[]): string {
+  const w = towers.filter((t) => t.moisture?.value != null && t.dew_point?.value != null);
+  if (w.length < 2) return '';
+  const top = w.reduce((a, b) => (b.moisture!.value! > a.moisture!.value! ? b : a));
+  const others = w.filter((t) => t !== top);
+  const avg = others.reduce((n, t) => n + t.moisture!.value!, 0) / others.length;
+  const pct = Math.round((top.moisture!.value! / avg - 1) * 100);
+  if (pct < 15) return '';
+  const dewOthers = Math.round((others.reduce((n, t) => n + t.dew_point!.value!, 0) / others.length) * 10) / 10;
+  return `${top.name} has the most moisture in the air: ${top.moisture!.value} g/m³, ${pct}% more than ${others.map((t) => t.name).join(' and ')} (${Math.round(avg * 10) / 10} g/m³ on average). Its dew point is ${top.dew_point!.value}°C against ${dewOthers}°C.`;
+}
+
+/** The four readings every tower and the outside share, side by side. Plain figures with no ratings; the highest tower in each moisture-related row is marked in words. Words wrap so all columns fit a phone without sideways scrolling. */
 function GlanceTable({ outside, towers }: { outside?: AirData['outside']; towers: Tower[] }) {
-  const cell = (r: Reading | undefined, unit: string, key: string) => {
+  const topOf = (k: ChartKey): Tower | null => {
+    if (!WET_ROWS.includes(k)) return null;
+    const w = towers.filter((t) => t[k]?.value != null);
+    if (w.length < 2) return null;
+    const best = w.reduce((a, b) => (b[k]!.value! > a[k]!.value! ? b : a));
+    return w.some((t) => t !== best && t[k]!.value === best[k]!.value) ? null : best;
+  };
+  const cell = (r: Reading | undefined, unit: string, key: string, top?: boolean) => {
     if (!r || r.value == null) return <td key={key} className="na">-</td>;
-    const word = r.stale ? 'old reading' : r.level ? LEVEL_TEXT[r.level] : '';
+    const word = r.stale ? 'old reading' : top ? 'highest' : '';
     return (
-      <td key={key} className={r.stale ? 'old' : r.level ? `lvl-${r.level}` : ''}>
+      <td key={key} className={r.stale ? 'old' : top ? 'top' : ''}>
         <b>{r.value}{unit}</b>
         {word && <span className="cell-word">{word}</span>}
       </td>
     );
   };
+  const line = wettestLine(towers);
   return (
     <section className="panel glance" aria-label="All towers at a glance">
       <table className="glance-table">
@@ -253,16 +276,20 @@ function GlanceTable({ outside, towers }: { outside?: AirData['outside']; towers
           </tr>
         </thead>
         <tbody>
-          {TABLE_ROWS.map((r) => (
-            <tr key={r.k}>
-              <th scope="row">{r.label}</th>
-              {outside && cell(outside[r.k], r.unit, 'outside')}
-              {towers.map((t) => cell(t[r.k], r.unit, t.name))}
-            </tr>
-          ))}
+          {TABLE_ROWS.map((r) => {
+            const top = topOf(r.k);
+            return (
+              <tr key={r.k}>
+                <th scope="row">{r.label}</th>
+                {outside && cell(outside[r.k], r.unit, 'outside')}
+                {towers.map((t) => cell(t[r.k], r.unit, t.name, t === top))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
-      <p className="muted small">Good / Fair / Poor compares each figure with the reference ranges at the bottom of the page. Dew point and moisture are worked out from temperature and humidity, not measured. Dash means no reading.</p>
+      {line && <p className="glance-line"><b>{line}</b></p>}
+      <p className="muted small">Dew point and moisture are worked out from temperature and humidity, not measured. Dew point is the temperature below which water condenses: any surface colder than a tower's dew point can collect condensation. Dash means no reading.</p>
     </section>
   );
 }
@@ -346,11 +373,8 @@ export function Air() {
             </>
           )}
           <div className="printonly print-defs">
-            <h2>How Good, Fair and Poor are decided</h2>
-            <p>Each label compares a reading with a fixed range from published guidance. These are not health findings, not a legal standard for the building, and the sensors are not certified instruments. Dew point and moisture are calculated.</p>
-            <ul>
-              {(['temperature', 'humidity', 'dew_point', 'moisture'] as const).map((k) => (scales[k] ? <li key={k}><b>{scales[k]!.label}{scales[k]!.unit ? ` (${scales[k]!.unit})` : ''}:</b> {scales[k]!.basis}</li> : null))}
-            </ul>
+            <h2>About these figures</h2>
+            <p>Readings come from home sensors and are shown as recorded; the sensors are not certified instruments and differ in make and position. {scales.dew_point?.basis} {scales.moisture?.basis}</p>
           </div>
           <details className="panel noprint">
             <summary><b>How Good, Fair and Poor are decided</b></summary>

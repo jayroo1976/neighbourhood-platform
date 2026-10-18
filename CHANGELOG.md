@@ -1,5 +1,10 @@
 # Changelog (newest first)
 
+## 2026-10-18 (late) - AirCon printout for maintenance: no Good/Fair/Poor, wettest tower called out in numbers (v0.9.2)
+- **No ratings in the table or the printout.** The all-towers table shows plain figures only (and "old reading" where it applies). The printout has no shaded Good band on the charts, no "Shaded band is the Good range" note and no "How Good, Fair and Poor are decided" page; it ends with a short "About these figures" note instead (sensors are not certified, dew point and moisture are calculated). The tower tiles on screen still show their Good / Fair / Poor gauges and are not printed.
+- **Wettest tower is shown by the numbers.** In the humidity, dew point and moisture rows the highest tower is shaded and marked "highest" (nothing is marked if two are level). Under the table one sentence, worked out from the live figures, says which tower holds the most moisture, by what percentage against the others, and the dew points (shown only when the gap is 15% or more). A note says any surface colder than a tower's dew point can collect condensation.
+- Tests 50 pass, typecheck and build pass; rendered on a phone width and in the printed PDF (no Good/Fair/Poor text in it). Untested on the real Home Assistant.
+
 ## 2026-10-18 (night) - AirCon: table on one phone screen, four rows, tower tiles temperature and humidity only, table under the towers (v0.9.1)
 - **Table:** words now wrap inside the cells, so Outside and all three towers fit a phone (checked at 360 and 390 px wide, no sideways scrolling). Only four rows: temperature, humidity, dew point, moisture in the air (shorter row names). The "Latest reading" row is gone (the tiles still show times).
 - **Tower tiles:** each tower, MR 2 included, shows only the fresh-air temperature and humidity tiles. The small tiles for carbon dioxide, PM2.5, VOC, carbon monoxide, nitrogen dioxide, ozone, pressure and the virus, influenza and mould indices are no longer drawn, and their ranges are no longer listed in the page definitions. The API still returns them (`towers[].metrics`), so they can come back without a server change.
