@@ -1,6 +1,6 @@
 # Status (update every build)
 
-**Last updated:** 2026-10-16 (AirCon old-reading limit 120 min) · **Version:** 0.8.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
+**Last updated:** 2026-10-21 (Smells PDF export) · **Version:** 0.8.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
 
 ## Works and has been verified
 - API typechecks and builds; 47 automated tests pass (`npm test`): Smells tab (floor-plan mapping, validation, daily limit, neighbour view hides flats and small counts, admin-only, CSV safety, switch off, export, erasure, demo wipe); TOTP vector, signed links, tamper detection, auth/lockout/CSRF, full report lifecycle, inbound email webhook, affects-me rules and admin toggle, privacy/blurring/private reports, EXIF stripping, data export/erasure, admin link duplicates + roles, KPI maths, AirCon tab (good/fair/poor bands, tower prefix expansion, admin on/off, imported hourly statistics, fake Home Assistant: °F conversion, unavailable/old sensors, cache, unreachable, sign-in required, nothing sensitive in the response).
@@ -9,6 +9,7 @@
 - Sleep-mode gate (start page, 503 "asleep", status/wake endpoints, normal startup) tested locally.
 
 ## Not verified (assume it needs testing)
+- **Smells PDF export** (2026-10-21): 52 automated tests pass; the PDF was rendered to images from synthetic data and with no reports and read page by page (summary, charts, tower plans, townhouses, log). Not yet generated from real reports on the Unraid instance, not opened on a phone, not checked with very large data (log capped at 500 rows, weekly chart at 26 weeks). Notes are left out by design. Whether to send exact flats to the management company is an owner decision (docs/privacy-pdpl.md). Wording not lawyer-reviewed.
 - **AirCon printout wording** (2026-10-18): table and printout carry no Good/Fair/Poor; the "highest" marker and the one-line summary are computed from the readings. Checked in headless Chromium and the printed PDF only. The summary compares towers whatever the sensor make or position, so it is a comparison of readings, not proof of a fault.
 - **AirCon v0.9.1 layout** (2026-10-18): table (four rows) fits 360 and 390 px wide in headless Chromium; tower tiles are temperature and humidity only (extra uHoo sensors are still returned by the API but not drawn). Not re-checked on James's phone.
 - **AirCon hidden MR 2 view, dew point and moisture charts, all-towers table and print button** (2026-10-18): checked with a fake Home Assistant in tests and headless Chromium (desktop, phone width, printed PDF). Not against the real HA, not the browser print dialog on a real phone. Dew point and moisture are calculated from temperature and humidity, not measured. The hidden view is a display choice only; the figures are still in the `GET /air` answer.

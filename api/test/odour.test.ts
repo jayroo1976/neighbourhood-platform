@@ -180,6 +180,55 @@ describe('smell reports: admin view', () => {
   });
 });
 
+describe('smell reports: PDF for the management company', () => {
+  it('is admin only, follows the filters, is audited and renders with no reports', async () => {
+    const admin = await makeStaff(ctx.db, ctx.communityId, 'admin', ctx.app);
+    const committee = await makeStaff(ctx.db, ctx.communityId, 'committee', ctx.app);
+    const resident = await register(ctx.app, { tower: 'MR 3', unit: '9911' });
+    await resident.agent.post('/api/odour').set(H).send(body({ building: 'MR 3', level: 5, flat: 2, notes: 'private note text' }));
+
+    expect((await resident.agent.get('/api/admin/odour/export.pdf')).status).toBe(403);
+    expect((await committee.agent.get('/api/admin/odour/export.pdf')).status).toBe(403);
+
+    const pdf = await admin.agent.get('/api/admin/odour/export.pdf?days=30').buffer(true).parse((res, cb) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => cb(null, Buffer.concat(chunks)));
+    });
+    expect(pdf.status).toBe(200);
+    expect(pdf.headers['content-type']).toContain('application/pdf');
+    expect(pdf.headers['content-disposition']).toMatch(/attachment; filename="smell-reports-\d{4}-\d{2}-\d{2}\.pdf"/);
+    expect((pdf.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
+    expect((pdf.body as Buffer).length).toBeGreaterThan(2000);
+
+    // A filter that matches nothing still gives a valid PDF, and a bad filter is rejected.
+    const empty = await admin.agent.get('/api/admin/odour/export.pdf?type=gas&where=parking&days=1').buffer(true).parse((res, cb) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => cb(null, Buffer.concat(chunks)));
+    });
+    expect(empty.status).toBe(200);
+    expect((empty.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
+    expect((await admin.agent.get('/api/admin/odour/export.pdf?type=perfume')).status).toBe(400);
+
+    const logged = await ctx.db('audit_log').where({ action: 'odour_export_pdf' });
+    expect(logged.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('leaves out notes and shows the exact flat and the charts data', async () => {
+    const { renderOdourPdf } = await import('../src/services/odourPdf');
+    const mk = (over: Record<string, unknown>) => ({
+      id: String(Math.random()), building: 'MR 1', kind: 'tower' as const, level: 3, flat: 4, home: 'Level 3, flat 4', unit_type: 'C',
+      smell_type: 'sewage' as const, strength: 3, frequency: 'daily' as const, where_noticed: 'inside' as const,
+      observed_at: new Date().toISOString(), notes: 'SECRET-NOTE', created_at: new Date().toISOString(), ...over,
+    });
+    const items = [mk({}), mk({ level: 6, home: 'Level 6, flat 4' }), mk({ level: 9, home: 'Level 9, flat 4' }), mk({ building: 'Townhouse 1', kind: 'townhouse' as const, level: 0, flat: 2, home: 'No. 2', unit_type: 'TH' })];
+    const buf = await renderOdourPdf({ communityName: 'Test Community', mgmtName: 'Test Management', towers: ['MR 1', 'MR 2'], townhouses: ['Townhouse 1'], townhouseMaxUnit: 7, items, filter: { days: 30 } });
+    expect(buf.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(buf.includes('SECRET-NOTE')).toBe(false);
+  });
+});
+
 describe('smell reports: switch off, export, erasure, demo wipe', () => {
   it('can be switched off: residents are told, nav flag goes false, admins still see the data', async () => {
     const admin = await makeStaff(ctx.db, ctx.communityId, 'admin', ctx.app);

@@ -130,6 +130,7 @@ export function AdminSmells() {
           {opts?.where.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
         </select>
         <a className="btn small" href="/api/admin/odour/export.csv" download>Download CSV</a>
+        <a className="btn small primary" href={`/api/admin/odour/export.pdf${qs({ days: days || undefined, type, where })}`} download title="Summary for the management company: counts, charts, plan view of flats and the log. Follows the filters above. Notes are left out.">Download PDF</a>
       </div>
       <ErrorNote error={q.error ?? error} />
       {q.loading && !q.data && <Spinner />}

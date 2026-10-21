@@ -4,6 +4,7 @@ import { MAX_TOWNHOUSE_UNIT, ODOUR_FREQUENCIES, ODOUR_TYPES, ODOUR_WHERE, PENTHO
 import { clientIp, parse, requireAdmin, requireAuth, wrap } from '../http';
 import { HttpError } from '../services/incidents';
 import { adminOdourList, createOdourReport, deleteOdourReport, myOdourReports, odourCsv, odourItem, odourOptions, residentOdourSummary } from '../services/odour';
+import { odourReportPdf } from '../services/odourPdf';
 import { audit } from '../services/support';
 
 const reportBody = z.object({
@@ -97,6 +98,22 @@ export function odourAdminRouter(): Router {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="smell-reports.csv"');
       res.send(odourCsv(items));
+    }),
+  );
+
+  /** PDF summary for the management company. Honours the same filters as the page; leaves out free-text notes. */
+  r.get(
+    '/export.pdf',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const q = parse(z.object({ days: z.coerce.number().int().min(1).max(3650).optional(), type: z.enum(ODOUR_TYPES).optional(), where: z.enum(ODOUR_WHERE).optional() }), req.query);
+      const pdf = await odourReportPdf(req.db, req.user!.community_id, q);
+      await audit(req.db, { actorId: req.user!.id, actorRole: req.user!.role, action: 'odour_export_pdf', ip: clientIp(req), detail: { days: q.days ?? null, type: q.type ?? null, where: q.where ?? null } });
+      const day = new Date(Date.now() + 4 * 3_600_000).toISOString().slice(0, 10);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="smell-reports-${day}.pdf"`);
+      res.setHeader('Cache-Control', 'no-store');
+      res.send(pdf);
     }),
   );
 

@@ -234,6 +234,24 @@ export async function adminOdourList(db: Db, communityId: string, f: AdminOdourF
   return ((await q) as OdourRow[]).map(odourItem);
 }
 
+export type OdourListItem = ReturnType<typeof odourItem>;
+
+/** Patterns worth a look in a set of reports (same flat position on several levels; several flats on one level). Same rules as the admin page. */
+export function odourPatterns(items: OdourListItem[], towers: string[]): string[] {
+  const out: string[] = [];
+  for (const t of towers) {
+    const rs = items.filter((i) => i.building === t && i.kind === 'tower' && i.level <= TOWER_LEVELS);
+    for (let f = 1; f <= FLATS_PER_LEVEL; f++) {
+      const lv = new Set(rs.filter((r) => r.flat === f).map((r) => r.level));
+      if (lv.size >= 3) out.push(`${t}: flat ${f} has reports on ${lv.size} different levels (${[...lv].sort((a, b) => a - b).join(', ')}).`);
+    }
+    const byLevel = new Map<number, Set<number>>();
+    for (const r of rs) byLevel.set(r.level, (byLevel.get(r.level) ?? new Set()).add(r.flat));
+    for (const [l, fl] of [...byLevel.entries()].sort((a, b) => a[0] - b[0])) if (fl.size >= 3) out.push(`${t}: ${fl.size} flats on level ${l} have reported (${[...fl].sort((a, b) => a - b).join(', ')}).`);
+  }
+  return out;
+}
+
 const countBy = <T>(rows: T[], key: (r: T) => string): Record<string, number> => {
   const o: Record<string, number> = {};
   for (const r of rows) o[key(r)] = (o[key(r)] ?? 0) + 1;
