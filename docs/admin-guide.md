@@ -10,7 +10,7 @@
 - **Link duplicates:** tick several reports and Link. They stay separate but are shown as one cluster in KPIs.
 - **Users:** change role (only a super admin can grant admin), deactivate, reset password, reset MFA.
 - **Settings:** the affects-me photo toggle, daily caps, reminder timing, SLA targets, registration.
-- **Data:** CSV import/export, audit log, remove demo data.
+- **Data:** CSV import, Excel and CSV export, audit log, remove demo data.
 
 ## First-time setup
 1. Create the admin (see docs/unraid.md), sign in, enrol MFA.
@@ -33,7 +33,7 @@ On Unraid (needs the build that contains the script):
 3. Dev: `npm run seed:test -w api -- "<photo folder>"`.
 
 ## Export
-Admin > Data > Export CSV (formula-injection safe).
+Admin > Data > Export: **Download all reports (Excel)** gives a formatted workbook (a Summary sheet with totals by status, category and tower, and a Reports sheet with readable labels, dates in Dubai time, filters, colour-coded status and an age-in-days column). **Download all reports (CSV)** gives the same rows with raw codes and ISO timestamps, for scripts or re-import (formula-injection safe). Neither contains resident names or emails. Both downloads are audit-logged.
 
 ## Locked out or forgotten admin password
 Run create-admin again for the same email; it resets the password (and, from the next image, any lockout):

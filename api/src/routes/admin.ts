@@ -21,6 +21,7 @@ import {
   unlinkIncident,
 } from '../services/incidents';
 import { queueEmail } from '../services/mailer';
+import { incidentExportRows, incidentsCsv, incidentsXlsx } from '../services/incidentExport';
 import { adminListItem, affectsCounts, incidentDetail } from '../services/serializers';
 import { getStorage } from '../services/storage';
 import { publicVersion } from '../version';
@@ -535,23 +536,28 @@ export function adminRouter(): Router {
     '/export.csv',
     requireAdmin,
     wrap(async (req, res) => {
-      const rows = await req.db('incidents').where({ community_id: req.user!.community_id }).orderBy('seq');
-      const counts = await affectsCounts(req.db, rows.map((x) => x.id));
-      const head = ['ref', 'reported_at', 'category', 'severity', 'status', 'tower', 'unit', 'title', 'mgmt_case_number', 'emailed_at', 'case_number_at', 'mgmt_closed_at', 'resolved_at', 'resolution', 'reopen_count', 'management_closures', 'affects', 'linked_to', 'source'];
-      const cell = (v: unknown) => {
-        let s = v == null ? '' : String(v);
-        if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`; // neutralise spreadsheet formula injection
-        return `"${s.replace(/"/g, '""')}"`;
-      };
-      const byId = new Map(rows.map((x) => [x.id, x.ref]));
-      const lines = [head.join(',')];
-      for (const x of rows) {
-        lines.push([x.ref, x.reported_at, x.category, x.severity, x.status, x.tower, x.unit, x.title, x.mgmt_case_number, x.emailed_at, x.case_number_at, x.mgmt_closed_at, x.resolved_at, x.resolution, x.reopen_count, x.mgmt_closed_count, counts.get(x.id) ?? 0, x.cluster_id ? byId.get(x.cluster_id) : '', x.source].map(cell).join(','));
-      }
+      const rows = await incidentExportRows(req.db, req.user!.community_id);
       await audit(req.db, { actorId: req.user!.id, actorRole: req.user!.role, action: 'export_csv', ip: clientIp(req) });
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="incidents.csv"');
-      res.send(lines.join('\n'));
+      res.send(incidentsCsv(rows));
+    }),
+  );
+
+  /** Same rows as the CSV, as a formatted Excel workbook (Summary and Reports sheets). */
+  r.get(
+    '/export.xlsx',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const community = await req.db('communities').where({ id: req.user!.community_id }).first();
+      const rows = await incidentExportRows(req.db, req.user!.community_id);
+      const file = await incidentsXlsx(community?.name ?? 'Community', rows);
+      await audit(req.db, { actorId: req.user!.id, actorRole: req.user!.role, action: 'export_xlsx', ip: clientIp(req), detail: { rows: rows.length } });
+      const day = new Date(Date.now() + 4 * 3_600_000).toISOString().slice(0, 10);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="incidents-${day}.xlsx"`);
+      res.setHeader('Cache-Control', 'no-store');
+      res.send(file);
     }),
   );
 

@@ -15,7 +15,7 @@ Read [CLAUDE.md](CLAUDE.md) first (working agreement, how to run/test, and the r
 - **Community:** everyone sees all (non-private) issues, never names or apartment numbers; "affects me" (button on each dashboard card, with a "N reported" badge on the photo; photo required by default, admin toggle; optional own management incident ID) emails the management company separately each time; reporters get a share link so neighbours can join in two taps, with daily caps.
 - **Smells:** residents log odours against their flat (levels 1-13 with 11 flats a level, penthouses, townhouses); neighbours see only banded counts, admins get a plan view of affected flats, simple patterns (same stack, same level), a CSV and a PDF summary (counts, charts, shaded tower plans, log; no notes) to send to the management company. Towers shown follow the tower list (MR 1-3 for now).
 - **Response scorecard / KPIs:** acknowledgement SLA, resolution SLA, closures disputed by residents, verified-fix and first-time-fix rates, time to management closure, reply time by priority, backlog ageing, repeat reports and recurrence (30/60/90 days), where reports cluster, evidence completeness, by type and tower, 12-week trend, transparent 0-100 score. Per-issue KPIs too.
-- **Admin:** update progress, add case numbers, link duplicates, edit, verify history integrity, settings, users, CSV import/export, audit log, demo-data wipe.
+- **Admin:** update progress, add case numbers, link duplicates, edit, verify history integrity, settings, users, CSV import, Excel and CSV export, audit log, demo-data wipe.
 - **Privacy/security (UAE PDPL-minded):** see [docs/privacy-pdpl.md](docs/privacy-pdpl.md) and [docs/security.md](docs/security.md).
 
 ## Run on your own server (Unraid) - the current target

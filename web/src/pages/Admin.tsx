@@ -974,9 +974,15 @@ export function AdminData() {
 
       <section className="panel stack">
         <h2>Export</h2>
-        <a className="btn" href="/api/admin/export.csv" download>
-          Download all reports (CSV)
-        </a>
+        <p className="muted small">Every report with its dates, status, case number and how many residents are affected. The Excel file is formatted for reading and sending (summary sheet, filters, dates in Dubai time); the CSV has the raw values.</p>
+        <div className="row">
+          <a className="btn primary" href="/api/admin/export.xlsx" download>
+            Download all reports (Excel)
+          </a>
+          <a className="btn" href="/api/admin/export.csv" download>
+            Download all reports (CSV)
+          </a>
+        </div>
       </section>
 
       {me?.user?.role === 'super_admin' && (
