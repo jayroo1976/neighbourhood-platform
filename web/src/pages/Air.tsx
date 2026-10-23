@@ -255,10 +255,11 @@ function GlanceTable({ outside, towers }: { outside?: AirData['outside']; towers
     return w.some((t) => t !== best && t[k]!.value === best[k]!.value) ? null : best;
   };
   const cell = (r: Reading | undefined, unit: string, key: string, top?: boolean) => {
-    if (!r || r.value == null) return <td key={key} className="na">-</td>;
+    const out = key === 'outside' ? ' outside' : '';
+    if (!r || r.value == null) return <td key={key} className={`na${out}`}>-</td>;
     const word = r.stale ? 'old reading' : top ? 'highest' : '';
     return (
-      <td key={key} className={r.stale ? 'old' : top ? 'top' : ''}>
+      <td key={key} className={`${r.stale ? 'old' : top ? 'top' : ''}${out}`.trim()}>
         <b>{r.value}{unit}</b>
         {word && <span className="cell-word">{word}</span>}
       </td>
@@ -271,7 +272,7 @@ function GlanceTable({ outside, towers }: { outside?: AirData['outside']; towers
         <thead>
           <tr>
             <th scope="col">Reading</th>
-            {outside && <th scope="col">Outside</th>}
+            {outside && <th scope="col" className="outside">Outside<span className="cell-word">not a tower</span></th>}
             {towers.map((t) => <th scope="col" key={t.name}>{t.name}</th>)}
           </tr>
         </thead>

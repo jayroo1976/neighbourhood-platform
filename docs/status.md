@@ -1,6 +1,6 @@
 # Status (update every build)
 
-**Last updated:** 2026-10-23 (incident Excel export) · **Version:** 0.8.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
+**Last updated:** 2026-10-23 (AirCon Outside column colour) · **Version:** 0.8.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
 
 ## Works and has been verified
 - API typechecks and builds; 47 automated tests pass (`npm test`): Smells tab (floor-plan mapping, validation, daily limit, neighbour view hides flats and small counts, admin-only, CSV safety, switch off, export, erasure, demo wipe); TOTP vector, signed links, tamper detection, auth/lockout/CSRF, full report lifecycle, inbound email webhook, affects-me rules and admin toggle, privacy/blurring/private reports, EXIF stripping, data export/erasure, admin link duplicates + roles, KPI maths, AirCon tab (good/fair/poor bands, tower prefix expansion, admin on/off, imported hourly statistics, fake Home Assistant: °F conversion, unavailable/old sensors, cache, unreachable, sign-in required, nothing sensitive in the response).
@@ -9,6 +9,7 @@
 - Sleep-mode gate (start page, 503 "asleep", status/wake endpoints, normal startup) tested locally.
 
 ## Not verified (assume it needs testing)
+- **AirCon Outside column colour** (2026-10-23): checked in headless Chromium only; not on a real phone or in the print dialog.
 - **Incident Excel export** (2026-10-23): 54 automated tests pass; the workbook was rendered through LibreOffice and read, with synthetic data. Not opened in desktop Excel or on a phone, not timed on a large export, not run on the Unraid instance. Adds the `exceljs` dependency (larger image).
 - **Smells PDF export** (2026-10-21): 52 automated tests pass; the PDF was rendered to images from synthetic data and with no reports and read page by page (summary, charts, tower plans, townhouses, log). Not yet generated from real reports on the Unraid instance, not opened on a phone, not checked with very large data (log capped at 500 rows, weekly chart at 26 weeks). Notes are left out by design. Whether to send exact flats to the management company is an owner decision (docs/privacy-pdpl.md). Wording not lawyer-reviewed.
 - **AirCon printout wording** (2026-10-18): table and printout carry no Good/Fair/Poor; the "highest" marker and the one-line summary are computed from the readings. Checked in headless Chromium and the printed PDF only. The summary compares towers whatever the sensor make or position, so it is a comparison of readings, not proof of a fault.

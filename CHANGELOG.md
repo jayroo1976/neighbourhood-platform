@@ -1,5 +1,9 @@
 # Changelog (newest first)
 
+## 2026-10-23 (later) - AirCon: Outside column set apart from the towers (v0.9.5)
+- In the **All towers at a glance** table the Outside column now has its own pale blue tint, a blue header with the words "not a tower" underneath, and a blue divider line before MR 1, so it no longer looks like another tower. The red "highest" marker still applies to towers only. The tint is kept in the printout. Style change only: no data or API change.
+- Checked by rendering the table in headless Chromium (normal, "highest" and "old reading" cells). Not checked on a real phone or in the browser print dialog.
+
 ## 2026-10-23 - Incident export: formatted Excel file next to the CSV (v0.9.4)
 - **Admin > Export** now has **Download all reports (Excel)** beside the CSV. The workbook (`incidents-YYYY-MM-DD.xlsx`) has two sheets. **Reports:** one row per report with readable labels (category, severity, status as the app shows them), real Excel dates in Dubai time, a frozen header row and Ref column, filters on every column, status and severity colour-coded (the words stay, colour is never the only signal), wrapped titles, an **Age (days)** column (report to resolution, or to the time of export if unresolved), outcome (Fixed / Poorly fixed), and print setup for A4 landscape with the header repeated. **Summary:** totals, open, closed-by-management-but-unverified, fixed, poorly fixed, reopened, then counts by status, category and tower, with a note that Fixed means resident-verified and that dates are Dubai time.
 - The CSV is unchanged in columns and values (raw codes and ISO timestamps, so it still suits scripts); it now shares the same row-building code as the Excel file (`api/src/services/incidentExport.ts`). Titles that start with `=`, `+`, `-` or `@` stay plain text in Excel and are prefixed with an apostrophe in the CSV, so neither can run as a formula.
