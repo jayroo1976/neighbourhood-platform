@@ -288,3 +288,5 @@ details summary{cursor:pointer;font-weight:600}
   .page.wide{max-width:none}h2{break-after:avoid}
 }
 @media print{.versionbar{display:none!important}}
+/* Non-admins: printing or saving a page as PDF gives only this notice (set on <html> by App). A deterrent, not security: the figures stay on screen. */
+@media print{html.print-admin-only body *{display:none!important}html.print-admin-only body::before{content:"Printing and saving as PDF are available to admins only.";display:block;padding:2rem;font:1rem system-ui,sans-serif}}

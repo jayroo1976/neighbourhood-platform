@@ -22,6 +22,9 @@ describe('incident export: Excel and CSV', () => {
 
     expect((await resident.agent.get('/api/admin/export.xlsx')).status).toBe(403);
     expect((await resident.agent.get('/api/admin/export.csv')).status).toBe(403);
+    const committee = await makeStaff(ctx.db, ctx.communityId, 'committee', ctx.app);
+    expect((await committee.agent.get('/api/admin/export.xlsx')).status).toBe(403);
+    expect((await committee.agent.get('/api/admin/export.csv')).status).toBe(403);
 
     const res = await admin.agent.get('/api/admin/export.xlsx').buffer(true).parse(binary);
     expect(res.status).toBe(200);

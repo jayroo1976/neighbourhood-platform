@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CATEGORY_LABELS, api, dateOnly, pct, qs } from '../api';
+import { useAuth } from '../auth';
 import { Banner, ErrorNote, Spinner, useAsync } from '../ui';
 
 interface Component {
@@ -123,6 +124,8 @@ function Trend({ data }: { data: Summary['trend'] }) {
 const toneRate = (v: number | null, good = 0.8, mid = 0.5): 'ok' | 'mid' | 'bad' | undefined => (v == null ? undefined : v >= good ? 'ok' : v >= mid ? 'mid' : 'bad');
 
 export function Scorecard() {
+  const role = useAuth().me?.user?.role;
+  const canPrint = role === 'admin' || role === 'super_admin';
   const [days, setDays] = useState<number | ''>(90);
   const q = useAsync(() => api.get<Summary>(`/kpi/summary${qs({ days: days || undefined })}`), [days]);
   const s = q.data;
@@ -144,9 +147,11 @@ export function Scorecard() {
               {l}
             </button>
           ))}
-          <button className="chip" onClick={() => window.print()}>
-            Print / save as PDF
-          </button>
+          {canPrint && (
+            <button className="chip" onClick={() => window.print()}>
+              Print / save as PDF
+            </button>
+          )}
         </div>
       </header>
 

@@ -111,6 +111,13 @@ function Protected({ admin }: { admin?: boolean }) {
 }
 
 export function App() {
+  // Printing and "save as PDF" is for admins only: everyone else gets a short notice instead of the page when they print.
+  const { me } = useAuth();
+  const role = me?.user?.role;
+  const canPrint = role === 'admin' || role === 'super_admin';
+  useEffect(() => {
+    document.documentElement.classList.toggle('print-admin-only', !canPrint);
+  }, [canPrint]);
   return (
     <>
     <VersionBar />

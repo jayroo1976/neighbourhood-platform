@@ -1,5 +1,10 @@
 # Changelog (newest first)
 
+## 2026-10-24 - Report downloads and printing are admin-only (v0.9.6)
+- **Print / save as PDF** on the Scorecard and AirCon pages is now shown only to admins and super admins. For everyone else (residents and committee) the button is gone, and if they print the page from the browser menu or a keyboard shortcut they get a one-line notice ("Printing and saving as PDF are available to admins only.") instead of the page. This is a deterrent, not security: the figures are still on screen and can be screenshotted.
+- Already admin-only on the server, and now covered by a test for committee as well as residents: incident export (CSV and Excel) and smells export (CSV and PDF). A resident can still download **their own** data from their profile (their right under the PDPL); nothing else.
+- Tests: 54 pass. Typecheck and build pass. The print notice was checked by printing a test page to PDF in headless Chromium with and without the admin setting; not tried on a real phone.
+
 ## 2026-10-23 (later) - AirCon: Outside column set apart from the towers (v0.9.5)
 - In the **All towers at a glance** table the Outside column now has its own pale blue tint, a blue header with the words "not a tower" underneath, and a blue divider line before MR 1, so it no longer looks like another tower. The red "highest" marker still applies to towers only. The tint is kept in the printout. Style change only: no data or API change.
 - Checked by rendering the table in headless Chromium (normal, "highest" and "old reading" cells). Not checked on a real phone or in the browser print dialog.

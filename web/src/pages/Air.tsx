@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { useAuth } from '../auth';
 import { Banner, ErrorNote, Spinner } from '../ui';
 
 type Level = 'good' | 'fair' | 'poor';
@@ -296,6 +297,8 @@ function GlanceTable({ outside, towers }: { outside?: AirData['outside']; towers
 }
 
 export function Air() {
+  const role = useAuth().me?.user?.role;
+  const canPrint = role === 'admin' || role === 'super_admin';
   const [data, setData] = useState<AirData | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [now, setNow] = useState(Date.now());
@@ -330,7 +333,7 @@ export function Air() {
       </div>
       <header className="page-head">
         <h1>AirCon</h1>
-        <button type="button" className="chip noprint" onClick={() => window.print()} disabled={!data?.enabled}>Print / save as PDF</button>
+        {canPrint && <button type="button" className="chip noprint" onClick={() => window.print()} disabled={!data?.enabled}>Print / save as PDF</button>}
         <p className="muted">Fresh-air readings in each tower, and the conditions outside. These are readings from sensors, shown as recorded; the Good / Fair / Poor labels compare each reading with the reference ranges listed at the bottom of this page. Refreshes every minute.</p>
       </header>
       <ErrorNote error={error} />

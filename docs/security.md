@@ -26,3 +26,6 @@ Pending and declined accounts cannot sign in (checked after the password, so it 
 
 ## Smell reports
 Admin routes (`/api/admin/odour*`) require the admin or super_admin role (committee and residents get 403, tested). The neighbour summary is built server-side from counts and contains no level, flat, note or user id (tested by scanning the response). Input is validated against the tower plan and the community's buildings; the observed time cannot be in the future or over a year old; a daily cap (counting deleted reports) limits abuse; notes are plain text (React escapes them) and CSV cells starting with `= + - @` are prefixed with `'`. CSV export and admin delete are audit-logged. Rate limits and CSRF header apply as for other routes.
+
+## Exports and printing
+Every report download (incident CSV and Excel, smells CSV and PDF) is admin or super admin only, checked on the server and audit-logged (`export_csv`, `export_xlsx`, `odour_export_csv`, `odour_export_pdf`). The Print / save as PDF buttons are shown to admins only and a non-admin who prints gets a notice instead of the page; this is a deterrent, not a control, since screens can be captured. A resident can download their own data from their profile.
