@@ -49,8 +49,9 @@ Bicep in `infra/main.bicep` (UAE North: Container Apps scale-to-zero, PostgreSQL
 | [docs/architecture.md](docs/architecture.md) | Stack, code layout, data model, workflow, API, background jobs |
 | [docs/decisions.md](docs/decisions.md) | Design decisions and the reasoning (read before changing behaviour) |
 | [docs/configuration.md](docs/configuration.md) | Every environment variable |
-| [docs/admin-guide.md](docs/admin-guide.md) | Roles, daily admin tasks, settings, CSV import format, Fresh air monitoring tab setup (including the outside-history import script `tools/ha-import-statistics.py`), Smells tab |
+| [docs/admin-guide.md](docs/admin-guide.md) | Roles, daily admin tasks, settings, CSV import format, Fresh air monitoring tab setup (including the outside station `collector` container and the older outside-history import script `tools/ha-import-statistics.py`), Smells tab |
 | [docs/unraid.md](docs/unraid.md) | Run and auto-update on Unraid via GitHub |
+| [docs/deployment-proxmox.md](docs/deployment-proxmox.md) | Step-by-step rollout on the Proxmox Docker VM (Portainer, collector, public `/fresh-air` page) with checks and back-outs |
 | [docs/privacy-pdpl.md](docs/privacy-pdpl.md) | Data map, PDPL notes, open legal points |
 | [docs/security.md](docs/security.md) | Security controls and known gaps |
 | [docs/sleep-mode.md](docs/sleep-mode.md) | Azure cost saving: nightly stop, "Start the service" page |

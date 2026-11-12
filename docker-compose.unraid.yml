@@ -51,6 +51,36 @@ services:
     volumes:
       - ${APPDATA:-/mnt/user/appdata/neighbourhood}/files:/data/files
 
+  # Outdoor station collector: same image, its own container. Every OUTSIDE_POLL_MINUTES it fetches the public station page and stores
+  # the hourly report in the app's database, so the Fresh air monitoring page keeps its outside line without Home Assistant or a scheduled task.
+  collector:
+    image: ${NP_IMAGE:?set NP_IMAGE in .env}
+    pull_policy: always
+    command: ["node", "api/dist/collector.js"]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://np:${PG_PASSWORD}@db:5432/np
+      DATABASE_SSL: "off"
+      JWT_SECRET: ${JWT_SECRET:?}
+      FILE_SIGNING_SECRET: ${FILE_SIGNING_SECRET:?}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?}
+      OUTSIDE_SOURCE_URL: ${OUTSIDE_SOURCE_URL:-}
+      OUTSIDE_POLL_MINUTES: ${OUTSIDE_POLL_MINUTES:-20}
+      HA_URL: ${HA_URL:-}                      # lets the collector copy the tower sensor history out of Home Assistant
+      HA_TOKEN: ${HA_TOKEN:-}
+      HA_AIR_SENSORS: ${HA_AIR_SENSORS:-}
+    healthcheck:   # the image's own check looks for the web server, which this container does not run
+      test: ["CMD-SHELL", "test -n \"$$(find /tmp/collector.alive -mmin -90 2>/dev/null)\""]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 3m
+
   # Checks every 5 minutes for a new image on GitHub and restarts only the app container when one appears.
   watchtower:
     image: nickfedor/watchtower:latest   # maintained fork of containrrr/watchtower; verify the image name before use

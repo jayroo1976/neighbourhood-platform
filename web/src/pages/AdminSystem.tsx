@@ -3,10 +3,10 @@ import { api, dateTime } from '../api';
 import { Banner, ErrorNote, Spinner, useAsync } from '../ui';
 import type { VersionInfo } from '../VersionBar';
 
-interface Ev { id: string; at: string; kind: 'start' | 'update' | 'watchtower'; title: string; message: string; version: string | null; build: string | null }
-interface Sys extends VersionInfo { uptime_s: number; watchtower_configured: boolean; watchtower_last: string | null; events: Ev[] }
+interface Ev { id: string; at: string; kind: 'start' | 'update' | 'watchtower' | 'collector'; title: string; message: string; version: string | null; build: string | null }
+interface Sys extends VersionInfo { uptime_s: number; watchtower_configured: boolean; watchtower_last: string | null; outside_latest: { hour_utc: string; fetched_at: string } | null; sensors_latest: string | null; events: Ev[] }
 
-const KIND: Record<Ev['kind'], string> = { start: 'App started', update: 'App updated', watchtower: 'Watchtower' };
+const KIND: Record<Ev['kind'], string> = { start: 'App started', update: 'App updated', watchtower: 'Watchtower', collector: 'Collector' };
 
 function uptime(s: number) {
   if (s < 90) return `${s}s`;
@@ -35,6 +35,8 @@ export function AdminSystem() {
             <div className="tile"><span>Built</span><b>{d.built_at ? dateTime(d.built_at) : 'n/a'}</b></div>
             <div className="tile"><span>Running since</span><b>{dateTime(d.started_at)}</b></div>
             <div className="tile"><span>Up for</span><b>{uptime(d.uptime_s)}</b></div>
+            <div className="tile"><span>Tower history copy, newest hour</span><b>{d.sensors_latest ? dateTime(d.sensors_latest) : 'none stored yet'}</b></div>
+            <div className="tile"><span>Outside station, latest report</span><b>{d.outside_latest ? dateTime(d.outside_latest.hour_utc) : 'none stored yet'}</b></div>
           </div>
           {!d.watchtower_configured && (
             <Banner tone="warn" title="Watchtower is not reporting here yet">
@@ -47,7 +49,7 @@ export function AdminSystem() {
             </Banner>
           )}
           <div className="chips" role="group" aria-label="Filter">
-            {(['all', 'update', 'start', 'watchtower'] as const).map((k) => (
+            {(['all', 'update', 'start', 'watchtower', 'collector'] as const).map((k) => (
               <button key={k} className={`chip ${kind === k ? 'on' : ''}`} onClick={() => setKind(k)}>
                 {k === 'all' ? 'Everything' : KIND[k]}
               </button>

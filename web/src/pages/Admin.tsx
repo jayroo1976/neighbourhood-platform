@@ -770,6 +770,7 @@ interface SettingsResp {
     require_approval: boolean;
     trust_resident_invites: boolean;
     aircon_enabled: boolean;
+    air_public_enabled: boolean;
     odour_enabled: boolean;
     odour_max_per_day: number;
     odour_townhouse_blocks: number[];
@@ -822,6 +823,7 @@ export function AdminSettings() {
           <p className="muted">Choose which optional features residents can see. Turning one off hides its tab; nothing is deleted.</p>
           <Toggle checked={s.settings.odour_enabled} onChange={(v) => set('odour_enabled', v)} label="Smells tab" hint="Smell reporting. Off hides the tab and stops new reports; existing reports stay visible to admins." />
           <Toggle checked={s.settings.aircon_enabled} onChange={(v) => set('aircon_enabled', v)} label="Fresh air monitoring tab" hint={s.aircon_available ? 'Fresh-air temperature and humidity per tower, plus outside conditions, from Home Assistant.' : 'Fresh-air temperature and humidity from Home Assistant. Home Assistant is not connected yet (see the setup guide), so the tab will stay hidden even when this is ticked.'} />
+          <Toggle checked={!!s.settings.air_public_enabled} onChange={(v) => set('air_public_enabled', v)} label="Public fresh-air page (no sign-in)" hint="Anyone with the link can open /fresh-air and see the fresh-air and outside readings without an account. Read-only; hidden towers, sensor names from Home Assistant and any resident information are never included. Off by default; needs the fresh air tab above to be on." />
         </fieldset>
 
         <fieldset disabled={!writer} className="panel stack">

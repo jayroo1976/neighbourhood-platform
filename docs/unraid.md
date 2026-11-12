@@ -21,6 +21,38 @@ NP_IMAGE=ghcr.io/<your-github-user>/neighbourhood-platform:latest
 APP_BASE_URL=https://np.yourdomain.com
 MGMT_EMAIL=your-own-address@...      # NOT the management company while testing
 ```
+**Outside station collector:** `docker-compose.unraid.yml` has a `collector` service (same image, command `node api/dist/collector.js`, shares the database settings). On the Proxmox/Portainer stack add the same service to `docker-compose.mres.yml` under `services:` (next to `app`):
+```yaml
+  collector:
+    image: ${NP_IMAGE:?set NP_IMAGE}
+    pull_policy: always
+    command: ["node", "api/dist/collector.js"]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://np:${PG_PASSWORD}@db:5432/np
+      DATABASE_SSL: "off"
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      FILE_SIGNING_SECRET: ${FILE_SIGNING_SECRET:?set FILE_SIGNING_SECRET}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?set MFA_ENCRYPTION_KEY}
+      OUTSIDE_SOURCE_URL: ${OUTSIDE_SOURCE_URL:-}
+      OUTSIDE_POLL_MINUTES: ${OUTSIDE_POLL_MINUTES:-20}
+      HA_URL: ${HA_URL:-}
+      HA_TOKEN: ${HA_TOKEN:-}
+      HA_AIR_SENSORS: ${HA_AIR_SENSORS:-}
+    healthcheck:
+      test: ["CMD-SHELL", "test -n \"$$(find /tmp/collector.alive -mmin -90 2>/dev/null)\""]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 3m
+```
+It needs outbound internet (https) for the station page, and, for the sensor history copy, a route to Home Assistant: add the same `HA_URL`, `HA_TOKEN` and `HA_AIR_SENSORS` lines to its `environment:` as the app has (`HA_URL: ${HA_URL:-}` and so on; the supplied `docker-compose.mres-with-collector.yml` already has them). It waits for the app to create the table, so start the stack as usual. Watchtower updates it with the app (the label).
+
 Optional Fresh air monitoring tab (was AirCon): add `HA_URL=`, `HA_TOKEN=` and `HA_AIR_SENSORS=` to `.env` (see docs/admin-guide.md > Fresh air monitoring tab). The app container must be able to reach Home Assistant at that address.
 
 ## 2. Start it
@@ -52,3 +84,5 @@ Share links built on `http://192.168.x.x` work for copying, but WhatsApp cannot 
 
 ## Photo check files
 From v0.4.0 the image includes the on-device face-detection files (about 13 MB, under `web/dist/mediapipe`). Nothing to configure. Phones download about 7 MB the first time someone adds a photo. If your Cloudflare tunnel or rules restrict `.wasm`, `.tflite` or `.binarypb` files, allow them or photos will fall back to manual covering with a warning.
+
+For the Proxmox Docker VM (Portainer stack, Watchtower, Cloudflare tunnel) use the phased runbook in [deployment-proxmox.md](deployment-proxmox.md). The public fresh-air page `/fresh-air` works the same on Unraid once ticked in Admin > Settings.

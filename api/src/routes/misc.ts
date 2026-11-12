@@ -62,7 +62,33 @@ export function airRouter(): Router {
         res.json({ enabled: false, switched_off: true });
         return;
       }
-      res.json(await getAir(undefined, undefined, parseRange(req.query.range)));
+      res.json(await getAir(undefined, undefined, parseRange(req.query.range), req.db));
+    }),
+  );
+  return r;
+}
+
+/**
+ * Public, read-only fresh-air page data (no sign-in). Off unless the admins tick "Public fresh-air page".
+ * Same figures as the signed-in tab, but hidden towers are removed entirely, nothing is returned that names a
+ * resident, a flat or a Home Assistant entity, and the answer may be cached for a minute.
+ */
+export function publicAirRouter(): Router {
+  const r = Router();
+  r.get(
+    '/air',
+    wrap(async (req, res) => {
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      const community = await req.db('communities').where({ slug: config.defaults.communitySlug }).first();
+      const s = community ? mergeSettings(community.settings) : null;
+      if (!s || !s.aircon_enabled || !s.air_public_enabled) {
+        res.json({ enabled: false, switched_off: true });
+        return;
+      }
+      const data = (await getAir(undefined, undefined, parseRange(req.query.range), req.db)) as Record<string, any>;
+      if (Array.isArray(data.towers)) data.towers = data.towers.filter((t: { hidden?: boolean }) => !t.hidden);
+      res.json(data);
     }),
   );
   return r;

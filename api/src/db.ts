@@ -335,6 +335,37 @@ const migrations: Migration[] = [
       });
     },
   },
+  {
+    name: '009_outside_readings',
+    up: async (db) => {
+      // One row per hour of the outdoor station's own reports (filled by the collector, read by the Fresh air monitoring page).
+      await db.schema.createTable('outside_readings', (t) => {
+        t.text('hour_utc').primary(); // start of the hour the station reported for, ISO-8601 UTC
+        t.double('temp_c');
+        t.double('humidity_pct');
+        t.integer('us_aqi');
+        t.double('pm25');
+        t.double('wind_kmh');
+        t.text('page_time'); // the station's own time label as published, when it came as text
+        t.text('source').notNullable().defaultTo('iqair-page'); // iqair-page | seed
+        t.text('fetched_at').notNullable();
+      });
+    },
+  },
+  {
+    name: '010_sensor_readings',
+    up: async (db) => {
+      // Hourly copy of the Home Assistant sensors the Fresh air monitoring page charts (filled by the collector container).
+      // sensor_id is the id used in HA_AIR_SENSORS and never leaves the server. Values are normalised to degrees Celsius.
+      await db.schema.createTable('sensor_readings', (t) => {
+        t.text('sensor_id').notNullable();
+        t.text('hour_utc').notNullable(); // start of the hour, ISO-8601 UTC
+        t.double('value').notNullable(); // the hour's mean
+        t.text('fetched_at').notNullable();
+        t.primary(['sensor_id', 'hour_utc']);
+      });
+    },
+  },
 ];
 
 export async function migrate(db: Db): Promise<void> {

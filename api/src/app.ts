@@ -11,7 +11,7 @@ import { csrfGuard, errorHandler, loadSession } from './http';
 import { adminRouter } from './routes/admin';
 import { authRouter } from './routes/auth';
 import { aiRouter, incidentsRouter, uploadsRouter } from './routes/incidents';
-import { airRouter, filesRouter, inboundRouter, kpiRouter } from './routes/misc';
+import { airRouter, filesRouter, inboundRouter, kpiRouter, publicAirRouter } from './routes/misc';
 import { meRouter, notificationsRouter } from './routes/me';
 import { odourRouter } from './routes/odour';
 
@@ -60,6 +60,7 @@ export function createApp(db: Db): Express {
   api.use('/auth/register', limit(60 * 60_000, 15));
   api.use('/auth/forgot', limit(60 * 60_000, 10));
   api.use('/inbound', inboundRouter());
+  api.use('/public', limit(60_000, 30), publicAirRouter());
   api.use(csrfGuard);
   api.use(loadSession);
   api.use('/auth', authRouter());

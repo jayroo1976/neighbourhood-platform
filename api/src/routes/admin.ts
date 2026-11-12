@@ -1,3 +1,4 @@
+import { latestStored } from '../services/sensorSync';
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import multer from 'multer';
@@ -40,10 +41,14 @@ export function adminRouter(): Router {
     requireStaff,
     wrap(async (req, res) => {
       const events = await req.db('system_events').orderBy('at', 'desc').limit(100);
+      const sensors = await latestStored(req.db);
+      const outside = await req.db('outside_readings').orderBy('hour_utc', 'desc').first('hour_utc', 'fetched_at');
       res.json({
         ...publicVersion(),
         watchtower_configured: Boolean(config.watchtowerSecret),
         watchtower_last: events.find((e: { kind: string }) => e.kind === 'watchtower')?.at ?? null,
+        sensors_latest: sensors,
+        outside_latest: outside ? { hour_utc: outside.hour_utc, fetched_at: outside.fetched_at } : null,
         events,
       });
     }),
@@ -292,6 +297,7 @@ export function adminRouter(): Router {
               require_approval: z.boolean(),
               trust_resident_invites: z.boolean(),
               aircon_enabled: z.boolean(),
+              air_public_enabled: z.boolean(),
               odour_enabled: z.boolean(),
               odour_max_per_day: z.number().int().min(1).max(100),
               odour_townhouse_blocks: z.array(z.number().int().min(1).max(99)).max(20),

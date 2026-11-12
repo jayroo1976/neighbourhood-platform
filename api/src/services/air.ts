@@ -1,4 +1,6 @@
 import { config } from '../config';
+import type { Db } from '../db';
+import { latestOutside, outsideRows, storedRows, type OutsideField } from './outside';
 import { EXTRA_KEYS, SCALES, SUFFIX, UNRATED, levelFor, type DerivedKey, type ExtraKey, type Level, type MetricKey, type Scale } from './airScales';
 import { dewPoint, moisture } from './airDerived';
 
@@ -66,6 +68,9 @@ const ENTITY = /^[a-z0-9_]+\.[a-z0-9_]+$/;
 /** Imported long-term statistics (not a live sensor) are written `source:name`, for example tower1:fresh_air_temperature. */
 const STAT = /^[a-z0-9_]+:[a-z0-9_]+$/;
 const isStat = (id: string | undefined): id is string => !!id && STAT.test(id);
+/** Outside figures kept by the collector in the app's own database (not in Home Assistant): `app:outside_temperature` and `app:outside_humidity`. They also match STAT, so layout validation accepts them. */
+const APP_FIELD: Record<string, OutsideField> = { 'app:outside_temperature': 'temp_c', 'app:outside_humidity': 'humidity_pct' };
+const isApp = (id: string | undefined): id is string => !!id && id in APP_FIELD;
 
 /** A tower's `prefix` is the start of its entity ids, for example "sensor.outside_tower_2_fresh_air_"; it expands to every sensor the uHoo integration creates. */
 const PREFIX = /^[a-z0-9_]+\.[a-z0-9_]*_$/;
@@ -103,6 +108,14 @@ export function parseLayout(raw: string): Layout | null {
   } catch {
     return null;
   }
+}
+
+/** Every Home Assistant id the page charts (towers and their extra sensors, and the outside ids unless they are kept in the app's own database), once each. */
+export function layoutSensorIds(raw: string): string[] {
+  const layout = parseLayout(raw);
+  if (!layout) return [];
+  const ids = [layout.outside?.temperature, layout.outside?.humidity, ...layout.towers.flatMap((t) => [t.temperature, t.humidity, ...Object.values(t.metrics)])];
+  return [...new Set(ids.filter((i): i is string => !!i && !(i in APP_FIELD)))];
 }
 
 export function airEnabled(): boolean {
@@ -166,8 +179,13 @@ export async function readStatistics(ids: string[], now: number, Ctor: WsCtor = 
   return new Promise((resolve, reject) => {
     const ws = new Ctor(`${url.replace(/^http/, 'ws')}/api/websocket`);
     const units = new Map<string, string | null>();
+    let finished = false;
     const done = (fn: () => void) => {
+      // closing a socket that is still connecting fires its error handler again, so finish only once and detach the handlers first
+      if (finished) return;
+      finished = true;
       clearTimeout(timer);
+      ws.onerror = ws.onclose = ws.onmessage = null;
       try {
         ws.close();
       } catch {
@@ -280,7 +298,7 @@ async function readLiveSeries(ids: string[], fetcher: FetchLike, now: number, ho
   return out;
 }
 
-interface StatRow {
+export interface StatRow {
   t: number;
   v: number;
 }
@@ -289,15 +307,20 @@ interface StatRow {
  * Long-term statistics (hourly or daily means) over the WebSocket API, for imported `source:name` ids and for live
  * sensors too (Home Assistant keeps statistics for years, its raw history for about ten days). Fahrenheit is converted.
  */
-function fetchStatisticRows(ids: string[], startMs: number, period: 'hour' | 'day', timeoutMs: number, Ctor: WsCtor = globalThis.WebSocket as unknown as WsCtor): Promise<Map<string, StatRow[]>> {
+export function fetchStatisticRows(ids: string[], startMs: number, period: 'hour' | 'day', timeoutMs: number, Ctor: WsCtor = globalThis.WebSocket as unknown as WsCtor): Promise<Map<string, StatRow[]>> {
   const out = new Map<string, StatRow[]>();
   if (!ids.length) return Promise.resolve(out);
   const { url, token } = config.homeAssistant;
   return new Promise((resolve, reject) => {
     const ws = new Ctor(`${url.replace(/^http/, 'ws')}/api/websocket`);
     const units = new Map<string, string | null>();
+    let finished = false;
     const done = (fn: () => void) => {
+      // closing a socket that is still connecting fires its error handler again, so finish only once and detach the handlers first
+      if (finished) return;
+      finished = true;
       clearTimeout(timer);
+      ws.onerror = ws.onclose = ws.onmessage = null;
       try {
         ws.close();
       } catch {
@@ -354,11 +377,33 @@ function bucket(rows: StatRow[], axis: number[], step: number): (number | null)[
  * imported ids; month and all time use long-term statistics for everything, because raw history is only kept for about ten days.
  * All time starts at the first statistic found and is one value per day. A failure in either source just leaves its sensors empty.
  */
-async function readSeries(ids: string[], range: AirRange, fetcher: FetchLike, now: number, fahrenheit: Set<string>, wsCtor?: WsCtor): Promise<{ axis: number[]; map: Map<string, (number | null)[]> }> {
+async function readSeries(allIds: string[], range: AirRange, fetcher: FetchLike, now: number, fahrenheit: Set<string>, wsCtor?: WsCtor, db?: Db, haDown = false): Promise<{ axis: number[]; map: Map<string, (number | null)[]> }> {
   const map = new Map<string, (number | null)[]>();
   const none = () => new Map<string, StatRow[]>();
+  // ids kept in the app's own database come from there; everything else from Home Assistant, with the stored hourly copy filling any hour Home Assistant cannot give
+  const ids = allIds.filter((i) => !isApp(i));
+  const appIds = allIds.filter(isApp);
+  const appRows = async (from: number, period: 'hour' | 'day') => {
+    const m = new Map<string, StatRow[]>();
+    if (db) for (const id of appIds) m.set(id, await outsideRows(db, APP_FIELD[id], from, period).catch(() => []));
+    return m;
+  };
+  const stored = (from: number, period: 'hour' | 'day') => (db ? storedRows(db, ids, from, period).catch(none) : Promise.resolve(none()));
+  const fromHa = (from: number, period: 'hour' | 'day', timeoutMs: number, only: string[] = ids) => (haDown ? Promise.resolve(none()) : fetchStatisticRows(only, from, period, timeoutMs, wsCtor).catch(none));
+  /** Home Assistant's figure wins for an hour it has; the stored copy supplies the rest. */
+  const merge = (a: Map<string, StatRow[]>, b: Map<string, StatRow[]>) => {
+    const out = new Map<string, StatRow[]>();
+    for (const id of new Set([...a.keys(), ...b.keys()])) {
+      const m = new Map<number, number>();
+      for (const r of a.get(id) ?? []) m.set(r.t, r.v);
+      for (const r of b.get(id) ?? []) m.set(r.t, r.v);
+      out.set(id, [...m].map(([t, v]) => ({ t, v })).sort((x, y) => x.t - y.t));
+    }
+    return out;
+  };
   if (range === 'all') {
-    const rows = await fetchStatisticRows(ids, ALL_FROM, 'day', 20_000, wsCtor).catch(none);
+    const rows = merge(await stored(ALL_FROM, 'day'), await fromHa(ALL_FROM, 'day', 20_000));
+    for (const [id, r] of await appRows(ALL_FROM, 'day')) rows.set(id, r);
     let first = Infinity;
     for (const r of rows.values()) for (const x of r) if (x.t < first) first = x.t;
     if (!Number.isFinite(first)) return { axis: [], map };
@@ -369,14 +414,22 @@ async function readSeries(ids: string[], range: AirRange, fetcher: FetchLike, no
   }
   const axis = historyHours(now, RANGE_HOURS[range]);
   if (range === 'month') {
-    const rows = await fetchStatisticRows(ids, axis[0], 'hour', 20_000, wsCtor).catch(none);
+    const rows = merge(await stored(axis[0], 'hour'), await fromHa(axis[0], 'hour', 20_000));
+    for (const [id, r] of await appRows(axis[0], 'hour')) rows.set(id, r);
     for (const [id, r] of rows) map.set(id, bucket(r, axis, HOUR));
     return { axis, map };
   }
-  const live = await readLiveSeries(ids.filter((i) => !isStat(i)), fetcher, now, axis, fahrenheit).catch(() => new Map<string, (number | null)[]>());
-  const rows = await fetchStatisticRows(ids.filter(isStat), axis[0], 'hour', 8000, wsCtor).catch(none);
+  const live = haDown ? new Map<string, (number | null)[]>() : await readLiveSeries(ids.filter((i) => !isStat(i)), fetcher, now, axis, fahrenheit).catch(() => new Map<string, (number | null)[]>());
+  const rows = await fromHa(axis[0], 'hour', 8000, ids.filter(isStat));
   for (const [id, v] of live) map.set(id, v);
   for (const [id, r] of rows) map.set(id, bucket(r, axis, HOUR));
+  // hours Home Assistant has no figure for are filled from the stored copy
+  for (const [id, r] of await stored(axis[0], 'hour')) {
+    const copy = bucket(r, axis, HOUR);
+    const have = map.get(id);
+    map.set(id, have ? have.map((v, i) => (v != null ? v : copy[i])) : copy);
+  }
+  for (const [id, r] of await appRows(axis[0], 'hour')) map.set(id, bucket(r, axis, HOUR));
   return { axis, map };
 }
 
@@ -412,12 +465,21 @@ function derive(t: AirReading, h: AirReading, f: (t: number, rh: number) => numb
 const deriveSeries = (t: (number | null)[] | undefined, h: (number | null)[] | undefined, f: (t: number, rh: number) => number | null) =>
   t && h ? t.map((x, i) => (x != null && h[i] != null ? f(x, h[i]!) : null)) : undefined;
 
+/** The latest stored hour for an app-kept id, shaped like an imported hourly figure (old after three hours, like those). */
+async function readApp(db: Db | undefined, id: string, now: number): Promise<AirReading> {
+  const latest = db ? await latestOutside(db, APP_FIELD[id]).catch(() => null) : null;
+  if (!latest) return { ...EMPTY, kind: 'hourly' };
+  const start = Date.parse(latest.hourUtc);
+  const age = now - (start + HOUR);
+  return { value: Math.round(latest.value * 10) / 10, unit: APP_FIELD[id] === 'temp_c' ? '°C' : '%', updated_at: latest.hourUtc, stale: !Number.isFinite(age) || age > Math.max(config.homeAssistant.staleMinutes, 180) * 60_000, kind: 'hourly' };
+}
+
 const cache = new Map<AirRange, { at: number; data: AirSummary }>();
 export function clearAirCache() {
   cache.clear();
 }
 
-export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike, wsCtor?: WsCtor, range: AirRange = 'day'): Promise<AirSummary> {
+export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike, wsCtor?: WsCtor, range: AirRange = 'day', db?: Db): Promise<AirSummary> {
   const layout = airEnabled() ? parseLayout(config.homeAssistant.airSensors) : null;
   if (!layout) return { enabled: false };
   const now = Date.now();
@@ -437,15 +499,33 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
   try {
     // live sensors over REST, imported hourly statistics over the WebSocket API
     let statsFailed = false;
-    const statIds = [...new Set(ids.filter(isStat))];
-    const stats = await readStatistics(statIds, now, wsCtor).catch(() => {
-      statsFailed = true;
-      return new Map<string, AirReading>();
-    });
     const fahrenheit = new Set<string>();
-    const live = await Promise.all(ids.map((id) => readEntity(id, fetcher, now, fahrenheit)));
+    // a live read that cannot reach Home Assistant gives an empty reading, so the stored copy can still feed the page; when none of them can, Home Assistant is treated as down
+    const liveIds = ids.filter((i): i is string => !!i && !isStat(i));
+    let liveFailed = 0;
+    const live = await Promise.all(
+      ids.map((id) =>
+        readEntity(id, fetcher, now, fahrenheit).catch(() => {
+          if (id && !isStat(id)) liveFailed += 1;
+          return EMPTY;
+        }),
+      ),
+    );
+    const haDown = liveIds.length > 0 && liveFailed === liveIds.length;
+    const statIds = [...new Set(ids.filter(isStat).filter((i) => !isApp(i)))];
+    const appIds = [...new Set(ids.filter(isApp))];
+    const app = new Map<string, AirReading>();
+    for (const id of appIds) app.set(id, await readApp(db, id, now));
+    const stats = haDown
+      ? new Map<string, AirReading>()
+      : await readStatistics(statIds, now, wsCtor).catch(() => {
+          statsFailed = true;
+          return new Map<string, AirReading>();
+        });
+    if (haDown) statsFailed = true;
     const at = (i: number): AirReading => {
       const id = ids[i];
+      if (isApp(id)) return app.get(id) ?? { ...EMPTY, kind: 'hourly' };
       if (isStat(id)) return stats.get(id) ?? { ...EMPTY, kind: 'hourly' };
       return live[i];
     };
@@ -460,7 +540,7 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
     });
     // history over the chosen range: one fetch for every sensor that is charted (towers, plus the outside temperature)
     const chartIds = [...new Set([layout.outside?.temperature, layout.outside?.humidity, ...slots.filter((x) => x.tower !== undefined).map((x) => x.id)].filter((x): x is string => !!x))];
-    const { axis, map } = await readSeries(chartIds, range, fetcher, now, fahrenheit, wsCtor).catch(() => ({ axis: [] as number[], map: new Map<string, (number | null)[]>() }));
+    const { axis, map } = await readSeries(chartIds, range, fetcher, now, fahrenheit, wsCtor, db, haDown).catch(() => ({ axis: [] as number[], map: new Map<string, (number | null)[]>() }));
     const iso = axis.map((h) => new Date(h).toISOString());
     const from = range === 'day' ? Math.max(0, axis.length - DAY_POINTS) : 0; // day fetches 72 hours for the last-known fallback and sends the last 24
     const enough = (v: (number | null)[] | undefined): v is (number | null)[] => !!v && v.filter((x) => x != null).length >= 2;

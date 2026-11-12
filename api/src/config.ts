@@ -65,6 +65,14 @@ export const config = {
     staleMinutes: Number(env.HA_STALE_MINUTES ?? 120),
   },
 
+  // Outdoor station collector (its own container, same image). It fetches the public station page on a timer and stores one
+  // row per hour in the app's own database; the Fresh air monitoring page reads that table (ids app:outside_temperature / app:outside_humidity).
+  outside: {
+    sourceUrl: env.OUTSIDE_SOURCE_URL || 'https://www.iqair.com/air-quality/united-arab-emirates/dubai/dubai/the-healthy-home-palm-jumeirah',
+    pollMinutes: Math.max(10, Number(env.OUTSIDE_POLL_MINUTES || 20)),
+    userAgent: env.OUTSIDE_USER_AGENT || 'neighbourhood-platform-collector (resident-run community air monitoring)',
+  },
+
   ai: {
     enabled: env.AI_SUGGEST_ENABLED === 'true',
     apiKey: env.ANTHROPIC_API_KEY ?? '',

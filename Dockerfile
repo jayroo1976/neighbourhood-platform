@@ -18,6 +18,7 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/api/package.json api/
 COPY --from=build /app/api/dist api/dist
+COPY --from=build /app/api/seed-data api/seed-data
 COPY --from=build /app/web/dist web/dist
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod 755 /usr/local/bin/docker-entrypoint.sh \

@@ -948,6 +948,6 @@ describe('air tab (Home Assistant)', () => {
     const res = await agent.get('/api/air');
     expect(res.status).toBe(200);
     const text = JSON.stringify(res.body);
-    expect(text).not.toMatch(/secret-token|ha\.local|sensor\./);
+    expect(text).not.toMatch(/secret-token|ha\.local|sensor\.[a-z0-9_]/); // an entity id; the reference-band wording may say "this sensor."
   });
 });

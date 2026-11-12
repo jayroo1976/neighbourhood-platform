@@ -8,7 +8,7 @@ import { Feed } from './pages/Feed';
 import { Report } from './pages/Report';
 import { IncidentPage } from './pages/Incident';
 import { Scorecard } from './pages/Scorecard';
-import { Air } from './pages/Air';
+import { Air, PublicAir } from './pages/Air';
 import { Smells } from './pages/Smells';
 import { Notifications, Profile } from './pages/Account';
 import { VersionBar } from './VersionBar';
@@ -129,6 +129,7 @@ export function App() {
       <Route path="/reset" element={<Reset />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
+      <Route path="/fresh-air" element={<PublicAir />} />
       <Route element={<Protected />}>
         <Route path="/mfa" element={<MfaSetup />} />
         <Route path="/" element={<Feed />} />

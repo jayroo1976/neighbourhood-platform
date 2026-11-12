@@ -70,6 +70,8 @@ export interface CommunitySettings {
   trust_resident_invites: boolean;
   /** AirCon tab (fresh-air temperature and humidity from Home Assistant) is shown to residents. Needs the HA_* settings too. */
   aircon_enabled: boolean;
+  /** Anyone with the link can open a read-only fresh-air page without signing in (/fresh-air). Off by default. */
+  air_public_enabled: boolean;
   /** Smell reports (odour map) are switched on for residents */
   odour_enabled: boolean;
   /** Smell reports one resident can log per day */
@@ -96,6 +98,7 @@ export const DEFAULT_SETTINGS: CommunitySettings = {
   require_approval: true,
   trust_resident_invites: false,
   aircon_enabled: true,
+  air_public_enabled: false,
   odour_enabled: true,
   odour_max_per_day: 10,
   odour_townhouse_blocks: [1, 2, 3],

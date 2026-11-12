@@ -5,7 +5,7 @@ import { buildInfo } from '../version';
 export interface SystemEvent {
   id: string;
   at: string;
-  kind: 'start' | 'update' | 'watchtower';
+  kind: 'start' | 'update' | 'watchtower' | 'collector';
   title: string;
   message: string;
   version: string | null;

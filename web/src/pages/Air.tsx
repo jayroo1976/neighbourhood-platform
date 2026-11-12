@@ -328,9 +328,21 @@ function GlanceTable({ outside, towers }: { outside?: AirData['outside']; towers
   );
 }
 
-export function Air() {
+/** The no-sign-in version of the page (route /fresh-air): same figures, read-only, hidden towers never sent, no print button. */
+export function PublicAir() {
+  useEffect(() => {
+    const m = document.createElement('meta');
+    m.name = 'robots';
+    m.content = 'noindex, nofollow';
+    document.head.appendChild(m);
+    return () => { m.remove(); };
+  }, []);
+  return <Air publicView />;
+}
+
+export function Air({ publicView = false }: { publicView?: boolean } = {}) {
   const role = useAuth().me?.user?.role;
-  const canPrint = role === 'admin' || role === 'super_admin';
+  const canPrint = !publicView && (role === 'admin' || role === 'super_admin');
   const [data, setData] = useState<AirData | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [now, setNow] = useState(Date.now());
@@ -342,7 +354,7 @@ export function Air() {
     let live = true;
     const load = () =>
       api
-        .get<AirData>(`/air?range=${range}`)
+        .get<AirData>(`${publicView ? '/public/air' : '/air'}?range=${range}`)
         .then((d) => live && (setData(d), setError(null), setNow(Date.now())))
         .catch((e) => live && setError(e))
         .finally(() => live && setLoadingRange(false));
@@ -352,7 +364,7 @@ export function Air() {
       live = false;
       clearInterval(t);
     };
-  }, [range]);
+  }, [range, publicView]);
 
   const scales = data?.scales ?? {};
   const allTowers = (data?.towers ?? []).map((t, i) => ({ t, i }));
@@ -369,11 +381,12 @@ export function Air() {
       <header className="page-head">
         <h1>Fresh air monitoring</h1>
         {canPrint && <button type="button" className="chip noprint" onClick={() => window.print()} disabled={!data?.enabled}>Print / save as PDF</button>}
+        {publicView && <p className="muted small noprint"><b>Resident-recorded readings, not an official measurement.</b> The sensors are home devices, not certified instruments. This page is read-only and needs no account. <a href="/login">Residents: sign in</a></p>}
         <p className="muted">Fresh-air readings in each tower, and the conditions outside. These are readings from sensors, shown as recorded; the Good / Fair / Poor labels compare each reading with the reference ranges listed at the bottom of this page. Refreshes every minute.</p>
       </header>
       <ErrorNote error={error} />
       {!data && !error && <Spinner />}
-      {data && !data.enabled && <Banner tone="info">{data.switched_off ? 'Fresh air monitoring has been switched off by the admins.' : 'The air sensors are not connected yet.'}</Banner>}
+      {data && !data.enabled && <Banner tone="info">{data.switched_off ? (publicView ? 'This page is not switched on.' : 'Fresh air monitoring has been switched off by the admins.') : 'The air sensors are not connected yet.'}</Banner>}
       {data?.unreachable && <Banner tone="warn">The sensor system could not be reached just now. Any figures shown may be out of date.</Banner>}
       {data?.enabled && data.outside && (
         <>
