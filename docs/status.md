@@ -1,6 +1,6 @@
 # Status (update every build)
 
-**Last updated:** 2026-11-12 (Fresh air monitoring ranges) · **Version:** 0.8.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
+**Last updated:** 2026-11-12 (Fresh air monitoring outside humidity and moisture lines) · **Version:** 0.8.0 (test/pilot) · **Target:** owner's Unraid test server via GitHub image. Azure not in use.
 
 ## Works and has been verified
 - API typechecks and builds; 47 automated tests pass (`npm test`): Smells tab (floor-plan mapping, validation, daily limit, neighbour view hides flats and small counts, admin-only, CSV safety, switch off, export, erasure, demo wipe); TOTP vector, signed links, tamper detection, auth/lockout/CSRF, full report lifecycle, inbound email webhook, affects-me rules and admin toggle, privacy/blurring/private reports, EXIF stripping, data export/erasure, admin link duplicates + roles, KPI maths, AirCon tab (good/fair/poor bands, tower prefix expansion, admin on/off, imported hourly statistics, fake Home Assistant: °F conversion, unavailable/old sensors, cache, unreachable, sign-in required, nothing sensitive in the response).
@@ -9,6 +9,7 @@
 - Sleep-mode gate (start page, 503 "asleep", status/wake endpoints, normal startup) tested locally.
 
 ## Not verified (assume it needs testing)
+- **Outside humidity / moisture lines and the station comparison** (2026-11-12, v0.10.1): tests pass with a fake Home Assistant. Open question: whether `sensor.palm_outside_temperature` / humidity in Home Assistant are the real IQAir station readings or something else. Run `tools/ha-import-statistics.py ... --compare` (see docs/admin-guide.md) and decide; the CSV of station readings exists only from 25 Oct 2026, and nothing yet keeps feeding it into Home Assistant after the collector stopped writing (the CSV shows `ha_written=no` from 9 Nov 18:00 onwards).
 - **Fresh air monitoring ranges and outside line** (2026-11-12, v0.10.0): 56 automated tests pass using a fake Home Assistant (range axes, outside history, query handling). Not checked in a browser or on a phone, not against the real Home Assistant (week/month/all-time statistics queries; whether `sensor.palm_outside_temperature` has long-term statistics is unconfirmed), and `tools/ha-import-statistics.py` (outside history backfill from the IQAir CSV) has never been run against Home Assistant. Until it is run, the outside line starts where Home Assistant's own history for that sensor starts. Next: run the script with `--dry-run` first, then for real, then check Week / Month / All time on the live page. The Portainer `HA_AIR_SENSORS` for the new Proxmox stack needs the `outside` block (see docs/admin-guide.md).
 - **Admin-only printing** (2026-10-24): print button hidden and print output replaced by a notice for non-admins; checked in headless Chromium only, not on a real phone or in each browser's print dialog. It cannot stop screenshots.
 - **AirCon Outside column colour** (2026-10-23): checked in headless Chromium only; not on a real phone or in the print dialog.

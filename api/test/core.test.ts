@@ -750,7 +750,7 @@ describe('air tab (Home Assistant)', () => {
   });
 
   it('charts the outside temperature as a line over the same hours, for the day, week, month and all-time ranges', async () => {
-    const out = JSON.stringify({ outside: { temperature: 'iqair:palm_temperature' }, towers: [{ name: 'MR 1', temperature: 'tower1:fresh_air_temperature', humidity: 'tower1:fresh_air_humidity' }] });
+    const out = JSON.stringify({ outside: { temperature: 'iqair:palm_temperature', humidity: 'iqair:palm_humidity' }, towers: [{ name: 'MR 1', temperature: 'tower1:fresh_air_temperature', humidity: 'tower1:fresh_air_humidity' }] });
     const hour = Math.floor(Date.now() / 3_600_000) * 3_600_000;
     const H = 3_600_000;
     const D = 24 * H;
@@ -758,6 +758,7 @@ describe('air tab (Home Assistant)', () => {
       'tower1:fresh_air_temperature': [2, 3, 4].map((a, i) => ({ start: hour - (5 - i) * H, end: hour - (4 - i) * H, mean: 24 + i })),
       'tower1:fresh_air_humidity': [2, 3, 4].map((a, i) => ({ start: hour - (5 - i) * H, end: hour - (4 - i) * H, mean: 50 + i })),
       'iqair:palm_temperature': [{ start: hour - 5 * H, end: hour - 4 * H, mean: 31 }, { start: hour - 3 * H, end: hour - 2 * H, mean: 33 }, { start: hour - 200 * H, end: hour - 199 * H, mean: 29 }],
+      'iqair:palm_humidity': [{ start: hour - 5 * H, end: hour - 4 * H, mean: 60 }, { start: hour - 3 * H, end: hour - 2 * H, mean: 55 }],
     };
     // day: 25 points
     set('http://ha.local:8123', 'tok', out);
@@ -768,7 +769,10 @@ describe('air tab (Home Assistant)', () => {
     expect(day.outside!.history!.series.temperature![25 - 1 - 5]).toBe(31);
     expect(day.outside!.history!.series.temperature![25 - 1 - 3]).toBe(33);
     expect(day.towers![0].history!.series.temperature![25 - 1 - 4]).toBe(25);
-    expect(Object.keys(day.outside!.history!.series)).toEqual(['temperature']);
+    expect(Object.keys(day.outside!.history!.series).sort()).toEqual(['humidity', 'moisture', 'temperature']);
+    expect(day.outside!.history!.series.humidity![25 - 1 - 3]).toBe(55);
+    expect(day.outside!.history!.series.moisture![25 - 1 - 3]).toBe(moisture(33, 55)); // only hours with both a temperature and a humidity
+    expect(day.outside!.history!.series.moisture![25 - 1 - 4]).toBeNull();
     expect(JSON.stringify(day)).not.toMatch(/iqair|palm|tower1:/);
     // week: hourly, 169 points, the older outside reading (200 h ago) is out of range
     clearAirCache();

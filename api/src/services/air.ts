@@ -459,7 +459,7 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
       else if (r.value != null || r.updated_at) (tw.metrics ??= {})[slot.key as ExtraKey] = rated; // a sensor that does not exist is not shown
     });
     // history over the chosen range: one fetch for every sensor that is charted (towers, plus the outside temperature)
-    const chartIds = [...new Set([layout.outside?.temperature, ...slots.filter((x) => x.tower !== undefined).map((x) => x.id)].filter((x): x is string => !!x))];
+    const chartIds = [...new Set([layout.outside?.temperature, layout.outside?.humidity, ...slots.filter((x) => x.tower !== undefined).map((x) => x.id)].filter((x): x is string => !!x))];
     const { axis, map } = await readSeries(chartIds, range, fetcher, now, fahrenheit, wsCtor).catch(() => ({ axis: [] as number[], map: new Map<string, (number | null)[]>() }));
     const iso = axis.map((h) => new Date(h).toISOString());
     const from = range === 'day' ? Math.max(0, axis.length - DAY_POINTS) : 0; // day fetches 72 hours for the last-known fallback and sends the last 24
@@ -480,8 +480,15 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
       if (enough(mo)) series.moisture = mo.slice(from);
       if (Object.keys(series).length) tw.history = { hours: iso.slice(from), series };
     });
+    // the outside line: temperature, humidity (when the layout has an outside humidity sensor) and the moisture worked out from the two
     const outV = layout.outside?.temperature ? map.get(layout.outside.temperature) : undefined;
-    const outsideHistory: AirHistory | undefined = enough(outV) ? { hours: iso.slice(from), series: { temperature: outV.slice(from) } } : undefined;
+    const outHV = layout.outside?.humidity ? map.get(layout.outside.humidity) : undefined;
+    const outSeries: AirHistory['series'] = {};
+    if (enough(outV)) outSeries.temperature = outV.slice(from);
+    if (enough(outHV)) outSeries.humidity = outHV.slice(from);
+    const outMo = deriveSeries(outV, outHV, moisture);
+    if (enough(outMo)) outSeries.moisture = outMo.slice(from);
+    const outsideHistory: AirHistory | undefined = Object.keys(outSeries).length ? { hours: iso.slice(from), series: outSeries } : undefined;
     // dew point and moisture are worked out last, so a last-known temperature or humidity carries through
     for (const tw of towers) {
       tw.dew_point = derive(tw.temperature, tw.humidity, dewPoint, '°C');

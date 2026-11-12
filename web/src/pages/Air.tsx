@@ -154,7 +154,7 @@ const CHART_PAD: Record<ChartKey, number> = { temperature: 0.5, humidity: 2, dew
 
 function CompareChart({ title, k, towers, scale, note, range, outside }: { title: string; k: ChartKey; towers: { t: Tower; i: number }[]; scale?: Scale; note?: string; range: Range; outside?: History }) {
   const withData = towers.map(({ t, i }) => ({ t, i, vals: t.history?.series[k] ?? null, style: TOWER_STYLE[i % TOWER_STYLE.length] }));
-  const outVals = k === 'temperature' ? outside?.series.temperature ?? null : null;
+  const outVals = outside?.series[k] ?? null;
   if (outVals && outVals.some((v) => v != null)) withData.push({ t: { name: 'Outside' } as Tower, i: -1, vals: outVals, style: OUTSIDE_STYLE });
   const shown = withData.filter((x) => x.vals && x.vals.some((v) => v != null));
   const hours = towers.find(({ t }) => t.history)?.t.history?.hours ?? (outVals ? outside?.hours : undefined);
@@ -163,7 +163,7 @@ function CompareChart({ title, k, towers, scale, note, range, outside }: { title
   if (!hours || !shown.length || !hours.length) return null;
 
   const unit = CHART_UNIT[k];
-  const W = 720, H = 280, L = 46, R = 14, T = 14, B = 30;
+  const W = 720, H = 290, L = 46, R = 14, T = 14, B = 44;
   const n = hours.length;
   const x = (i: number) => L + (i / (n - 1)) * (W - L - R);
   const all = shown.flatMap((x) => x.vals!.filter((v): v is number => v != null));
@@ -228,8 +228,8 @@ function CompareChart({ title, k, towers, scale, note, range, outside }: { title
         {ticks.map(({ i, label, sub }) => (
           <g key={i}>
             <line x1={x(i)} x2={x(i)} y1={T} y2={H - B} className="grid" />
-            <text x={x(i)} y={H - 10} textAnchor="middle" className="axis">{label}</text>
-            {sub && <text x={x(i)} y={H - 1} textAnchor="middle" className="axis day">{sub}</text>}
+            <text x={x(i)} y={H - B + 17} textAnchor="middle" className="axis">{label}</text>
+            {sub && <text x={x(i)} y={H - 6} textAnchor="middle" className="axis day">{sub}</text>}
           </g>
         ))}
         {lines.map((l) => (
@@ -251,7 +251,7 @@ function CompareChart({ title, k, towers, scale, note, range, outside }: { title
           </li>
         ))}
       </ul>
-      <p className="muted small trend-note">{hover === null ? <span className="noprint">Point at the chart to read a particular {range === 'all' ? 'day' : 'hour'}. </span> : `${whenLong(hours[at])}. `}{RG.step}, {RG.text}.{outVals && <> Outside is the outside temperature from the IQAir sensor.</>}{good && <span className="noprint"> Shaded band is the Good range ({good.from} to {good.to}{unit}).</span>} A ringed point with a dotted line means no newer reading, so the last known figure is carried forward.{note ? ` ${note}` : ''}</p>
+      <p className="muted small trend-note">{hover === null ? <span className="noprint">Point at the chart to read a particular {range === 'all' ? 'day' : 'hour'}. </span> : `${whenLong(hours[at])}. `}{RG.step}, {RG.text}.{outVals && <> Outside is from the IQAir outdoor station sensor{k === 'moisture' ? ', worked out the same way' : ''}.</>}{good && <span className="noprint"> Shaded band is the Good range ({good.from} to {good.to}{unit}).</span>} A ringed point with a dotted line means no newer reading, so the last known figure is carried forward.{note ? ` ${note}` : ''}</p>
     </section>
   );
 }
@@ -415,8 +415,8 @@ export function Air() {
               </div>
               <div aria-busy={loadingRange} style={loadingRange ? { opacity: 0.55 } : undefined}>
                 <CompareChart title="Temperature: fresh air in each tower, and outside" k="temperature" towers={visible} scale={scales.temperature} range={range} outside={data.outside.history} />
-                <CompareChart title="Fresh-air humidity, all towers" k="humidity" towers={visible} scale={scales.humidity} range={range} />
-                <CompareChart title="Moisture in the air, all towers" k="moisture" towers={visible} range={range} note="Moisture is grams of water vapour per cubic metre of air, worked out from temperature and humidity, not measured." />
+                <CompareChart title="Humidity: fresh air in each tower, and outside" k="humidity" towers={visible} scale={scales.humidity} range={range} outside={data.outside.history} />
+                <CompareChart title="Moisture in the air: each tower, and outside" k="moisture" towers={visible} range={range} outside={data.outside.history} note="Moisture is grams of water vapour per cubic metre of air, worked out from temperature and humidity, not measured." />
               </div>
             </>
           )}
