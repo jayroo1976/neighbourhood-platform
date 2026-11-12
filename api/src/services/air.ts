@@ -19,7 +19,12 @@ export interface AirReading {
   /** good / fair / poor against the reference bands in `scales`; absent for outside figures and unrated sensors */
   level?: Level | null;
 }
-/** Last 72 hours, one value per hour (hour start, UTC) per sensor; null where an hour has no reading. Used for the comparison charts and to fall back to a sensor's last known reading. */
+/** Chart range: day = last 24 hours, week = 7 days and month = 30 days (hourly averages), all = every day Home Assistant has kept (daily averages). */
+export type AirRange = 'day' | 'week' | 'month' | 'all';
+export const AIR_RANGES: AirRange[] = ['day', 'week', 'month', 'all'];
+export const parseRange = (v: unknown): AirRange => (AIR_RANGES.includes(v as AirRange) ? (v as AirRange) : 'day');
+
+/** One value per period (period start, UTC) per sensor; null where a period has no reading. Hourly for day, week and month; daily for all time. Used for the comparison charts and to fall back to a sensor's last known reading. */
 export interface AirHistory {
   hours: string[];
   series: Partial<Record<MetricKey | DerivedKey, (number | null)[]>>;
@@ -33,7 +38,7 @@ export interface AirTower {
   /** worked out from this tower's temperature and humidity; not measured */
   dew_point?: AirReading;
   moisture?: AirReading;
-  /** hourly averages for the last 72 hours, temperature and humidity only (for the comparison charts); absent when Home Assistant has no history for this tower */
+  /** averages over the chosen range (temperature, humidity and moisture, for the comparison charts); absent when Home Assistant has no history for this tower */
   history?: AirHistory;
   /** extra sensors this tower has (carbon dioxide, fine dust, ...); a sensor that does not exist in Home Assistant is left out */
   metrics?: Partial<Record<ExtraKey, AirReading>>;
@@ -43,7 +48,10 @@ export interface AirSummary {
   /** true when Home Assistant could not be reached on the last try */
   unreachable?: boolean;
   fetched_at?: string;
-  outside?: { temperature: AirReading; humidity: AirReading; dew_point?: AirReading; moisture?: AirReading };
+  /** the range the history in this answer covers */
+  range?: AirRange;
+  /** `history` holds the outside temperature over the same range and hours as the towers (drawn as a line on the temperature chart) */
+  outside?: { temperature: AirReading; humidity: AirReading; dew_point?: AirReading; moisture?: AirReading; history?: AirHistory };
   towers?: AirTower[];
   /** reference bands for the gauges, with where each comes from */
   scales?: Partial<Record<MetricKey | DerivedKey, Scale | { label: string; unit: string; basis: string }>>;
@@ -220,20 +228,24 @@ export async function readStatistics(ids: string[], now: number, Ctor: WsCtor = 
   });
 }
 
-// ---------------------------------------------------------------- 72-hour history for the comparison charts
+// ---------------------------------------------------------------- history for the comparison charts
 
 const HOUR = 3_600_000;
-const HISTORY_HOURS = 72;
+const DAY = 24 * HOUR;
+/** Hours fetched per range. Day fetches 72 so a sensor with no current reading can fall back to its last known one; only the last 24 are sent. */
+const RANGE_HOURS: Record<Exclude<AirRange, 'all'>, number> = { day: 72, week: 168, month: 720 };
+const DAY_POINTS = 25; // the last 24 whole hours plus the current, partly complete hour
+const ALL_FROM = Date.UTC(2020, 0, 1);
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const toC = (v: number) => ((v - 32) * 5) / 9;
 
-/** Hour-start timestamps (ms) for the chart: the last 24 whole hours plus the current, partly complete hour. */
-function historyHours(now: number): number[] {
+/** Hour-start timestamps (ms) ending with the current, partly complete hour. */
+function historyHours(now: number, n: number): number[] {
   const last = Math.floor(now / HOUR) * HOUR;
-  return Array.from({ length: HISTORY_HOURS + 1 }, (_, i) => last - (HISTORY_HOURS - i) * HOUR);
+  return Array.from({ length: n + 1 }, (_, i) => last - (n - i) * HOUR);
 }
 
-/** Hourly averages of live sensors from Home Assistant's recorder (REST). Imported statistics are not in this feed; see readStatisticSeries. */
+/** Hourly averages of live sensors from Home Assistant's recorder (REST, which keeps about ten days). Imported statistics are not in this feed; see fetchStatisticRows. */
 async function readLiveSeries(ids: string[], fetcher: FetchLike, now: number, hours: number[], fahrenheit: Set<string>): Promise<Map<string, (number | null)[]>> {
   const out = new Map<string, (number | null)[]>();
   if (!ids.length) return out;
@@ -268,9 +280,17 @@ async function readLiveSeries(ids: string[], fetcher: FetchLike, now: number, ho
   return out;
 }
 
-/** Hourly means of imported statistics (`source:name` ids) for the same 24 hours, over the WebSocket API. */
-function readStatisticSeries(ids: string[], now: number, hours: number[], Ctor: WsCtor = globalThis.WebSocket as unknown as WsCtor): Promise<Map<string, (number | null)[]>> {
-  const out = new Map<string, (number | null)[]>();
+interface StatRow {
+  t: number;
+  v: number;
+}
+
+/**
+ * Long-term statistics (hourly or daily means) over the WebSocket API, for imported `source:name` ids and for live
+ * sensors too (Home Assistant keeps statistics for years, its raw history for about ten days). Fahrenheit is converted.
+ */
+function fetchStatisticRows(ids: string[], startMs: number, period: 'hour' | 'day', timeoutMs: number, Ctor: WsCtor = globalThis.WebSocket as unknown as WsCtor): Promise<Map<string, StatRow[]>> {
+  const out = new Map<string, StatRow[]>();
   if (!ids.length) return Promise.resolve(out);
   const { url, token } = config.homeAssistant;
   return new Promise((resolve, reject) => {
@@ -285,7 +305,7 @@ function readStatisticSeries(ids: string[], now: number, hours: number[], Ctor: 
       }
       fn();
     };
-    const timer = setTimeout(() => done(() => reject(new Error('Home Assistant history timed out'))), 8000);
+    const timer = setTimeout(() => done(() => reject(new Error('Home Assistant history timed out'))), timeoutMs);
     ws.onerror = () => done(() => reject(new Error('Home Assistant history connection failed')));
     ws.onclose = () => done(() => reject(new Error('Home Assistant history connection closed')));
     ws.onmessage = (ev) => {
@@ -300,23 +320,64 @@ function readStatisticSeries(ids: string[], now: number, hours: number[], Ctor: 
       else if (m.type === 'auth_ok') ws.send(JSON.stringify({ id: 1, type: 'recorder/get_statistics_metadata', statistic_ids: ids }));
       else if (m.type === 'result' && m.id === 1) {
         if (m.success && Array.isArray(m.result)) for (const r of m.result as { statistic_id?: string; unit_of_measurement?: string | null }[]) if (r.statistic_id) units.set(r.statistic_id, r.unit_of_measurement ?? null);
-        ws.send(JSON.stringify({ id: 2, type: 'recorder/statistics_during_period', start_time: new Date(hours[0]).toISOString(), statistic_ids: ids, period: 'hour', types: ['mean', 'state'] }));
+        ws.send(JSON.stringify({ id: 2, type: 'recorder/statistics_during_period', start_time: new Date(startMs).toISOString(), statistic_ids: ids, period, types: ['mean', 'state'] }));
       } else if (m.type === 'result' && m.id === 2) {
         if (!m.success) return done(() => reject(new Error('Home Assistant could not return statistics')));
         const res = (m.result ?? {}) as Record<string, { start?: unknown; mean?: number | null; state?: number | null }[]>;
         for (const id of ids) {
-          const vals: (number | null)[] = hours.map(() => null);
+          const rows: StatRow[] = [];
           for (const r of res[id] ?? []) {
             const v = typeof r.mean === 'number' ? r.mean : typeof r.state === 'number' ? r.state : null;
-            const i = Math.round((toMs(r.start) - hours[0]) / HOUR);
-            if (v != null && Number.isFinite(v) && i >= 0 && i < hours.length) vals[i] = round1(units.get(id) === '°F' ? toC(v) : v);
+            const t = toMs(r.start);
+            if (v != null && Number.isFinite(v) && Number.isFinite(t)) rows.push({ t, v: units.get(id) === '°F' ? toC(v) : v });
           }
-          out.set(id, vals);
+          out.set(id, rows);
         }
         done(() => resolve(out));
       }
     };
   });
+}
+
+/** Places statistic rows into the chart's periods (index by distance from the first period). */
+function bucket(rows: StatRow[], axis: number[], step: number): (number | null)[] {
+  const vals: (number | null)[] = axis.map(() => null);
+  for (const r of rows) {
+    const i = Math.round((r.t - axis[0]) / step);
+    if (i >= 0 && i < axis.length) vals[i] = round1(r.v);
+  }
+  return vals;
+}
+
+/**
+ * Values per period for every id over the chosen range. Day and week use the recorder for live sensors (REST) and statistics for
+ * imported ids; month and all time use long-term statistics for everything, because raw history is only kept for about ten days.
+ * All time starts at the first statistic found and is one value per day. A failure in either source just leaves its sensors empty.
+ */
+async function readSeries(ids: string[], range: AirRange, fetcher: FetchLike, now: number, fahrenheit: Set<string>, wsCtor?: WsCtor): Promise<{ axis: number[]; map: Map<string, (number | null)[]> }> {
+  const map = new Map<string, (number | null)[]>();
+  const none = () => new Map<string, StatRow[]>();
+  if (range === 'all') {
+    const rows = await fetchStatisticRows(ids, ALL_FROM, 'day', 20_000, wsCtor).catch(none);
+    let first = Infinity;
+    for (const r of rows.values()) for (const x of r) if (x.t < first) first = x.t;
+    if (!Number.isFinite(first)) return { axis: [], map };
+    const axis: number[] = [];
+    for (let t = first; t <= now; t += DAY) axis.push(t);
+    for (const [id, r] of rows) map.set(id, bucket(r, axis, DAY));
+    return { axis, map };
+  }
+  const axis = historyHours(now, RANGE_HOURS[range]);
+  if (range === 'month') {
+    const rows = await fetchStatisticRows(ids, axis[0], 'hour', 20_000, wsCtor).catch(none);
+    for (const [id, r] of rows) map.set(id, bucket(r, axis, HOUR));
+    return { axis, map };
+  }
+  const live = await readLiveSeries(ids.filter((i) => !isStat(i)), fetcher, now, axis, fahrenheit).catch(() => new Map<string, (number | null)[]>());
+  const rows = await fetchStatisticRows(ids.filter(isStat), axis[0], 'hour', 8000, wsCtor).catch(none);
+  for (const [id, v] of live) map.set(id, v);
+  for (const [id, r] of rows) map.set(id, bucket(r, axis, HOUR));
+  return { axis, map };
 }
 
 /**
@@ -341,23 +402,6 @@ function useLastKnown(tw: AirTower, h: AirHistory): void {
   }
 }
 
-/** Builds each tower's 72-hour history. Never throws: a failure just means no chart. */
-async function readHistory(layout: Layout, slots: { id: string | undefined; tower?: number; key?: MetricKey }[], fetcher: FetchLike, now: number, fahrenheit: Set<string>, wsCtor?: WsCtor): Promise<(AirHistory | undefined)[]> {
-  const hours = historyHours(now);
-  const ids = [...new Set(slots.filter((x) => x.tower !== undefined).map((x) => x.id).filter((x): x is string => !!x))];
-  const live = await readLiveSeries(ids.filter((i) => !isStat(i)), fetcher, now, hours, fahrenheit).catch(() => new Map<string, (number | null)[]>());
-  const stat = await readStatisticSeries(ids.filter(isStat), now, hours, wsCtor).catch(() => new Map<string, (number | null)[]>());
-  return layout.towers.map((_, ti) => {
-    const series: AirHistory['series'] = {};
-    for (const s of slots) {
-      if (s.tower !== ti || !s.key || !s.id) continue;
-      const v = live.get(s.id) ?? stat.get(s.id);
-      if (v && v.filter((x) => x != null).length >= 2) series[s.key] = v;
-    }
-    return Object.keys(series).length ? { hours: hours.map((h) => new Date(h).toISOString()), series } : undefined;
-  });
-}
-
 /** A figure worked out from a temperature and a humidity reading. Old if either input is old; dated by the older input. */
 function derive(t: AirReading, h: AirReading, f: (t: number, rh: number) => number | null, unit: string): AirReading {
   const v = t.value != null && h.value != null ? f(t.value, h.value) : null;
@@ -368,16 +412,17 @@ function derive(t: AirReading, h: AirReading, f: (t: number, rh: number) => numb
 const deriveSeries = (t: (number | null)[] | undefined, h: (number | null)[] | undefined, f: (t: number, rh: number) => number | null) =>
   t && h ? t.map((x, i) => (x != null && h[i] != null ? f(x, h[i]!) : null)) : undefined;
 
-let cache: { at: number; data: AirSummary } | null = null;
+const cache = new Map<AirRange, { at: number; data: AirSummary }>();
 export function clearAirCache() {
-  cache = null;
+  cache.clear();
 }
 
-export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike, wsCtor?: WsCtor): Promise<AirSummary> {
+export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike, wsCtor?: WsCtor, range: AirRange = 'day'): Promise<AirSummary> {
   const layout = airEnabled() ? parseLayout(config.homeAssistant.airSensors) : null;
   if (!layout) return { enabled: false };
   const now = Date.now();
-  if (cache && now - cache.at < config.homeAssistant.cacheSeconds * 1000) return cache.data;
+  const cached = cache.get(range);
+  if (cached && now - cached.at < config.homeAssistant.cacheSeconds * 1000) return cached.data;
   // one flat list of sensor ids: outside (2), then per tower temperature, humidity and any extras
   const slots: { id: string | undefined; tower?: number; key?: MetricKey }[] = [
     { id: layout.outside?.temperature },
@@ -413,19 +458,30 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
       if (slot.key === 'temperature' || slot.key === 'humidity') tw[slot.key] = rated;
       else if (r.value != null || r.updated_at) (tw.metrics ??= {})[slot.key as ExtraKey] = rated; // a sensor that does not exist is not shown
     });
-    const histories = await readHistory(layout, slots, fetcher, now, fahrenheit, wsCtor).catch(() => []);
-    histories.forEach((h, i) => {
-      if (!h) return;
-      useLastKnown(towers[i], h);
-      // only temperature and humidity go to the page (the two comparison charts); the rest was only needed for the fallback above
+    // history over the chosen range: one fetch for every sensor that is charted (towers, plus the outside temperature)
+    const chartIds = [...new Set([layout.outside?.temperature, ...slots.filter((x) => x.tower !== undefined).map((x) => x.id)].filter((x): x is string => !!x))];
+    const { axis, map } = await readSeries(chartIds, range, fetcher, now, fahrenheit, wsCtor).catch(() => ({ axis: [] as number[], map: new Map<string, (number | null)[]>() }));
+    const iso = axis.map((h) => new Date(h).toISOString());
+    const from = range === 'day' ? Math.max(0, axis.length - DAY_POINTS) : 0; // day fetches 72 hours for the last-known fallback and sends the last 24
+    const enough = (v: (number | null)[] | undefined): v is (number | null)[] => !!v && v.filter((x) => x != null).length >= 2;
+    towers.forEach((tw, ti) => {
+      const full: AirHistory['series'] = {};
+      for (const s of slots) {
+        if (s.tower !== ti || !s.key || !s.id) continue;
+        const v = map.get(s.id);
+        if (enough(v)) full[s.key] = v;
+      }
+      if (!Object.keys(full).length) return;
+      useLastKnown(tw, { hours: iso, series: full });
+      // temperature, humidity and moisture go to the page; dew point is shown as a figure only (no chart)
       const series: AirHistory['series'] = {};
-      for (const k of ['temperature', 'humidity'] as const) if (h.series[k]) series[k] = h.series[k];
-      const dp = deriveSeries(h.series.temperature, h.series.humidity, dewPoint);
-      const mo = deriveSeries(h.series.temperature, h.series.humidity, moisture);
-      if (dp && dp.filter((x) => x != null).length >= 2) series.dew_point = dp;
-      if (mo && mo.filter((x) => x != null).length >= 2) series.moisture = mo;
-      if (Object.keys(series).length) towers[i].history = { hours: h.hours, series };
+      for (const k of ['temperature', 'humidity'] as const) if (full[k]) series[k] = full[k]!.slice(from);
+      const mo = deriveSeries(full.temperature, full.humidity, moisture);
+      if (enough(mo)) series.moisture = mo.slice(from);
+      if (Object.keys(series).length) tw.history = { hours: iso.slice(from), series };
     });
+    const outV = layout.outside?.temperature ? map.get(layout.outside.temperature) : undefined;
+    const outsideHistory: AirHistory | undefined = enough(outV) ? { hours: iso.slice(from), series: { temperature: outV.slice(from) } } : undefined;
     // dew point and moisture are worked out last, so a last-known temperature or humidity carries through
     for (const tw of towers) {
       tw.dew_point = derive(tw.temperature, tw.humidity, dewPoint, '°C');
@@ -440,15 +496,17 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
       enabled: true,
       fetched_at: new Date(now).toISOString(),
       ...(statsFailed ? { unreachable: true } : {}),
-      outside: { temperature: outT, humidity: outH, dew_point: derive(outT, outH, dewPoint, '°C'), moisture: derive(outT, outH, moisture, 'g/m³') },
+      range,
+      outside: { temperature: outT, humidity: outH, dew_point: derive(outT, outH, dewPoint, '°C'), moisture: derive(outT, outH, moisture, 'g/m³'), ...(outsideHistory ? { history: outsideHistory } : {}) },
       towers,
       scales,
     };
-    if (!statsFailed) cache = { at: now, data };
+    if (!statsFailed) cache.set(range, { at: now, data });
     return data;
   } catch {
     // Home Assistant unreachable: show the last good figures marked as old, or say it is unreachable
-    if (cache) return { ...cache.data, unreachable: true };
-    return { enabled: true, unreachable: true, outside: { temperature: EMPTY, humidity: EMPTY }, towers: layout.towers.map((t) => ({ name: t.name, ...(t.hidden ? { hidden: true } : {}), temperature: EMPTY, humidity: EMPTY })) };
+    const last = cache.get(range);
+    if (last) return { ...last.data, unreachable: true };
+    return { enabled: true, unreachable: true, range, outside: { temperature: EMPTY, humidity: EMPTY }, towers: layout.towers.map((t) => ({ name: t.name, ...(t.hidden ? { hidden: true } : {}), temperature: EMPTY, humidity: EMPTY })) };
   }
 }

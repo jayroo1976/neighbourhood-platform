@@ -271,6 +271,7 @@ details summary{cursor:pointer;font-weight:600}
 .glance-table td b{display:block;font-variant-numeric:tabular-nums}
 .glance-table .cell-word{display:block;font-size:.72rem;line-height:1.15;color:var(--muted)}
 .glance-table td.top{background:#fbeede;border-left:3px solid var(--bad)}.glance-table td.top .cell-word{color:var(--bad);font-weight:700}
+.range-row{display:flex;align-items:center;gap:.6rem;margin:.2rem 0 .6rem;flex-wrap:wrap}
 .glance-table .outside{background:#e6f0f6;border-right:2px solid var(--info)}.glance-table th.outside{color:var(--info);border-bottom-color:var(--info)}.glance-table th.outside .cell-word{font-weight:400;color:var(--info)}
 .glance-line{margin:.6rem 0 .3rem;font-size:.92rem}
 .glance-table td.old{border-left:3px dotted var(--mid);color:var(--muted)}.glance-table td.na{color:var(--muted)}

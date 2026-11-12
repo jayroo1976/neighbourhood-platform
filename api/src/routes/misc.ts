@@ -6,7 +6,7 @@ import { mergeSettings } from '../domain';
 import { parse, requireAuth, wrap } from '../http';
 import { verifyFileLink } from '../security/crypto';
 import { HttpError, recordMgmtReply } from '../services/incidents';
-import { getAir } from '../services/air';
+import { getAir, parseRange } from '../services/air';
 import { KPI_DEFINITIONS, communityKpis } from '../services/kpi';
 import { getStorage } from '../services/storage';
 import { addSystemEvent, summariseWatchtower } from '../services/system';
@@ -49,7 +49,7 @@ export function kpiRouter(): Router {
   return r;
 }
 
-/** AirCon tab: fresh-air temperature and humidity per tower plus outside temperature, read from Home Assistant. Sign-in required. */
+/** Fresh air monitoring tab: fresh-air temperature and humidity per tower plus outside temperature, read from Home Assistant. `?range=day|week|month|all` picks the chart range (default day). Sign-in required. */
 export function airRouter(): Router {
   const r = Router();
   r.use(requireAuth);
@@ -62,7 +62,7 @@ export function airRouter(): Router {
         res.json({ enabled: false, switched_off: true });
         return;
       }
-      res.json(await getAir());
+      res.json(await getAir(undefined, undefined, parseRange(req.query.range)));
     }),
   );
   return r;

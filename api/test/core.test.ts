@@ -6,7 +6,7 @@ import { deliverOutbox } from '../src/services/scheduler';
 import { signFileLink, verifyFileLink, canonicalJson, passwordProblem } from '../src/security/crypto';
 import { totpAt, verifyTotp } from '../src/security/totp';
 import { extractCaseNumber } from '../src/services/incidents';
-import { clearAirCache, getAir, parseLayout, type WsCtor } from '../src/services/air';
+import { clearAirCache, getAir, parseLayout, parseRange, type WsCtor } from '../src/services/air';
 import { levelFor } from '../src/services/airScales';
 import { dewPoint, moisture } from '../src/services/airDerived';
 import { config } from '../src/config';
@@ -676,7 +676,7 @@ describe('air tab (Home Assistant)', () => {
     for (const k of Object.keys(states).filter((x) => x.startsWith(P))) delete states[k];
   });
 
-  it('adds a 72-hour hourly temperature and humidity history per tower for the comparison charts, converting °F, and falls back to the last known reading when a sensor has no current one', async () => {
+  it('adds an hourly temperature and humidity history (last 24 hours by default) per tower for the comparison charts, converting °F, and falls back to the last known reading when a sensor has no current one', async () => {
     set('http://ha.local:8123', 'tok', JSON.stringify({ towers: [{ name: 'MR 2', temperature: 'sensor.h_temp', humidity: 'sensor.h_hum', metrics: { co2: 'sensor.h_co2' } }, { name: 'MR 3', temperature: 'sensor.none_temp' }] }));
     const hourStart = Math.floor(Date.now() / 3_600_000) * 3_600_000;
     const iso = (hoursAgo: number, mins = 0) => new Date(hourStart - hoursAgo * 3_600_000 + mins * 60_000).toISOString();
@@ -697,10 +697,11 @@ describe('air tab (Home Assistant)', () => {
     };
     const a = await getAir(withHistory);
     const h = a.towers![0].history!;
-    expect(h.hours).toHaveLength(73);
+    expect(a.range).toBe('day');
+    expect(h.hours).toHaveLength(25); // 72 hours are read for the last-known fallback, the last 24 (plus the current hour) are sent
     expect(h.hours.at(-1)).toBe(new Date(hourStart).toISOString());
     expect(h.series.temperature!.at(-2)).toBe(26); // 78.8 °F
-    expect(h.series.temperature![69]).toBe(24.5); // mean of 75.2 °F and 77 °F, in °C
+    expect(h.series.temperature![21]).toBe(24.5); // mean of 75.2 °F and 77 °F, in °C
     expect(h.series.humidity!.at(-2)).toBe(52);
     expect(Object.keys(h.series).sort()).toEqual(['humidity', 'temperature']); // extras are not sent to the page
     expect(a.towers![0].metrics!.co2).toMatchObject({ value: 700, unit: 'ppm', stale: true, kind: 'hourly', updated_at: new Date(hourStart).toISOString() }); // sensor unavailable now: last known reading
@@ -742,11 +743,69 @@ describe('air tab (Home Assistant)', () => {
       return v ? { ok: true, status: 200, json: async () => ({ state: v, last_updated: new Date().toISOString(), attributes: {} }) } : { ok: false, status: 404, json: async () => ({}) };
     };
     const h = (await getAir(withHistory)).towers![0].history!;
-    expect(h.series.dew_point!.at(-4)).toBe(dewPoint(25, 50)); // only hours with both a temperature and a humidity get a figure
-    expect(h.series.dew_point!.at(-3)).toBe(dewPoint(27, 60));
-    expect(h.series.dew_point!.at(-2)).toBeNull();
+    expect(h.series.moisture!.at(-4)).toBe(moisture(25, 50)); // only hours with both a temperature and a humidity get a figure
     expect(h.series.moisture!.at(-3)).toBe(moisture(27, 60));
-    expect(Object.keys(h.series).sort()).toEqual(['dew_point', 'humidity', 'moisture', 'temperature']);
+    expect(h.series.moisture!.at(-2)).toBeNull();
+    expect(Object.keys(h.series).sort()).toEqual(['humidity', 'moisture', 'temperature']); // dew point is a figure only, no chart series
+  });
+
+  it('charts the outside temperature as a line over the same hours, for the day, week, month and all-time ranges', async () => {
+    const out = JSON.stringify({ outside: { temperature: 'iqair:palm_temperature' }, towers: [{ name: 'MR 1', temperature: 'tower1:fresh_air_temperature', humidity: 'tower1:fresh_air_humidity' }] });
+    const hour = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+    const H = 3_600_000;
+    const D = 24 * H;
+    const hourly = {
+      'tower1:fresh_air_temperature': [2, 3, 4].map((a, i) => ({ start: hour - (5 - i) * H, end: hour - (4 - i) * H, mean: 24 + i })),
+      'tower1:fresh_air_humidity': [2, 3, 4].map((a, i) => ({ start: hour - (5 - i) * H, end: hour - (4 - i) * H, mean: 50 + i })),
+      'iqair:palm_temperature': [{ start: hour - 5 * H, end: hour - 4 * H, mean: 31 }, { start: hour - 3 * H, end: hour - 2 * H, mean: 33 }, { start: hour - 200 * H, end: hour - 199 * H, mean: 29 }],
+    };
+    // day: 25 points
+    set('http://ha.local:8123', 'tok', out);
+    const day = await getAir(fake, fakeWs({ stats: hourly }).Ctor, 'day');
+    expect(day.range).toBe('day');
+    expect(day.outside!.history!.hours).toHaveLength(25);
+    expect(day.outside!.history!.hours).toEqual(day.towers![0].history!.hours);
+    expect(day.outside!.history!.series.temperature![25 - 1 - 5]).toBe(31);
+    expect(day.outside!.history!.series.temperature![25 - 1 - 3]).toBe(33);
+    expect(day.towers![0].history!.series.temperature![25 - 1 - 4]).toBe(25);
+    expect(Object.keys(day.outside!.history!.series)).toEqual(['temperature']);
+    expect(JSON.stringify(day)).not.toMatch(/iqair|palm|tower1:/);
+    // week: hourly, 169 points, the older outside reading (200 h ago) is out of range
+    clearAirCache();
+    const week = await getAir(fake, fakeWs({ stats: hourly }).Ctor, 'week');
+    expect(week.outside!.history!.hours).toHaveLength(169);
+    expect(week.outside!.history!.series.temperature!.filter((v) => v != null)).toEqual([31, 33]);
+    // month: 721 hourly points from long-term statistics, so the 200 h-old reading is now included
+    clearAirCache();
+    const month = await getAir(fake, fakeWs({ stats: hourly }).Ctor, 'month');
+    expect(month.outside!.history!.hours).toHaveLength(721);
+    expect(month.outside!.history!.series.temperature!.filter((v) => v != null)).toEqual([29, 31, 33]);
+    // all time: one point per day, starting at the first statistic found
+    clearAirCache();
+    const dayStart = Math.floor(Date.now() / D) * D;
+    const daily = {
+      'tower1:fresh_air_temperature': [{ start: dayStart - 9 * D, end: dayStart - 8 * D, mean: 25 }, { start: dayStart - D, end: dayStart, mean: 26 }],
+      'iqair:palm_temperature': [{ start: dayStart - 10 * D, end: dayStart - 9 * D, mean: 30 }, { start: dayStart - D, end: dayStart, mean: 31.26 }],
+    };
+    const all = await getAir(fake, fakeWs({ stats: daily }).Ctor, 'all');
+    const oh = all.outside!.history!;
+    expect(all.range).toBe('all');
+    expect(oh.hours[0]).toBe(new Date(dayStart - 10 * D).toISOString());
+    expect(oh.hours.length).toBe(11); // 10 days ago up to and including today
+    expect(oh.series.temperature![0]).toBe(30);
+    expect(oh.series.temperature![9]).toBe(31.3);
+    expect(all.towers![0].history!.series.temperature![1]).toBe(25); // same axis as the outside line
+  });
+
+  it('serves the range from the query string (default day, unknown values fall back to day) and caches each range separately', async () => {
+    set('http://ha.local:8123', 'secret-token', layout);
+    const { agent } = await register(ctx.app);
+    expect((await agent.get('/api/air')).body.range).toBe('day');
+    expect((await agent.get('/api/air?range=week')).body.range).toBe('week');
+    expect((await agent.get('/api/air?range=forever')).body.range).toBe('day');
+    expect(parseRange('month')).toBe('month');
+    expect(parseRange(undefined)).toBe('day');
+    expect(parseRange(['all'])).toBe('day');
   });
 
   it('lets a tower be marked hidden: the page gets the flag and keeps it behind a button, and a non-boolean flag is rejected', async () => {

@@ -821,7 +821,7 @@ export function AdminSettings() {
           <h2>Resident tabs</h2>
           <p className="muted">Choose which optional features residents can see. Turning one off hides its tab; nothing is deleted.</p>
           <Toggle checked={s.settings.odour_enabled} onChange={(v) => set('odour_enabled', v)} label="Smells tab" hint="Smell reporting. Off hides the tab and stops new reports; existing reports stay visible to admins." />
-          <Toggle checked={s.settings.aircon_enabled} onChange={(v) => set('aircon_enabled', v)} label="AirCon tab" hint={s.aircon_available ? 'Fresh-air temperature and humidity per tower, plus outside conditions, from Home Assistant.' : 'Fresh-air temperature and humidity from Home Assistant. Home Assistant is not connected yet (see the setup guide), so the tab will stay hidden even when this is ticked.'} />
+          <Toggle checked={s.settings.aircon_enabled} onChange={(v) => set('aircon_enabled', v)} label="Fresh air monitoring tab" hint={s.aircon_available ? 'Fresh-air temperature and humidity per tower, plus outside conditions, from Home Assistant.' : 'Fresh-air temperature and humidity from Home Assistant. Home Assistant is not connected yet (see the setup guide), so the tab will stay hidden even when this is ticked.'} />
         </fieldset>
 
         <fieldset disabled={!writer} className="panel stack">

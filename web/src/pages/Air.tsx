@@ -24,6 +24,13 @@ interface Scale {
 const EXTRA_ORDER = ['co2', 'pm25', 'voc', 'co', 'no2', 'o3', 'pressure', 'virus', 'influenza', 'mold'] as const;
 type MetricKey = 'temperature' | 'humidity' | 'dew_point' | 'moisture' | (typeof EXTRA_ORDER)[number];
 type ChartKey = 'temperature' | 'humidity' | 'dew_point' | 'moisture';
+type Range = 'day' | 'week' | 'month' | 'all';
+const RANGES: { k: Range; label: string; text: string; step: string }[] = [
+  { k: 'day', label: 'Day', text: 'last 24 hours', step: 'Hourly averages' },
+  { k: 'week', label: 'Week', text: 'last 7 days', step: 'Hourly averages' },
+  { k: 'month', label: 'Month', text: 'last 30 days', step: 'Hourly averages' },
+  { k: 'all', label: 'All time', text: 'all time', step: 'Daily averages' },
+];
 const LEVEL_TEXT: Record<Level, string> = { good: 'Good', fair: 'Fair', poor: 'Poor' };
 interface History {
   hours: string[];
@@ -34,7 +41,8 @@ interface AirData {
   switched_off?: boolean;
   unreachable?: boolean;
   fetched_at?: string;
-  outside?: { temperature: Reading; humidity: Reading; dew_point?: Reading; moisture?: Reading };
+  range?: Range;
+  outside?: { temperature: Reading; humidity: Reading; dew_point?: Reading; moisture?: Reading; history?: History };
   towers?: { name: string; hidden?: boolean; temperature: Reading; humidity: Reading; dew_point?: Reading; moisture?: Reading; history?: History; metrics?: Partial<Record<(typeof EXTRA_ORDER)[number], Reading>> }[];
   scales?: Partial<Record<MetricKey, Scale>>;
 }
@@ -114,28 +122,51 @@ const TOWER_STYLE = [
   { color: '#c97a0a', dash: '8 4' },
   { color: '#2c6a8f', dash: '2 4' },
 ];
+const OUTSIDE_STYLE = { color: '#7a4b94', dash: '12 3 2 3' };
 const dubai = (iso: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', hour12: false, ...o }).format(new Date(iso));
 
+/** Where the time axis is labelled: every 6 hours (day), each midnight (week), the 1st/5th/10th... (month), the start of some months (all time). */
+function axisTicks(range: Range, hours: string[]): { i: number; label: string; sub?: string }[] {
+  const out: { i: number; label: string; sub?: string }[] = [];
+  const dayNo = (h: string) => Number(dubai(h, { day: 'numeric' }));
+  const hourNo = (h: string) => Number(dubai(h, { hour: '2-digit' }));
+  if (range === 'all') {
+    const firsts = hours.map((h, i) => ({ h, i })).filter(({ h }) => dayNo(h) === 1);
+    const every = Math.max(1, Math.ceil(firsts.length / 6));
+    firsts.forEach(({ h, i }, j) => j % every === 0 && out.push({ i, label: dubai(h, { month: 'short' }), sub: dubai(h, { year: 'numeric' }) }));
+    return out;
+  }
+  hours.forEach((h, i) => {
+    if (range === 'day' && hourNo(h) % 6 === 0) out.push({ i, label: dubai(h, { hour: '2-digit', minute: '2-digit' }), sub: hourNo(h) === 0 ? dubai(h, { day: 'numeric', month: 'short' }) : undefined });
+    if (range === 'week' && hourNo(h) === 0) out.push({ i, label: dubai(h, { weekday: 'short' }), sub: dubai(h, { day: 'numeric', month: 'short' }) });
+    if (range === 'month' && hourNo(h) === 0 && [1, 5, 10, 15, 20, 25].includes(dayNo(h))) out.push({ i, label: dubai(h, { day: 'numeric', month: 'short' }) });
+  });
+  return out;
+}
+
 /**
- * One chart for one measure (fresh-air temperature or humidity) with a line per tower on the same axis, last 72 hours of
- * hourly averages. A tower with no current reading keeps its last known reading: the line stops at that reading (ring marker)
+ * One chart for one measure (fresh-air temperature or humidity) with a line per tower on the same axis, the chosen range (hourly averages, or daily for all time). A tower with no current reading keeps its last known reading: the line stops at that reading (ring marker)
  * and a dotted line carries the figure forward to now. The key states each tower's latest figure and when it was read; pointing
  * at the chart (or using the arrow keys) gives the exact figure for each tower at that hour.
  */
 const CHART_UNIT: Record<ChartKey, string> = { temperature: '°C', humidity: '%', dew_point: '°C', moisture: ' g/m³' };
 const CHART_PAD: Record<ChartKey, number> = { temperature: 0.5, humidity: 2, dew_point: 0.5, moisture: 0.5 };
 
-function CompareChart({ title, k, towers, scale, note }: { title: string; k: ChartKey; towers: { t: Tower; i: number }[]; scale?: Scale; note?: string }) {
-  const withData = towers.map(({ t, i }) => ({ t, i, vals: t.history?.series[k] ?? null })).filter((x) => x.vals && x.vals.some((v) => v != null));
-  const hours = towers.find(({ t }) => t.history)?.t.history?.hours;
+function CompareChart({ title, k, towers, scale, note, range, outside }: { title: string; k: ChartKey; towers: { t: Tower; i: number }[]; scale?: Scale; note?: string; range: Range; outside?: History }) {
+  const withData = towers.map(({ t, i }) => ({ t, i, vals: t.history?.series[k] ?? null, style: TOWER_STYLE[i % TOWER_STYLE.length] }));
+  const outVals = k === 'temperature' ? outside?.series.temperature ?? null : null;
+  if (outVals && outVals.some((v) => v != null)) withData.push({ t: { name: 'Outside' } as Tower, i: -1, vals: outVals, style: OUTSIDE_STYLE });
+  const shown = withData.filter((x) => x.vals && x.vals.some((v) => v != null));
+  const hours = towers.find(({ t }) => t.history)?.t.history?.hours ?? (outVals ? outside?.hours : undefined);
+  const RG = RANGES.find((r) => r.k === range)!;
   const [hover, setHover] = useState<number | null>(null);
-  if (!hours || !withData.length) return null;
+  if (!hours || !shown.length || !hours.length) return null;
 
   const unit = CHART_UNIT[k];
   const W = 720, H = 280, L = 46, R = 14, T = 14, B = 30;
   const n = hours.length;
   const x = (i: number) => L + (i / (n - 1)) * (W - L - R);
-  const all = withData.flatMap((x) => x.vals!.filter((v): v is number => v != null));
+  const all = shown.flatMap((x) => x.vals!.filter((v): v is number => v != null));
   const good = scale?.segments?.find((g) => g.level === 'good');
   let lo = Math.min(...all, good?.from ?? Infinity), hi = Math.max(...all, good?.to ?? -Infinity);
   const pad = Math.max((hi - lo) * 0.08, CHART_PAD[k]);
@@ -146,10 +177,11 @@ function CompareChart({ title, k, towers, scale, note }: { title: string; k: Cha
   const y = (v: number) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
   const yTicks: number[] = [];
   for (let v = lo; v <= hi + 1e-9; v += step) yTicks.push(v);
-  const ticks = hours.map((h, i) => ({ h, i })).filter(({ h }) => Number(dubai(h, { hour: '2-digit' })) % 12 === 0);
+  const ticks = axisTicks(range, hours);
+  const whenLong = (h: string) => (range === 'all' ? dubai(h, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : dubai(h, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
   const at = hover ?? n - 1;
 
-  const lines = withData.map(({ t, i, vals }) => {
+  const lines = shown.map(({ t, style, vals }) => {
     let d = '';
     let last = -1;
     vals!.forEach((v, j) => {
@@ -158,7 +190,7 @@ function CompareChart({ title, k, towers, scale, note }: { title: string; k: Cha
       last = j;
     });
     const ended = last < n - 2; // no reading in the latest hours: carry the last known figure forward, dotted
-    return { name: t.name, style: TOWER_STYLE[i % TOWER_STYLE.length], vals: vals!, d, last, ended, lastV: vals![last]! };
+    return { name: t.name, style, vals: vals!, d, last, ended, lastV: vals![last]! };
   });
 
   const move = (clientX: number, el: SVGSVGElement) => {
@@ -175,7 +207,7 @@ function CompareChart({ title, k, towers, scale, note }: { title: string; k: Cha
         className="trend-svg"
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={`Line chart of ${title.toLowerCase()}, last 72 hours. Latest known: ${summary}.`}
+        aria-label={`Line chart of ${title.toLowerCase()}, ${RG.text}. Latest known: ${summary}.`}
         tabIndex={0}
         onPointerMove={(e) => move(e.clientX, e.currentTarget)}
         onPointerDown={(e) => move(e.clientX, e.currentTarget)}
@@ -193,11 +225,11 @@ function CompareChart({ title, k, towers, scale, note }: { title: string; k: Cha
             <text x={L - 6} y={y(v) + 4} textAnchor="end" className="axis">{v}</text>
           </g>
         ))}
-        {ticks.map(({ h, i }) => (
-          <g key={h}>
+        {ticks.map(({ i, label, sub }) => (
+          <g key={i}>
             <line x1={x(i)} x2={x(i)} y1={T} y2={H - B} className="grid" />
-            <text x={x(i)} y={H - 10} textAnchor="middle" className="axis">{dubai(h, { hour: '2-digit', minute: '2-digit' })}</text>
-            {Number(dubai(h, { hour: '2-digit' })) === 0 && <text x={x(i)} y={H - 1} textAnchor="middle" className="axis day">{dubai(h, { day: 'numeric', month: 'short' })}</text>}
+            <text x={x(i)} y={H - 10} textAnchor="middle" className="axis">{label}</text>
+            {sub && <text x={x(i)} y={H - 1} textAnchor="middle" className="axis day">{sub}</text>}
           </g>
         ))}
         {lines.map((l) => (
@@ -214,12 +246,12 @@ function CompareChart({ title, k, towers, scale, note }: { title: string; k: Cha
         {lines.map((l) => (
           <li key={l.name}>
             <svg width="30" height="10" aria-hidden="true"><line x1="1" x2="29" y1="5" y2="5" stroke={l.style.color} strokeWidth={3} strokeDasharray={l.style.dash} strokeLinecap="round" /></svg>
-            <span><b>{l.name}</b> <span className="muted">{hover === null ? (l.ended ? `last known reading, ${dubai(hours[l.last], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'latest hour') : 'at this hour'}</span></span>
+            <span><b>{l.name}</b> <span className="muted">{hover === null ? (l.ended ? `last known reading, ${dubai(hours[l.last], range === 'all' ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : range === 'all' ? 'latest day' : 'latest hour') : range === 'all' ? 'on this day' : 'at this hour'}</span></span>
             <span className="trend-val">{hover === null ? `${l.lastV}${unit}` : l.vals[at] == null ? 'no reading' : `${l.vals[at]}${unit}`}</span>
           </li>
         ))}
       </ul>
-      <p className="muted small trend-note">{hover === null ? <span className="noprint">Point at the chart to read a particular hour. </span> : `${dubai(hours[at], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. `}Hourly averages, last 72 hours.{good && <span className="noprint"> Shaded band is the Good range ({good.from} to {good.to}{unit}).</span>} A ringed point with a dotted line means no newer reading, so the last known figure is carried forward.{note ? ` ${note}` : ''}</p>
+      <p className="muted small trend-note">{hover === null ? <span className="noprint">Point at the chart to read a particular {range === 'all' ? 'day' : 'hour'}. </span> : `${whenLong(hours[at])}. `}{RG.step}, {RG.text}.{outVals && <> Outside is the outside temperature from the IQAir sensor.</>}{good && <span className="noprint"> Shaded band is the Good range ({good.from} to {good.to}{unit}).</span>} A ringed point with a dotted line means no newer reading, so the last known figure is carried forward.{note ? ` ${note}` : ''}</p>
     </section>
   );
 }
@@ -303,21 +335,24 @@ export function Air() {
   const [error, setError] = useState<unknown>(null);
   const [now, setNow] = useState(Date.now());
   const [showHidden, setShowHidden] = useState(false);
+  const [range, setRange] = useState<Range>('day');
+  const [loadingRange, setLoadingRange] = useState(false);
 
   useEffect(() => {
     let live = true;
     const load = () =>
       api
-        .get<AirData>('/air')
+        .get<AirData>(`/air?range=${range}`)
         .then((d) => live && (setData(d), setError(null), setNow(Date.now())))
-        .catch((e) => live && setError(e));
+        .catch((e) => live && setError(e))
+        .finally(() => live && setLoadingRange(false));
     load();
     const t = setInterval(load, REFRESH_MS);
     return () => {
       live = false;
       clearInterval(t);
     };
-  }, []);
+  }, [range]);
 
   const scales = data?.scales ?? {};
   const allTowers = (data?.towers ?? []).map((t, i) => ({ t, i }));
@@ -328,17 +363,17 @@ export function Air() {
   return (
     <div className="page wide">
       <div className="printonly print-head">
-        <h1>AirCon report: fresh-air readings</h1>
-        <p>Printed {clock(new Date(now).toISOString())} (Dubai time). Sensor readings shown as recorded: {visible.map(({ t }) => t.name).join(', ')}{data?.outside ? ', and outside' : ''}.</p>
+        <h1>Fresh air monitoring report</h1>
+        <p>Printed {clock(new Date(now).toISOString())} (Dubai time). Charts show the {RANGES.find((r) => r.k === range)!.text}. Sensor readings shown as recorded: {visible.map(({ t }) => t.name).join(', ')}{data?.outside ? ', and outside' : ''}.</p>
       </div>
       <header className="page-head">
-        <h1>AirCon</h1>
+        <h1>Fresh air monitoring</h1>
         {canPrint && <button type="button" className="chip noprint" onClick={() => window.print()} disabled={!data?.enabled}>Print / save as PDF</button>}
         <p className="muted">Fresh-air readings in each tower, and the conditions outside. These are readings from sensors, shown as recorded; the Good / Fair / Poor labels compare each reading with the reference ranges listed at the bottom of this page. Refreshes every minute.</p>
       </header>
       <ErrorNote error={error} />
       {!data && !error && <Spinner />}
-      {data && !data.enabled && <Banner tone="info">{data.switched_off ? 'AirCon has been switched off by the admins.' : 'The air sensors are not connected yet.'}</Banner>}
+      {data && !data.enabled && <Banner tone="info">{data.switched_off ? 'Fresh air monitoring has been switched off by the admins.' : 'The air sensors are not connected yet.'}</Banner>}
       {data?.unreachable && <Banner tone="warn">The sensor system could not be reached just now. Any figures shown may be out of date.</Banner>}
       {data?.enabled && data.outside && (
         <>
@@ -370,10 +405,19 @@ export function Air() {
           {visible.length > 0 && (
             <>
               <h2>Comparing the towers</h2>
-              <CompareChart title="Fresh-air temperature, all towers" k="temperature" towers={visible} scale={scales.temperature} />
-              <CompareChart title="Fresh-air humidity, all towers" k="humidity" towers={visible} scale={scales.humidity} />
-              <CompareChart title="Dew point, all towers" k="dew_point" towers={visible} note="Dew point is worked out from temperature and humidity, not measured: the temperature at which water starts to condense." />
-              <CompareChart title="Moisture in the air, all towers" k="moisture" towers={visible} note="Moisture is grams of water vapour per cubic metre of air, worked out from temperature and humidity, not measured." />
+              <div className="range-row noprint">
+                <div className="seg" role="group" aria-label="Chart range">
+                  {RANGES.map((r) => (
+                    <button key={r.k} type="button" aria-pressed={range === r.k} className={range === r.k ? 'on' : ''} onClick={() => { if (r.k !== range) { setLoadingRange(true); setRange(r.k); } }}>{r.label}</button>
+                  ))}
+                </div>
+                {loadingRange && <span className="muted small" role="status"> Loading...</span>}
+              </div>
+              <div aria-busy={loadingRange} style={loadingRange ? { opacity: 0.55 } : undefined}>
+                <CompareChart title="Temperature: fresh air in each tower, and outside" k="temperature" towers={visible} scale={scales.temperature} range={range} outside={data.outside.history} />
+                <CompareChart title="Fresh-air humidity, all towers" k="humidity" towers={visible} scale={scales.humidity} range={range} />
+                <CompareChart title="Moisture in the air, all towers" k="moisture" towers={visible} range={range} note="Moisture is grams of water vapour per cubic metre of air, worked out from temperature and humidity, not measured." />
+              </div>
             </>
           )}
           <div className="printonly print-defs">
