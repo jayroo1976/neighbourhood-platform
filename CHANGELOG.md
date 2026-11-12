@@ -1,5 +1,13 @@
 # Changelog (newest first)
 
+## 2026-11-12 (evening, Dubai) - Outside line: stuck readings shown as gaps, no straight lines across gaps (v0.12.1)
+- **Why:** on the first live view the outside line had long flat runs and straight diagonals. Cause found in Home Assistant's statistics: the skill-fed outside sensor sat at exactly 29.0 °C for about 80 hours (the feed had stopped), and the charts bridged every gap with a straight segment.
+- **Stuck figures:** for the outside temperature and humidity read from Home Assistant, a run of 12 or more hours with the identical figure is treated as no reading (a gap), not data. Nothing is estimated or filled in. Applies to Day, Week and Month; not to All time or to the app's stored outside readings. Tower lines are untouched.
+- **Charts:** a gap longer than 6 hours (3 days on All time) now breaks the line instead of drawing a straight run across it; short gaps are still bridged.
+- **Known limit:** the skill writes whole degrees and whole percent (IQAir shows integers), so the outside line will still step. Smoother figures need a source with decimals (the IQAir API or Open-Meteo), not display tricks.
+- **Outside collector status:** the collector's first live fetch of the IQAir page was refused (HTTP 429). The outside collector is on hold; the Claude scheduled skill stays as the outside source, and `OUTSIDE_POLL_MINUTES=720` slows the retries. The tower history copy works (9078 hourly figures, 16 sensors copied on first run). Options if revisited: IQAir API key or Open-Meteo.
+- Tests: 84 pass (1 new for the stuck-run rule). **Untested:** the chart line breaks in a browser.
+
 ## 2026-11-12 (late night) - Public no-login fresh-air page, and the Proxmox deployment runbook
 - **Why:** James wanted one webpage people can open to see the fresh-air and outside figures without signing in, and a step-by-step deployment model for the Proxmox VM.
 - **New public page `/fresh-air`** (read-only, no sign-in, no print button, `noindex`). Same charts, gauges and table as the signed-in tab, with a notice that readings are resident-recorded, not an official measurement. Data comes from the new `GET /api/public/air` (rate limited to 30 a minute per address, cacheable for a minute, `X-Robots-Tag: noindex`).

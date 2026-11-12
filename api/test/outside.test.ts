@@ -443,3 +443,16 @@ describe('public fresh-air page (no sign-in)', () => {
     expect((await request(ctx.app).get('/api/public/air')).body.switched_off).toBe(true);
   });
 });
+
+describe('stuck outside readings', () => {
+  it('blanks a long run of one identical figure but keeps short repeats and other values', async () => {
+    const { dropStuckRuns } = await import('../src/services/air');
+    const stuck = Array(14).fill(29) as (number | null)[];
+    const vals = [27, 27, 27, 28, ...stuck, 26.4, null, 30, 30];
+    const out = dropStuckRuns(vals);
+    expect(out.slice(0, 4)).toEqual([27, 27, 27, 28]);
+    expect(out.slice(4, 18).every((v) => v === null)).toBe(true);
+    expect(out.slice(18)).toEqual([26.4, null, 30, 30]);
+    expect(dropStuckRuns([29, 29, 29], 4)).toEqual([29, 29, 29]);
+  });
+});

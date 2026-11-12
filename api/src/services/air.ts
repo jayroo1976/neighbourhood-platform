@@ -372,6 +372,28 @@ function bucket(rows: StatRow[], axis: number[], step: number): (number | null)[
   return vals;
 }
 
+/** A sensor that repeats one exact value for this many hours in a row is treated as stuck, not as weather. */
+export const STUCK_HOURS = 12;
+
+/**
+ * Blanks out runs of the identical figure lasting at least `minRun` periods (default 12 hours). Used for the outside line only:
+ * the feed that fills it can stop updating and leave the last value standing, which then looks like a flat line of data.
+ * The figures are not replaced with anything; the hours simply show no reading.
+ */
+export function dropStuckRuns(vals: (number | null)[], minRun = STUCK_HOURS): (number | null)[] {
+  const out = vals.slice();
+  let i = 0;
+  while (i < vals.length) {
+    const v = vals[i];
+    if (v == null) { i++; continue; }
+    let j = i;
+    while (j + 1 < vals.length && vals[j + 1] === v) j++;
+    if (j - i + 1 >= minRun) for (let k = i; k <= j; k++) out[k] = null;
+    i = j + 1;
+  }
+  return out;
+}
+
 /**
  * Values per period for every id over the chosen range. Day and week use the recorder for live sensors (REST) and statistics for
  * imported ids; month and all time use long-term statistics for everything, because raw history is only kept for about ten days.
@@ -561,6 +583,11 @@ export async function getAir(fetcher: FetchLike = fetch as unknown as FetchLike,
       if (Object.keys(series).length) tw.history = { hours: iso.slice(from), series };
     });
     // the outside line: temperature, humidity (when the layout has an outside humidity sensor) and the moisture worked out from the two
+    // outside figures from Home Assistant can get stuck on one value when the feed behind them stops; stuck runs show as gaps (hourly ranges only)
+    for (const oid of [layout.outside?.temperature, layout.outside?.humidity]) {
+      const v = oid && !isApp(oid) && range !== 'all' ? map.get(oid) : undefined;
+      if (oid && v) map.set(oid, dropStuckRuns(v));
+    }
     const outV = layout.outside?.temperature ? map.get(layout.outside.temperature) : undefined;
     const outHV = layout.outside?.humidity ? map.get(layout.outside.humidity) : undefined;
     const outSeries: AirHistory['series'] = {};

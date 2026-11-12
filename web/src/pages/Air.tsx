@@ -184,9 +184,10 @@ function CompareChart({ title, k, towers, scale, note, range, outside }: { title
   const lines = shown.map(({ t, style, vals }) => {
     let d = '';
     let last = -1;
+    const maxGap = range === 'all' ? 3 : 6; // a gap longer than this many hours (days, on All time) breaks the line instead of drawing a straight run across it
     vals!.forEach((v, j) => {
       if (v == null) return;
-      d += `${d ? 'L' : 'M'}${x(j).toFixed(1)} ${y(v).toFixed(1)} `; // gaps are bridged: the line carries on from the last reading
+      d += `${d && j - last <= maxGap ? 'L' : 'M'}${x(j).toFixed(1)} ${y(v).toFixed(1)} `;
       last = j;
     });
     const ended = last < n - 2; // no reading in the latest hours: carry the last known figure forward, dotted

@@ -88,6 +88,8 @@ Shown as **Fresh air monitoring** to residents (was AirCon). Turn it on or off f
 9. Tower names are free text; use the names residents know. A sensor that is missing, `unavailable`, or has not reported for 120 minutes (`HA_STALE_MINUTES`) shows as "Sensor not reporting" or "old reading". Each figure shows the exact time of its last reading (Dubai time).
 Temperatures in °F are converted to °C. Readings are shown as recorded; they are not a measurement standard or a finding.
 
+Outside line gaps: if the outside sensor repeats exactly the same figure for 12 hours or more, those hours show as a gap (the feed has most likely stopped), and chart lines break across gaps of more than 6 hours instead of drawing a straight line.
+
 ### Public page (no sign-in)
 In **Admin > Settings > Resident tabs** tick **Public fresh-air page (no sign-in)** and save. The link is `https://<your site>/fresh-air`. Anyone with the link sees the readings, read-only; hidden towers are left out completely. Untick to close it. The Fresh air monitoring tab setting must also be on. Rollout steps: [deployment-proxmox.md](deployment-proxmox.md).
 

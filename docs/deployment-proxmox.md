@@ -27,6 +27,8 @@ Do the phases in order. Each has a **check** to pass before moving on, and a **b
 4. **Check:** `collector` shows **healthy** after a minute or two (the healthcheck passes once it has completed a cycle).
 5. **Back-out:** Stacks > Editor > remove the `collector` service > Update. The app does not depend on it.
 
+> **Status 2026-11-12:** on the live VM the collector's tower history copy works, but the IQAir page answered HTTP 429 to the outside fetch. Skip Phases 4 step 1-2 and Phase 5 (switch to `app:` ids) until a different outside source is chosen; keep the Claude scheduled skill, and set `OUTSIDE_POLL_MINUTES=720` to slow the retries. Use Logs on the `collector` container (the Portainer console showed no output).
+
 ## Phase 4: Prove the collector works (Portainer console, no terminal needed)
 Portainer > Containers > `collector` > **Console** > Connect (command `/bin/sh`), then run each command:
 1. `node api/dist/collector.js --check`: should print that the outside page was fetched and what it found. If it says it cannot find the time or values, the page layout differs from what the parser expects: stop, send me the output, and carry on with Phase 5 only after that is fixed. (The parser has not yet been verified against the live iqair.com page.)
