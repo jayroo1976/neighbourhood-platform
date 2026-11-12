@@ -243,6 +243,39 @@ export async function saveReadings(db: Db, readings: OutsideReading[], fetchedAt
   }
 }
 
+// ------------------------------------------------------------------ readings posted by the scheduled skill
+
+export interface IngestRow {
+  page_time_dubai: string;
+  temp_c?: number | null;
+  humidity_pct?: number | null;
+  us_aqi?: number | null;
+  pm25?: number | null;
+  wind_kmh?: number | null;
+}
+
+/**
+ * Stores hourly station readings posted by the scheduled skill. The time is the station page's own Dubai time ("YYYY-MM-DD HH:MM");
+ * a row with an unreadable time, a time more than 10 minutes in the future or no plausible figure is skipped. A figure outside its
+ * plausible range is dropped, a missing figure never wipes a stored one, and posting the same hour again is harmless.
+ */
+export async function ingestReadings(db: Db, rows: IngestRow[], now = Date.now()): Promise<{ saved: number; skipped: number }> {
+  const readings: OutsideReading[] = [];
+  let skipped = 0;
+  for (const r of rows) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(r.page_time_dubai ?? '');
+    const t = m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5])) - DUBAI : NaN;
+    const f = clean({ tempC: r.temp_c ?? null, humidityPct: r.humidity_pct ?? null, usAqi: r.us_aqi ?? null, pm25: r.pm25 ?? null, windKmh: r.wind_kmh ?? null });
+    if (!Number.isFinite(t) || t > now + 10 * 60_000 || !hasAny(f)) {
+      skipped++;
+      continue;
+    }
+    readings.push({ hourUtc: hourOf(t), pageTime: r.page_time_dubai.trim(), ...f });
+  }
+  await saveReadings(db, readings, new Date(now).toISOString(), 'skill');
+  return { saved: readings.length, skipped };
+}
+
 // ------------------------------------------------------------------ seed from the station readings file
 
 /** Imports hours from the station readings CSV (columns page_time_dubai, us_aqi, pm2_5_ugm3, temp_c, humidity_pct, wind_kmh). Existing hours are left alone. Returns how many hours were added. */

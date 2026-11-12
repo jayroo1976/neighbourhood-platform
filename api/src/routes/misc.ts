@@ -7,6 +7,7 @@ import { parse, requireAuth, wrap } from '../http';
 import { verifyFileLink } from '../security/crypto';
 import { HttpError, recordMgmtReply } from '../services/incidents';
 import { getAir, parseRange } from '../services/air';
+import { ingestReadings } from '../services/outside';
 import { KPI_DEFINITIONS, communityKpis } from '../services/kpi';
 import { getStorage } from '../services/storage';
 import { addSystemEvent, summariseWatchtower } from '../services/system';
@@ -122,6 +123,30 @@ export function inboundRouter(): Router {
       const s = summariseWatchtower(body);
       await addSystemEvent(req.db, { kind: 'watchtower', title: s.title, message: s.message });
       res.json({ ok: true });
+    }),
+  );
+  /**
+   * Station readings posted by the Claude scheduled skill (one or many hourly rows; safe to repeat). Needs the shared secret in
+   * `X-Outside-Secret` (OUTSIDE_INGEST_SECRET, at least 24 characters). The app stores them in `outside_readings`, which the page reads.
+   */
+  r.post(
+    '/outside',
+    wrap(async (req, res) => {
+      const got = Buffer.from(req.get('x-outside-secret') ?? '');
+      const want = Buffer.from(config.outsideIngestSecret);
+      if (want.length < 24 || got.length !== want.length || !crypto.timingSafeEqual(got, want)) throw new HttpError(401, 'Unauthorized');
+      const num = z.number().finite().nullable().optional();
+      const body = parse(
+        z.object({
+          readings: z
+            .array(z.object({ page_time_dubai: z.string().max(40), temp_c: num, humidity_pct: num, us_aqi: num, pm25: num, wind_kmh: num }))
+            .min(1)
+            .max(1000),
+        }),
+        req.body,
+      );
+      const result = await ingestReadings(req.db, body.readings);
+      res.json({ ok: true, ...result });
     }),
   );
   r.post(

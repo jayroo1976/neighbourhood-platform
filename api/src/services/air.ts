@@ -412,7 +412,7 @@ async function readSeries(allIds: string[], range: AirRange, fetcher: FetchLike,
   };
   const stored = (from: number, period: 'hour' | 'day') => (db ? storedRows(db, ids, from, period).catch(none) : Promise.resolve(none()));
   const fromHa = (from: number, period: 'hour' | 'day', timeoutMs: number, only: string[] = ids) => (haDown ? Promise.resolve(none()) : fetchStatisticRows(only, from, period, timeoutMs, wsCtor).catch(none));
-  /** Home Assistant's figure wins for an hour it has; the stored copy supplies the rest. */
+  /** The app's stored copy wins for an hour it has; Home Assistant supplies the rest (the hour in progress, and anything not copied yet). */
   const merge = (a: Map<string, StatRow[]>, b: Map<string, StatRow[]>) => {
     const out = new Map<string, StatRow[]>();
     for (const id of new Set([...a.keys(), ...b.keys()])) {
@@ -424,7 +424,7 @@ async function readSeries(allIds: string[], range: AirRange, fetcher: FetchLike,
     return out;
   };
   if (range === 'all') {
-    const rows = merge(await stored(ALL_FROM, 'day'), await fromHa(ALL_FROM, 'day', 20_000));
+    const rows = merge(await fromHa(ALL_FROM, 'day', 20_000), await stored(ALL_FROM, 'day'));
     for (const [id, r] of await appRows(ALL_FROM, 'day')) rows.set(id, r);
     let first = Infinity;
     for (const r of rows.values()) for (const x of r) if (x.t < first) first = x.t;
@@ -436,7 +436,7 @@ async function readSeries(allIds: string[], range: AirRange, fetcher: FetchLike,
   }
   const axis = historyHours(now, RANGE_HOURS[range]);
   if (range === 'month') {
-    const rows = merge(await stored(axis[0], 'hour'), await fromHa(axis[0], 'hour', 20_000));
+    const rows = merge(await fromHa(axis[0], 'hour', 20_000), await stored(axis[0], 'hour'));
     for (const [id, r] of await appRows(axis[0], 'hour')) rows.set(id, r);
     for (const [id, r] of rows) map.set(id, bucket(r, axis, HOUR));
     return { axis, map };
@@ -445,11 +445,11 @@ async function readSeries(allIds: string[], range: AirRange, fetcher: FetchLike,
   const rows = await fromHa(axis[0], 'hour', 8000, ids.filter(isStat));
   for (const [id, v] of live) map.set(id, v);
   for (const [id, r] of rows) map.set(id, bucket(r, axis, HOUR));
-  // hours Home Assistant has no figure for are filled from the stored copy
+  // the app's stored copy wins for every hour it has; Home Assistant's figure fills the rest (the hour in progress, anything not copied yet)
   for (const [id, r] of await stored(axis[0], 'hour')) {
     const copy = bucket(r, axis, HOUR);
     const have = map.get(id);
-    map.set(id, have ? have.map((v, i) => (v != null ? v : copy[i])) : copy);
+    map.set(id, have ? have.map((v, i) => (copy[i] != null ? copy[i] : v)) : copy);
   }
   for (const [id, r] of await appRows(axis[0], 'hour')) map.set(id, bucket(r, axis, HOUR));
   return { axis, map };

@@ -1,5 +1,14 @@
 # Changelog (newest first)
 
+## 2026-11-12 (night, Dubai) - One store for the page: the skill posts outside readings to the app, and the page prefers the app database (v0.13.0)
+- **Why:** the outside figures reached the page through the skill -> Home Assistant -> page chain, which dropped 107 of 426 hours and left the sensor stuck. Decision (James): record everything in the app's database and let the page read that; Home Assistant and the IQAir page are inputs, not what the page depends on.
+- **New endpoint `POST /api/inbound/outside`** (secret in `X-Outside-Secret`, new env var `OUTSIDE_INGEST_SECRET`, 24+ characters; blank switches it off). Takes 1 to 1000 hourly rows `{page_time_dubai, temp_c, humidity_pct, us_aqi, pm25, wind_kmh}`, stores them in `outside_readings` (source `skill`). Unreadable or future times and rows with no plausible figure are skipped; out-of-range figures are dropped; a missing figure never wipes a stored one; posting an hour again is harmless, so the skill can post its whole file to fill the missing hours.
+- **The page prefers the app database.** For every range the stored copy (tower history from the collector's Home Assistant sync, outside readings from the skill) wins for an hour it has; Home Assistant fills the hour in progress and anything not copied yet. Live tiles still read Home Assistant first (a stored hourly figure can be up to an hour old). The earlier rule (Home Assistant wins) is reversed.
+- **Tower sensors to the app database:** already done by the collector's hourly sync (v0.11.1); unchanged.
+- Docs: skill instructions in admin-guide (item 8); `OUTSIDE_INGEST_SECRET` in configuration, `.env.example` and both compose files (app container).
+- Tests: 86 pass (3 new: ingest needs the secret, stores/skips/repeats safely and never wipes a figure, off when no secret; the Home Assistant-versus-copy test now expects the copy to win).
+- **Untested:** the real skill posting to the live site (the skill's environment must allow an outbound HTTPS POST; not checked), PostgreSQL behaviour of the upsert on the live database. The IQAir collector fetch stays blocked (429) and on hold.
+
 ## 2026-11-12 (evening, Dubai) - Outside line: stuck readings shown as gaps, no straight lines across gaps (v0.12.1)
 - **Why:** on the first live view the outside line had long flat runs and straight diagonals. Cause found in Home Assistant's statistics: the skill-fed outside sensor sat at exactly 29.0 °C for about 80 hours (the feed had stopped), and the charts bridged every gap with a straight segment.
 - **Stuck figures:** for the outside temperature and humidity read from Home Assistant, a run of 12 or more hours with the identical figure is treated as no reading (a gap), not data. Nothing is estimated or filled in. Applies to Day, Week and Month; not to All time or to the app's stored outside readings. Tower lines are untouched.

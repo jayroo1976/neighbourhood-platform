@@ -396,7 +396,7 @@ describe('copy of the Home Assistant sensor history', () => {
     expect(all.towers![0].history!.series.temperature!.filter((v) => v != null)).toEqual([22, 25]); // daily means from the stored copy
   });
 
-  it('with Home Assistant up, its figure wins for an hour it has and the stored copy fills the hours it lacks', async () => {
+  it('with Home Assistant up, the stored copy wins for an hour it has and Home Assistant fills the hours it lacks', async () => {
     setHa();
     const db = await freshDb();
     await db('sensor_readings').insert([
@@ -417,7 +417,7 @@ describe('copy of the Home Assistant sensor history', () => {
     expect(a.unreachable).toBeUndefined();
     const t = a.towers![0].history!.series.temperature!;
     expect(t[24 - 3]).toBe(20); // from the stored copy
-    expect(t[24 - 2]).toBe(22); // Home Assistant's own figure for that hour
+    expect(t[24 - 2]).toBe(21); // the stored copy wins over Home Assistant's 22 for that hour
     expect(a.towers![0].temperature).toMatchObject({ value: 30, stale: false });
   });
 });
@@ -454,5 +454,50 @@ describe('stuck outside readings', () => {
     expect(out.slice(4, 18).every((v) => v === null)).toBe(true);
     expect(out.slice(18)).toEqual([26.4, null, 30, 30]);
     expect(dropStuckRuns([29, 29, 29], 4)).toEqual([29, 29, 29]);
+  });
+});
+
+
+describe('readings posted by the scheduled skill', () => {
+  const secret = 'test-secret-at-least-24-characters-long';
+  it('needs the secret, stores valid hours, skips bad ones, and is safe to repeat', async () => {
+    const request = (await import('supertest')).default;
+    const { setup, H } = await import('./helpers');
+    const ctx = await setup();
+    const old = config.outsideIngestSecret;
+    (config as { outsideIngestSecret: string }).outsideIngestSecret = secret;
+    try {
+      const rows = [
+        { page_time_dubai: '2026-11-12 16:00', temp_c: 28, humidity_pct: 55, us_aqi: 30, pm25: 5, wind_kmh: 30 },
+        { page_time_dubai: '2026-11-12 17:00', temp_c: 27.4, humidity_pct: null },
+        { page_time_dubai: 'nonsense', temp_c: 20 },
+        { page_time_dubai: '2026-11-12 18:00', temp_c: 400 },
+      ];
+      expect((await request(ctx.app).post('/api/inbound/outside').set(H).send({ readings: rows })).status).toBe(401);
+      expect((await request(ctx.app).post('/api/inbound/outside').set(H).set('X-Outside-Secret', 'wrong').send({ readings: rows })).status).toBe(401);
+      const ok = await request(ctx.app).post('/api/inbound/outside').set(H).set('X-Outside-Secret', secret).send({ readings: rows });
+      expect(ok.status).toBe(200);
+      expect(ok.body).toMatchObject({ ok: true, saved: 2, skipped: 2 });
+      const again = await request(ctx.app).post('/api/inbound/outside').set(H).set('X-Outside-Secret', secret).send({ readings: rows });
+      expect(again.body.saved).toBe(2);
+      const stored = await ctx.db('outside_readings').orderBy('hour_utc');
+      expect(stored.map((r: { hour_utc: string; temp_c: number }) => [r.hour_utc, r.temp_c])).toEqual([
+        ['2026-11-12T12:00:00.000Z', 28],
+        ['2026-11-12T13:00:00.000Z', 27.4],
+      ]); // Dubai 16:00 is 12:00 UTC
+      // a later post with a missing figure never wipes a stored one
+      await request(ctx.app).post('/api/inbound/outside').set(H).set('X-Outside-Secret', secret).send({ readings: [{ page_time_dubai: '2026-11-12 16:00', humidity_pct: 56 }] });
+      const h = await ctx.db('outside_readings').where({ hour_utc: '2026-11-12T12:00:00.000Z' }).first();
+      expect([h.temp_c, h.humidity_pct]).toEqual([28, 56]);
+    } finally {
+      (config as { outsideIngestSecret: string }).outsideIngestSecret = old;
+    }
+  });
+  it('is switched off when no secret is set', async () => {
+    const request = (await import('supertest')).default;
+    const { setup, H } = await import('./helpers');
+    const ctx = await setup();
+    const r = await request(ctx.app).post('/api/inbound/outside').set(H).set('X-Outside-Secret', '').send({ readings: [{ page_time_dubai: '2026-11-12 16:00', temp_c: 20 }] });
+    expect(r.status).toBe(401);
   });
 });

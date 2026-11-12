@@ -32,6 +32,7 @@ services:
       DATABASE_SSL: "off"
       APP_BASE_URL: ${APP_BASE_URL:?public https URL, e.g. https://np.example.com}
       WATCHTOWER_SECRET: ${WATCHTOWER_SECRET:-}
+      OUTSIDE_INGEST_SECRET: ${OUTSIDE_INGEST_SECRET:-}   # lets the scheduled skill post station readings to /api/inbound/outside (24+ characters; blank = off)
       HA_URL: ${HA_URL:-}                      # Air tab (optional): Home Assistant address reachable from this container, e.g. http://192.168.1.20:8123
       HA_TOKEN: ${HA_TOKEN:-}
       HA_AIR_SENSORS: ${HA_AIR_SENSORS:-}

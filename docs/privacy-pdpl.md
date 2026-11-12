@@ -43,6 +43,9 @@ Residents see community-level metrics only (counts, rates, ages, tower and prior
 ## Fresh air monitoring tab (was AirCon)
 Shows building sensor readings only (temperature, humidity). No personal data is stored or sent by this feature. The tower readings are kept only in memory for about a minute and are not stored in the database; Home Assistant stays on the owner's own network. The outdoor station readings (public weather and air quality figures for the area: temperature, humidity, air quality index, fine dust, wind) are stored hourly in the app's database by the collector container; they relate to no person and no home, and are backed up with the rest of the database. The collector also keeps an hourly copy of the tower sensor readings that the page charts (fresh-air and corridor temperature and humidity, and any extra sensors listed in the layout) in the app's database, so the page works if Home Assistant is offline; the rule is unchanged that nothing from inside any home is listed in the layout. These rows hold only a sensor id, an hour and a value.
 
+## Stored sensor history
+Since v0.11.1 the app keeps an hourly copy of the tower sensor figures (`sensor_readings`) and, since v0.11.0, the outside station readings (`outside_readings`) in its own database. Both are building and weather figures with no personal data; they stay on the owner's server with the rest of the database (UAE for any real pilot).
+
 ## Public fresh-air page
 When an admin switches on the no-login page, building sensor readings and outside conditions become visible to anyone with the link. No personal data is involved and none is logged beyond normal request logs. Open points: the outside figures originate from a third-party site (IQAir) whose terms may restrict republishing; the page carries a notice that readings are resident-recorded, not official. Legal review of the wording is still pending.
 

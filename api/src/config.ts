@@ -32,6 +32,8 @@ export const config = {
 
   // Shared secret Watchtower uses when it posts update notices to /api/inbound/watchtower
   watchtowerSecret: env.WATCHTOWER_SECRET ?? '',
+  // Shared secret the Claude scheduled skill sends when it posts station readings to /api/inbound/outside (at least 24 characters; blank switches the endpoint off)
+  outsideIngestSecret: env.OUTSIDE_INGEST_SECRET ?? '',
 
 
   storage: {

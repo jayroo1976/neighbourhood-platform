@@ -41,6 +41,11 @@ Portainer > Containers > `collector` > **Console** > Connect (command `/bin/sh`)
 3. **Back-out:** put the old sensor entities back and update the stack.
 4. Then switch off the old Claude scheduled skill that wrote the IQAir values into Home Assistant.
 
+## Phase 5b: Let the skill post to the app (replaces the collector's IQAir fetch)
+1. Stack variables: add `OUTSIDE_INGEST_SECRET` (24+ random characters). Use the compose file with the `OUTSIDE_INGEST_SECRET` line under `app`. Update the stack with Re-pull image.
+2. Add the posting step to the skill and post its whole readings file once: exact text in [admin-guide.md](admin-guide.md) item 8. **Check:** Admin > System > Outside station, latest report shows the newest hour.
+3. Then do Phase 5 step 1 (the `app:` ids). **Back-out:** put the old `sensor.iqair_palm_*_log` ids back.
+
 ## Phase 6: Test that Home Assistant being offline is survivable
 1. Stop the Home Assistant VM/container for five minutes.
 2. **Check:** the Fresh air tab still draws charts and shows the last-known figures with the "could not be reached, figures may be out of date" notice.
